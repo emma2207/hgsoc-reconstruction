@@ -17,7 +17,7 @@
 module load anaconda
 conda activate vireo_install
 
-# Based on https://github.com/greenelab/deconvolution_pilot, 
+# Based on https://github.com/greenelab/deconvolution_pilot,
 # file scripts/genetic_dmx/06_run_vireo.sh
 
 export pool=$SLURM_ARRAY_TASK_ID
@@ -25,21 +25,21 @@ export pool=$SLURM_ARRAY_TASK_ID
 # Original location is /scratch/alpine/$USER/hgsoc/pooled
 mkdir -p vireo/pool${pool}
 
-original_location=`pwd`
+original_location=$(pwd)
 cellsnp_location="$original_location/cellSNP/pool${pool}"
 output_location="$original_location/vireo/pool${pool}"
 
 # Adjust the number of samples for pools 9 & 10
 if [ "$pool" -lt 9 ]; then
-    n_samples=4
+	n_samples=4
 elif [ "$pool" -lt 10 ]; then
-    n_samples=3
+	n_samples=3
 else
-    n_samples=2
+	n_samples=2
 fi
 
 vireo \
-    -c $cellsnp_location \
-    -N $n_samples \
-    -o $output_location \
-    --randSeed=12
+	-c $cellsnp_location \
+	-N $n_samples \
+	-o $output_location \
+	--randSeed=12

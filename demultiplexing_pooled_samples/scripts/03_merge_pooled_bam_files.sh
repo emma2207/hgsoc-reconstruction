@@ -16,22 +16,22 @@
 
 module load samtools/1.16.1
 
-# Based on https://github.com/greenelab/deconvolution_pilot, 
+# Based on https://github.com/greenelab/deconvolution_pilot,
 # file scripts/genetic_dmx/03_merge_pooled_bam_file.sh
 
 export pool=$SLURM_ARRAY_TASK_ID
 
 # Script location is /scratch/alpine/$USER/hgsoc/pooled
-original_location=`pwd`
+original_location=$(pwd)
 sample_alignment_location="$original_location/cellranger/pool$pool/outs/per_sample_outs"
 unassigned_location="$original_location/cellranger/pool$pool/outs/multi/count"
 output_location="$original_location/bam/pool$pool"
 
 samtools merge $output_location/pooled.bam \
-       $unassigned_location/unassigned_alignments.bam \
-       $sample_alignment_location/sample1/count/sample_alignments.bam \
-       $sample_alignment_location/sample2/count/sample_alignments.bam \
-       $sample_alignment_location/sample3/count/sample_alignments.bam \
-       $sample_alignment_location/sample4/count/sample_alignments.bam
+	$unassigned_location/unassigned_alignments.bam \
+	$sample_alignment_location/sample1/count/sample_alignments.bam \
+	$sample_alignment_location/sample2/count/sample_alignments.bam \
+	$sample_alignment_location/sample3/count/sample_alignments.bam \
+	$sample_alignment_location/sample4/count/sample_alignments.bam
 
 samtools index $output_location/pooled.bam

@@ -17,7 +17,7 @@
 module load anaconda
 conda activate cellsnp-lite_install
 
-# Based on https://github.com/greenelab/deconvolution_pilot, 
+# Based on https://github.com/greenelab/deconvolution_pilot,
 # file scripts/genetic_dmx/05_run_cellsnp.sh
 
 export pool=$SLURM_ARRAY_TASK_ID
@@ -25,7 +25,7 @@ export pool=$SLURM_ARRAY_TASK_ID
 # Original location is /scratch/alpine/$USER/hgsoc/pooled
 mkdir -p cellSNP/pool${pool}
 
-original_location=`pwd`
+original_location=$(pwd)
 pooled_bam_location="$original_location/bam/pool${pool}"
 bulk_vcf_location="$original_location/bcftools/pool${pool}"
 output_location="$original_location/cellSNP/pool${pool}"

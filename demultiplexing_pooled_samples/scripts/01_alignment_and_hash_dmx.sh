@@ -22,4 +22,4 @@ export pool=$SLURM_ARRAY_TASK_ID
 # Location is /scratch/alpine/$USER/hgsoc/pooled/cellranger
 
 cellranger multi --id=pool$pool \
-    --csv=cellranger_input/cellranger_multi_input_pool$pool.csv 
+	--csv=cellranger_input/cellranger_multi_input_pool$pool.csv
