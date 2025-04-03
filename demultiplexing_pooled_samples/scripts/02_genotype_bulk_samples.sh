@@ -9,8 +9,8 @@
 #SBATCH --ntasks=1
 #SBATCH --account=amc-general
 #SBATCH --job-name=bcftools
-#SBATCH --output=02_make_bulk_vcf_file_%A_%a.log
-#SBATCH --error=02_make_bulk_vcf_file_%A_%a.err
+#SBATCH --output=02_make__diss_bulk_vcf_file_%A_%a.log
+#SBATCH --error=02_make_diss_bulk_vcf_file_%A_%a.err
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu
 #SBATCH --mail-type=ALL
 
@@ -42,13 +42,12 @@ do
 done < $pool_csv
 
 # Check which folder the bulk data for each sample is in
-samples_230509=("2018" "2023" "2094" "2126" "2129" \
-	"2186" "2202" "2209" "2240" "2309" "2313" "2401" \
-	"2407" "2444" "2483" "2526")
-samples_230626=("2216" "2221" "2230" "2238" "2246" \
-	"2249" "2268" "2278" "2296" "2364" "2408" "2416" \
-	"2423" "2430" "2455" "2460" "2466" "2477" "2507" \
-	"2514")
+samples_230414=("2018" "2126" "2202" "2221" "2240" \
+"2278" "2364" "2407" "2416" "2477" "2507" \
+"2023" "2129" "2209" "2238" "2249" "2313" \
+"2401" "2408" "2460" "2483" "2526")
+samples_230418=("2094" "2186" "2216" "2230" "2246" \
+"2309" "2423" "2455" "2466" "2514")
 
 bam_files=()
 for sample in ${sample_array[@]}
