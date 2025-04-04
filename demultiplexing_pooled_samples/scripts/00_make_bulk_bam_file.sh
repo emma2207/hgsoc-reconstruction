@@ -44,21 +44,22 @@ fi
 
 sample=$(awk -v ArrayTaskID=$taskID '$1==ArrayTaskID {print $2}' $config)
 
-mkdir -p "$folder/$sample"
-output_location="$original_location/$folder/$sample"
+mkdir -p $folder/${sample}
+output_location="$original_location/$folder/${sample}"
+
 
 #STAR only accepts one set of files, so we'll merge across lanes
-cat $fastq_location/HGSOC-$sample_*/HGSOC-$sample_S*_L001_R1_001.fastq.gz \
-    $fastq_location/HGSOC-$sample_*/HGSOC-$sample_S*_L002_R1_001.fastq.gz \
-    > $output_location/HGSOC-$sample_R1_merged.fastq.gz
-cat $fastq_location/HGSOC-$sample_*/HGSOC-$sample_S*_L001_R2_001.fastq.gz \
-    $fastq_location/HGSOC-$sample_*/HGSOC-$sample_S*_L002_R2_001.fastq.gz \
-    > $output_location/HGSOC-$sample_R2_merged.fastq.gz
+# cat $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L001_R1_001.fastq.gz \
+#     $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L002_R1_001.fastq.gz \
+#     > $output_location/HGSOC-${sample}_R1_merged.fastq.gz
+# cat $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L001_R2_001.fastq.gz \
+#     $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L002_R2_001.fastq.gz \
+#     > $output_location/HGSOC-${sample}_R2_merged.fastq.gz
 
 STAR \
 	--genomeDir $index_location \
 	--runThreadN 6 \
-	--readFilesIn $output_location/HGSOC-$sample_R1_merged.fastq.gz $output_location/HGSOC-$sample_R2_merged.fastq.gz \
+	--readFilesIn $output_location/HGSOC-${sample}_R1_merged.fastq.gz $output_location/HGSOC-${sample}_R2_merged.fastq.gz \
 	--outFileNamePrefix $output_location/STAR/ \
 	--readFilesCommand gunzip -c \
 	--outSAMtype BAM SortedByCoordinate \
