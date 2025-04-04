@@ -1,0 +1,17 @@
+[gene-expression],,
+reference,/projects/elathouwers@xsede.org/hgsoc/refdata-gex-GRCh38-2024-A,
+include-introns,FALSE,
+create-bam,TRUE,
+cmo-set,/scratch/alpine/elathouwers@xsede.org/hgsoc/pooled/cellranger/cmo_set.csv,
+,,
+[libraries],,
+fastq_id,fastqs,feature_types
+Pool1-GEX-CaseyGreene-11302022,/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/GreeneC_OrmanD_scV3_HM5CCDSX5_230201/fastq,Gene Expression
+Pool1-CSP-CaseyGreene-11302022,/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/GreeneC_OrmanD_scV3_HM5CCDSX5_230201/fastq,Multiplexing Capture
+,,
+[samples],,
+sample_id,cmo_ids,
+sample1,CMO301,
+sample2,CMO302,
+sample3,CMO303,
+sample4,CMO304,
