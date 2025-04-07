@@ -42,23 +42,22 @@ do
 done < $pool_csv
 
 # Check which folder the bulk data for each sample is in
-samples_230509=("2018" "2023" "2094" "2126" "2129" \
-	"2186" "2202" "2209" "2240" "2309" "2313" "2401" \
-	"2407" "2444" "2483" "2526")
-samples_230626=("2216" "2221" "2230" "2238" "2246" \
-	"2249" "2268" "2278" "2296" "2364" "2408" "2416" \
-	"2423" "2430" "2455" "2460" "2466" "2477" "2507" \
-	"2514")
+samples_230414=("2018" "2126" "2202" "2221" "2240" \
+"2278" "2364" "2407" "2416" "2477" "2507" \
+"2023" "2129" "2209" "2238" "2249" "2313" \
+"2401" "2408" "2460" "2483" "2526")
+samples_230418=("2094" "2186" "2216" "2230" "2246" \
+"2309" "2423" "2455" "2466" "2514")
 
 bam_files=()
 for sample in ${sample_array[@]}
 do
-	if [[ " ${samples_230509[*]} " =~ " $sample " ]]; then
-		bam_files+=("$bulk_bam_location/230509/${sample}/STAR/Aligned.sortedByCoord.out.bam")
-	elif [[ " ${samples_230626[*]} " =~ " $sample " ]]; then
-		bam_files+=("$bulk_bam_location/230626/${sample}/STAR/Aligned.sortedByCoord.out.bam")
+	if [[ " ${samples_230414[*]} " =~ " $sample " ]]; then
+		bam_files+=("$bulk_bam_location/230414/${sample}/STAR/Aligned.sortedByCoord.out.bam")
+	elif [[ " ${samples_230418[*]} " =~ " $sample " ]]; then
+		bam_files+=("$bulk_bam_location/230418/${sample}/STAR/Aligned.sortedByCoord.out.bam")
 	else
-		echo "Sample $sample not found in bulk"
+		echo "Sample $sample not found in dissociated bulk."
 	fi
 done
 
@@ -69,4 +68,4 @@ bcftools mpileup -Ou \
 	-f $index_location/fasta/genome.fa \
 	${bam_files[@]} | \
 bcftools call -mv -Ov \
-	-o $output_location/bcftools_pool$pool.vcf
+	-o $output_location/bcftools_diss_bulk_pool$pool.vcf
