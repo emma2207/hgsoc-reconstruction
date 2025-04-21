@@ -34,7 +34,7 @@ cellsnp-lite \
 	-s $pooled_bam_location/pooled.bam \
 	-b barcodes/barcodes_pool${pool}.tsv \
 	-O $output_location \
-	-R $bulk_vcf_location/bcftools_pool${pool}.vcf \
+	-R $bulk_vcf_location/bcftools_bulk_pool${pool}.vcf \
 	-p 10 \
 	--minMAF=0.1 \
 	--minCOUNT=20 \

@@ -26,6 +26,7 @@ pool_csv=$1
 original_location=`pwd`
 index_location="/projects/$USER/hgsoc/refdata-gex-GRCh38-2024-A"
 bulk_bam_location="/scratch/alpine/$USER/hgsoc/bulk"
+mkdir -p bcftools/pool$pool
 output_location="$original_location/bcftools/pool$pool"
 
 # Figure out what samples are in the pool

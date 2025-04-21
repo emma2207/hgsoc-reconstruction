@@ -26,6 +26,7 @@ pool_csv=$1
 original_location=`pwd`
 index_location="/projects/$USER/hgsoc/refdata-gex-GRCh38-2024-A"
 bulk_bam_location="/scratch/alpine/$USER/hgsoc/bulk"
+mkdir -p bcftools/pool$pool
 output_location="$original_location/bcftools/pool$pool"
 
 # Figure out what samples are in the pool
@@ -69,4 +70,4 @@ bcftools mpileup -Ou \
 	-f $index_location/fasta/genome.fa \
 	${bam_files[@]} | \
 bcftools call -mv -Ov \
-	-o $output_location/bcftools_pool$pool.vcf
+	-o $output_location/bcftools_bulk_pool$pool.vcf
