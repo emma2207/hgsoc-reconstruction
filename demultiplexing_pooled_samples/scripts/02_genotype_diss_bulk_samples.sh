@@ -2,7 +2,7 @@
 
 #SBATCH --array=1-10
 #SBATCH --nodes=1
-#SBATCH --qos=long
+#SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --mem=5G
 #SBATCH --time=08:00:00
@@ -70,3 +70,8 @@ bcftools mpileup -Ou \
 	${bam_files[@]} | \
 bcftools call -mv -Ov \
 	-o $output_location/bcftools_diss_bulk_pool$pool.vcf
+
+bcftools reheader \
+	-s bcftools_diss_bulk_rename.txt \
+	$output_location/bcftools_diss_bulk_pool${pool}.vcf > \
+	$output_location/bcftools_diss_bulk_pool${pool}_rehead.vcf 

@@ -23,11 +23,12 @@ conda activate vireo_install
 export pool=$SLURM_ARRAY_TASK_ID
 
 # Original location is /scratch/alpine/$USER/hgsoc/pooled
-mkdir -p vireo/pool${pool}
+mkdir -p vireo_d/pool${pool}
 
 original_location=$(pwd)
+bulk_vcf_location="$original_location/bcftools/pool${pool}"
 cellsnp_location="$original_location/cellSNP/pool${pool}"
-output_location="$original_location/vireo/pool${pool}"
+output_location="$original_location/vireo_d/pool${pool}"
 
 # Adjust the number of samples for pools 9 & 10
 if [ "$pool" -lt 9 ]; then
@@ -42,4 +43,5 @@ vireo \
 	-c $cellsnp_location \
 	-N $n_samples \
 	-o $output_location \
+	-d $bulk_vcf_location/bcftools_bulk_pool${pool}_rehead.vcf \
 	--randSeed=12
