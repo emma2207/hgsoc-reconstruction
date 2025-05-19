@@ -35,13 +35,14 @@ do
     #     -i 'QUAL>20' "$data_location/bcftools_diss_bulk_sample$short_sample_id.vcf" \
     #     > "$data_location/bcftools_filtered_diss_bulk_sample$short_sample_id.vcf"
 
-    bcftools view \
-        -i 'DP>30' "$data_location/bcftools_filtered_bulk_sample$short_sample_id.vcf" \
-        > "$data_location/bcftools_filtered2_bulk_sample$short_sample_id.vcf"
+    # bcftools view \
+    #     -i 'DP>30' "$data_location/bcftools_filtered_bulk_sample$short_sample_id.vcf" \
+    #     > "$data_location/bcftools_filtered2_bulk_sample$short_sample_id.vcf"
 
-    bcftools view \
-        -i 'DP<500' "$data_location/bcftools_filtered2_bulk_sample$short_sample_id.vcf" \
-        > "$data_location/bcftools_filtered3_bulk_sample$short_sample_id.vcf"
+    # bcftools view \
+    #     -i 'DP<500' "$data_location/bcftools_filtered2_bulk_sample$short_sample_id.vcf" \
+    #     > "$data_location/bcftools_filtered3_bulk_sample$short_sample_id.vcf"
+
 done
 
 for sample in `bcftools query -l $input_file_diss_bulk` 
@@ -57,12 +58,12 @@ do
     #     -i 'QUAL>20' "$data_location/bcftools_diss_bulk_sample$short_sample_id.vcf" \
     #     > "$data_location/bcftools_filtered_diss_bulk_sample$short_sample_id.vcf"
 
-    bcftools view \
-        -i 'DP>30' "$data_location/bcftools_filtered_diss_bulk_sample$short_sample_id.vcf" \
-        > "$data_location/bcftools_filtered2_diss_bulk_sample$short_sample_id.vcf"
+    # bcftools view \
+    #     -i 'DP>30' "$data_location/bcftools_filtered_diss_bulk_sample$short_sample_id.vcf" \
+    #     > "$data_location/bcftools_filtered2_diss_bulk_sample$short_sample_id.vcf"
 
-    bcftools view \
-        -i 'DP<500' "$data_location/bcftools_filtered2_diss_bulk_sample$short_sample_id.vcf" \
-        > "$data_location/bcftools_filtered3_diss_bulk_sample$short_sample_id.vcf"
+    # bcftools view \
+    #     -i 'DP<500' "$data_location/bcftools_filtered2_diss_bulk_sample$short_sample_id.vcf" \
+    #     > "$data_location/bcftools_filtered3_diss_bulk_sample$short_sample_id.vcf"
 
 done
