@@ -43,5 +43,5 @@ vireo \
 	-c $cellsnp_location \
 	-N $n_samples \
 	-o $output_location \
-	-d $bulk_vcf_location/bcftools_diss_bulk_pool${pool}_rehead.vcf \
+	-d $bulk_vcf_location/bcftools_diss_bulk_fixed_sample_id_pool${pool}_rehead.vcf \
 	--randSeed=12

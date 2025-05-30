@@ -4,13 +4,13 @@
 #SBATCH --nodes=1
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
-#SBATCH --mem=5G
-#SBATCH --time=08:00:00
-#SBATCH --ntasks=1
+#SBATCH --mem=16G
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=4
 #SBATCH --account=amc-general
 #SBATCH --job-name=bcftools
-#SBATCH --output=02_make__diss_bulk_vcf_file_%A_%a.log
-#SBATCH --error=02_make_diss_bulk_vcf_file_%A_%a.err
+#SBATCH --output=02_diss_bulk_vcf_file_%A_%a.log
+#SBATCH --error=02_diss_bulk_vcf_file_%A_%a.err
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu
 #SBATCH --mail-type=ALL
 
@@ -31,16 +31,17 @@ output_location="$original_location/bcftools/pool$pool"
 
 # Figure out what samples are in the pool
 while IFS=, read -r index col1 col2 col3 col4
-do
+do	
 	if [[ "$index" == "Pool$pool" ]]; then
 		col1=${col1%.0}
 		col2=${col2%.0}
 		col3=${col3%.0}
 		col4=${col4%.0}
 		sample_array=($col1 $col2 $col3 $col4)
-		echo ${sample_array[*]}
+		echo ${sample_array[@]}
 	fi
 done < $pool_csv
+
 
 # Check which folder the bulk data for each sample is in
 samples_230414=("2018" "2126" "2202" "2221" "2240" \
@@ -50,15 +51,17 @@ samples_230414=("2018" "2126" "2202" "2221" "2240" \
 samples_230418=("2094" "2186" "2216" "2230" "2246" \
 "2309" "2423" "2455" "2466" "2514")
 
-bam_files=()
-for sample in ${sample_array[@]}
+# bam_files=()
+for sample in "${sample_array[@]}"
 do
-	if [[ " ${samples_230414[*]} " =~ " $sample " ]]; then
+	if [[ " ${samples_230414[*]} " =~ " ${sample} " ]]; then
+		echo ${sample}
 		bam_files+=("$bulk_bam_location/230414/${sample}/STAR/Aligned.sortedByCoord.out.bam")
-	elif [[ " ${samples_230418[*]} " =~ " $sample " ]]; then
+	elif [[ " ${samples_230418[*]} " =~ " ${sample} " ]]; then
+		echo ${sample}
 		bam_files+=("$bulk_bam_location/230418/${sample}/STAR/Aligned.sortedByCoord.out.bam")
 	else
-		echo "Sample $sample not found in dissociated bulk."
+		echo "Sample ${sample} not found in dissociated bulk."
 	fi
 done
 
@@ -69,9 +72,9 @@ bcftools mpileup -Ou \
 	-f $index_location/fasta/genome.fa \
 	${bam_files[@]} | \
 bcftools call -mv -Ov \
-	-o $output_location/bcftools_diss_bulk_pool$pool.vcf
+	-o $output_location/bcftools_diss_bulk_fixed_sample_id_pool$pool.vcf
 
 bcftools reheader \
 	-s bcftools_diss_bulk_rename.txt \
-	$output_location/bcftools_diss_bulk_pool${pool}.vcf > \
-	$output_location/bcftools_diss_bulk_pool${pool}_rehead.vcf 
+	$output_location/bcftools_diss_bulk_fixed_sample_id_pool${pool}.vcf > \
+	$output_location/bcftools_diss_bulk_fixed_sample_id_pool${pool}_rehead.vcf 

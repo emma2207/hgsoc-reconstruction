@@ -1,10 +1,10 @@
 #!/bin/sh
 
-#SBATCH --array=1-10
+#SBATCH --array=7
 #SBATCH --nodes=1
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
-#SBATCH --mem=5G
+#SBATCH --mem=16G
 #SBATCH --time=03:00:00
 #SBATCH --ntasks=10
 #SBATCH --account=amc-general
@@ -34,7 +34,7 @@ cellsnp-lite \
 	-s $pooled_bam_location/pooled.bam \
 	-b barcodes/barcodes_pool${pool}.tsv \
 	-O $output_location \
-	-R $bulk_vcf_location/bcftools_diss_bulk_pool${pool}.vcf \
+	-R $bulk_vcf_location/bcftools_diss_bulk_fixed_sample_id_pool${pool}_rehead.vcf \
 	-p 10 \
 	--minMAF=0.1 \
 	--minCOUNT=20 \
