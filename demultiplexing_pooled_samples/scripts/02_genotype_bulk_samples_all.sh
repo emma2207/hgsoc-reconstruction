@@ -3,9 +3,9 @@
 #SBATCH --nodes=1
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
-#SBATCH --mem=16G
-#SBATCH --time=00:10:00
-#SBATCH --ntasks=4
+#SBATCH --mem=48G
+#SBATCH --time=1-00:00:00
+#SBATCH --ntasks=8
 #SBATCH --account=amc-general
 #SBATCH --job-name=bcftools
 #SBATCH --output=02_bcftools_%J.log
