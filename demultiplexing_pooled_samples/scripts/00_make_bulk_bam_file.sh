@@ -19,50 +19,50 @@ module load samtools/1.16.1
 
 # Based on https://github.com/greenelab/deconvolution_pilot, 
 # file scripts/genetic_dmx/01_make_bulk_bam_file.sh
-folder=$1  #230414, 230418, 230509, 230626
+
+folder=$1  # 230414, 230418, 230509, 230626
 export taskID=$SLURM_ARRAY_TASK_ID
 
-# Original location is /scratch/alpine/$USER/hgsoc/bulk
+# Original location is /scratch/alpine/${USER}/hgsoc/bulk
 original_location=`pwd`
-index_location="/projects/$USER/hgsoc/refdata-gex-GRCh38-2024-A/star"
+index_location="/projects/${USER}/hgsoc/refdata-gex-GRCh38-2024-A/star"
 
-if [[ "$folder" == "230414" ]]; then
+if [[ "${folder}" == "230414" ]]; then
     fastq_location="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/HippenA_230414_A00901_0909_BH3FJ2DRX3"
-    config="$original_location/230414_config.txt"
-elif [[ "$folder" == "230418" ]]; then
+    config="${original_location}/230414_config.txt"
+elif [[ "${folder}" == "230418" ]]; then
     fastq_location="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/HippenA_230418_A00901_0912_BHK72LDMXY"
-    config="$original_location/230418_config.txt"
-elif [[ "$folder" == "230509" ]]; then
+    config="${original_location}/230418_config.txt"
+elif [[ "${folder}" == "230509" ]]; then
     fastq_location="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/HippenA_230509_A00901_0926_AHK3THDMXY"
-    config="$original_location/230509_config.txt"
-elif [[ "$folder" == "230626" ]]; then
+    config="${original_location}/230509_config.txt"
+elif [[ "${folder}" == "230626" ]]; then
     fastq_location="/pl/active/cgreene-sc-hgsoc/penn_HGSOC"
-    config="$original_location/230626_config.txt"
+    config="${original_location}/230626_config.txt"
 else
-    echo "Folder $folder not found. Check your input."
+    echo "Folder ${folder} not found. Check your input."
 fi
 
-sample=$(awk -v ArrayTaskID=$taskID '$1==ArrayTaskID {print $2}' $config)
+sample=$(awk -v ArrayTaskID=${taskID} '$1==ArrayTaskID {print $2}' ${config})
 
-mkdir -p $folder/${sample}
-output_location="$original_location/$folder/${sample}"
-
+mkdir -p ${folder}/${sample}
+output_location="${original_location}/${folder}/${sample}"
 
 #STAR only accepts one set of files, so we'll merge across lanes
-# cat $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L001_R1_001.fastq.gz \
-#     $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L002_R1_001.fastq.gz \
-#     > $output_location/HGSOC-${sample}_R1_merged.fastq.gz
-# cat $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L001_R2_001.fastq.gz \
-#     $fastq_location/HGSOC-${sample}_*/HGSOC-${sample}_S*_L002_R2_001.fastq.gz \
-#     > $output_location/HGSOC-${sample}_R2_merged.fastq.gz
+cat ${fastq_location}/HGSOC-${sample}_*/HGSOC-${sample}_S*_L001_R1_001.fastq.gz \
+    ${fastq_location}/HGSOC-${sample}_*/HGSOC-${sample}_S*_L002_R1_001.fastq.gz \
+    > ${output_location}/HGSOC-${sample}_R1_merged.fastq.gz
+cat ${fastq_location}/HGSOC-${sample}_*/HGSOC-${sample}_S*_L001_R2_001.fastq.gz \
+    ${fastq_location}/HGSOC-${sample}_*/HGSOC-${sample}_S*_L002_R2_001.fastq.gz \
+    > ${output_location}/HGSOC-${sample}_R2_merged.fastq.gz
 
 STAR \
-	--genomeDir $index_location \
+	--genomeDir ${index_location} \
 	--runThreadN 6 \
-	--readFilesIn $output_location/HGSOC-${sample}_R1_merged.fastq.gz $output_location/HGSOC-${sample}_R2_merged.fastq.gz \
-	--outFileNamePrefix $output_location/STAR/ \
+	--readFilesIn ${output_location}/HGSOC-${sample}_R1_merged.fastq.gz ${output_location}/HGSOC-${sample}_R2_merged.fastq.gz \
+	--outFileNamePrefix ${output_location}/STAR/ \
 	--readFilesCommand gunzip -c \
 	--outSAMtype BAM SortedByCoordinate \
 	--quantMode GeneCounts
 
-samtools index $output_location/STAR/Aligned.sortedByCoord.out.bam
+samtools index ${output_location}/STAR/Aligned.sortedByCoord.out.bam
