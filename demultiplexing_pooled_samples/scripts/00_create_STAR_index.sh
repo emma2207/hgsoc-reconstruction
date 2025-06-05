@@ -20,9 +20,9 @@ module load star/2.7.10b
 # https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/latest.
 # This should only need to be run once, so it will check if the file exists first.
 
-# Current location is /scratch/alpine/elathouwers@xsede.org/hgsoc/scripts
+# Current location is /scratch/alpine/${USER}/hgsoc/scripts
 current_location=`pwd`
-index_location="/projects/elathouwers@xsede.org/hgsoc/refdata-gex-GRCh38-2024-A"
+index_location="/projects/${USER}/hgsoc/refdata-gex-GRCh38-2024-A"
 
 # Check if STAR index exists
 if [ -f "$index_location/star/SAindex" ]; then

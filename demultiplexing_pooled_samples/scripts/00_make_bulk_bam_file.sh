@@ -26,18 +26,19 @@ export taskID=$SLURM_ARRAY_TASK_ID
 # Original location is /scratch/alpine/${USER}/hgsoc/bulk
 original_location=`pwd`
 index_location="/projects/${USER}/hgsoc/refdata-gex-GRCh38-2024-A/star"
+pl_location = "/pl/active/cgreene-sc-hgsoc"
 
 if [[ "${folder}" == "230414" ]]; then
-    fastq_location="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/HippenA_230414_A00901_0909_BH3FJ2DRX3"
+    fastq_location="${pl_location}/ariel_sc_HGSOC/HippenA_230414_A00901_0909_BH3FJ2DRX3"
     config="${original_location}/230414_config.txt"
 elif [[ "${folder}" == "230418" ]]; then
-    fastq_location="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/HippenA_230418_A00901_0912_BHK72LDMXY"
+    fastq_location="${pl_location}/ariel_sc_HGSOC/HippenA_230418_A00901_0912_BHK72LDMXY"
     config="${original_location}/230418_config.txt"
 elif [[ "${folder}" == "230509" ]]; then
-    fastq_location="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/HippenA_230509_A00901_0926_AHK3THDMXY"
+    fastq_location="${pl_location}/ariel_sc_HGSOC/HippenA_230509_A00901_0926_AHK3THDMXY"
     config="${original_location}/230509_config.txt"
 elif [[ "${folder}" == "230626" ]]; then
-    fastq_location="/pl/active/cgreene-sc-hgsoc/penn_HGSOC"
+    fastq_location="${pl_location}/penn_HGSOC"
     config="${original_location}/230626_config.txt"
 else
     echo "Folder ${folder} not found. Check your input."
