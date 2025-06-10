@@ -17,9 +17,6 @@
 module load star/2.7.10b
 module load samtools/1.16.1
 
-# Based on https://github.com/greenelab/deconvolution_pilot, 
-# file scripts/genetic_dmx/01_make_bulk_bam_file.sh
-
 folder=$1  # 230414, 230418, 230509, 230626
 export taskID=$SLURM_ARRAY_TASK_ID
 

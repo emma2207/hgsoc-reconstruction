@@ -15,10 +15,7 @@
 
 module load star/2.7.10b
 
-# Based on https://github.com/greenelab/deconvolution_pilot, file scripts/genetic_dmx/00_create_STAR_index.sh
-# We will align to the same reference genome that cellranger uses, as obtained from the 10x website:
-# https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/latest.
-# This should only need to be run once, so it will check if the file exists first.
+# See README for details about the reference genome.
 
 # Current location is /scratch/alpine/${USER}/hgsoc/scripts
 current_location=`pwd`

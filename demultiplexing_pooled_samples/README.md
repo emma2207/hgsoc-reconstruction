@@ -1,7 +1,8 @@
-# Demultiplexing pooled single-cell RNA seq data
+# Demultiplexing pooled single-cell RNA-seq data
 
 ## General pipeline comments 
 
+- This pipeline, specifically the shell scripts, is based on the [Greenelab deconvolution pilot repo](https://github.com/greenelab/deconvolution_pilot).
 - All scripts are ran from `/scratch/alpine/$USER/hgsoc/pooled` unless otherwise specified.
 - The general directory structure is `program/pool$pool/output_files`, e.g. `bcftools/pool3/bcftools_pool3.vcf`.
 - All scripts are parallelized using slurm job arrays.

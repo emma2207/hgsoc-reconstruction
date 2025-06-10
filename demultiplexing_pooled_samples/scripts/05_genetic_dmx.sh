@@ -17,9 +17,6 @@
 module load anaconda
 conda activate vireo_install
 
-# Based on https://github.com/greenelab/deconvolution_pilot,
-# file scripts/genetic_dmx/06_run_vireo.sh
-
 export pool=$SLURM_ARRAY_TASK_ID
 data_type=$1  # "bulk" or "diss_bulk"
 

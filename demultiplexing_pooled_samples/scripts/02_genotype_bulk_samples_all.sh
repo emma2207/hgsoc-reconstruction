@@ -15,9 +15,6 @@
 
 module load bcftools/1.16
 
-# Based on https://github.com/greenelab/deconvolution_pilot, 
-# file scripts/genetic_dmx/02_make_bulk_vcf_file.sh
-
 data_type=$1  # "diss_bulk" or "bulk"
 
 # Script location is /scratch/alpine/${USER}/hgsoc/pooled
@@ -94,7 +91,9 @@ bcftools view \
 bcftools view \
 	-i 'DP>900' "${output_location}/bcftools_qual_filter_${data_type}_all.vcf" \
 	> "${output_location}/bcftools_qual_dp_filter_${data_type}_all.vcf"
-# Remove sample 2507
-bcftools view \
+# Remove sample 2507 (poor quality sample)
+if [ "${data_type}" == "diss_bulk" ]; then
+	bcftools view \
 	-s ^"230414/2507" "${output_location}/bcftools_qual_dp_filter_${data_type}_all.vcf" \
 	> "${output_location}/bcftools_qual_dp_rm_2507_filter_${data_type}_all.vcf"
+fi

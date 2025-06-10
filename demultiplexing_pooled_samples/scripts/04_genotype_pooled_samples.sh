@@ -17,9 +17,6 @@
 module load anaconda
 conda activate cellsnp-lite_install
 
-# Based on https://github.com/greenelab/deconvolution_pilot,
-# file scripts/genetic_dmx/05_run_cellsnp.sh
-
 export pool=$SLURM_ARRAY_TASK_ID
 data_type=$1  # 'diss_bulk' or 'bulk'
 

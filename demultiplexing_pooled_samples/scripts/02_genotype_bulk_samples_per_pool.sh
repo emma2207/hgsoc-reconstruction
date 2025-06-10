@@ -16,9 +16,6 @@
 
 module load bcftools/1.16
 
-# Based on https://github.com/greenelab/deconvolution_pilot, 
-# file scripts/genetic_dmx/02_make_bulk_vcf_file.sh
-
 export pool=$SLURM_ARRAY_TASK_ID
 data_type=$1  # "diss_bulk" or "bulk"
 pool_csv=$2  # CSV file containing samples per pool

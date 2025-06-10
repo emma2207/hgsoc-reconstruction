@@ -16,9 +16,6 @@
 
 module load samtools/1.16.1
 
-# Based on https://github.com/greenelab/deconvolution_pilot,
-# file scripts/genetic_dmx/03_merge_pooled_bam_file.sh
-
 export pool=$SLURM_ARRAY_TASK_ID
 
 # Script location is /scratch/alpine/$USER/hgsoc/pooled
