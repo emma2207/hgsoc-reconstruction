@@ -5,16 +5,17 @@ import matplotlib.pyplot as plt
 
 import vireoSNP
 
+
 def match_sample_id(cwd):
-    
+
     # match bulk to dissociated bulk
     res = vireoSNP.vcf.match_VCF_samples(
-        cwd + "/bcftools/all/bcftools_all_samples.vcf.gz", 
-        cwd + "/bcftools/all/bcftools_all_samples.vcf.gz", 
-        GT_tag1='PL', 
-        GT_tag2='PL',
+        cwd + "/bcftools/all/bcftools_all_samples.vcf.gz",
+        cwd + "/bcftools/all/bcftools_all_samples.vcf.gz",
+        GT_tag1="PL",
+        GT_tag2="PL",
     )
-    
+
     df = pd.DataFrame(
         {
             "diss bulk sample id": res["matched_donors2"],
@@ -23,7 +24,7 @@ def match_sample_id(cwd):
     )
     # Clean up "sample id" columns
     df = df.replace({r"\d{6}/": ""}, regex=True)
-        
+
     return res, df
 
 
@@ -52,7 +53,7 @@ def make_heatmap(cwd, df):
     fig.savefig(filename + ".pdf", bbox_inches="tight")
     fig.savefig(filename + ".png", bbox_inches="tight")
 
-    return 
+    return
 
 
 if __name__ == "__main__":
@@ -70,4 +71,3 @@ if __name__ == "__main__":
 
     # pair_df.to_csv(cwd + "/bcftools/all/sample_pairing_all_v_all.csv", index=False)
     df.to_csv(cwd + "/bcftools/all/heatmap_raw_all_v_all.csv", index=True)
-

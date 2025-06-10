@@ -17,7 +17,7 @@ The latter option is recommended for big / slow datasets, but the functionality 
 Trying an available software to do the sample matching for us.
 
 - Download and install [NGSCheckMate](https://github.com/parklab/NGSCheckMate/).
-- Run NGS Checkmate using `run_ngscheckmate.sh`. It requires a .bed file that comes with the package (or you can find / make a custom one yourself), and .vcf files for individual samples, which we created using `bcftools` in `../demultiplexing_pooled_samples/scripts/split_bulk_vcf_files.sh`
+- Run NGS Checkmate using `run_ngscheckmate.sh`. I actually ran the command directly in the terminal, but I wanted to keep an example of the syntax. It requires a .bed file that comes with the package (or you can find / make a custom one yourself), and .vcf files for individual samples, which we created using `bcftools` in `../demultiplexing_pooled_samples/scripts/split_bulk_vcf_files.sh`
 - Analyze the results with `ngscheckmate_qc.ipynb`. It creates a heatmap of the correlation between the bulk and dissociated bulk samples. 
 
 The program did not output a clear match between the bulk and the dissociated bulk samples. It is important to note that we did not play with the settings (.bed file, .vcf file filtering, etc) much, and these results might get better after optimization.
