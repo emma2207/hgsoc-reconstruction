@@ -9,7 +9,7 @@ Using Vireo's `match_VCF_samples()` function to match samples.
 - See [documentation](https://vireosnp.readthedocs.io/en/latest/index.html) for installation details.
 Use either `match_sample_ids_bulk.ipynb` or `match_sample_ids.py` and `run_match_samples_py.sh` to match the samples. 
 The latter option is recommended for big / slow datasets, but the functionality is the same. 
-- Heatmaps of the "distance" between bulk and dissociated bulk samples are created by the scripts and `match_VCF_samples() also directly outputs the matched samples in an array.
+- Heatmaps of the "distance" between bulk and dissociated bulk samples are created by the scripts and `match_VCF_samples()` also directly outputs the matched samples in an array.
 
 
 ## NGS Checkmate

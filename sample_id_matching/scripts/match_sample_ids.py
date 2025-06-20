@@ -6,12 +6,22 @@ import matplotlib.pyplot as plt
 import vireoSNP
 
 
-def match_sample_id(cwd):
+def match_sample_id(file_path1, file_path2):
+    """
+    Match sample IDs from dissociated bulk to bulk samples using vireoSNP.
+
+    Args:
+        file_path1 (str): Path to the first VCF file (e.g. bulk samples).
+        file_path2 (str): Path to the second VCF file (e.g. dissociated bulk samples).
+    Returns:
+        res (dict): Dictionary containing matched sample IDs and GT probabilities.
+        df (DataFrame): DataFrame with matched sample IDs.
+    """
 
     # match bulk to dissociated bulk
     res = vireoSNP.vcf.match_VCF_samples(
-        cwd + "/bcftools/all/bcftools_all_samples.vcf.gz",
-        cwd + "/bcftools/all/bcftools_all_samples.vcf.gz",
+        file_path1,
+        file_path2,
         GT_tag1="PL",
         GT_tag2="PL",
     )
@@ -29,6 +39,14 @@ def match_sample_id(cwd):
 
 
 def make_heatmap(cwd, df):
+    """
+    Create a heatmap of the 'distance' between bulk and dissociated bulk samples.
+    Args:
+        cwd (str): Current working directory.
+        df (DataFrame): DataFrame containing 'distance matrix'.
+    Returns:
+        None: Saves the heatmap as a PDF and PNG file.
+    """
 
     sorted_df = df.sort_index()
     sorted_df = sorted_df.reindex(sorted(sorted_df.columns), axis=1)
@@ -57,17 +75,19 @@ def make_heatmap(cwd, df):
 
 
 if __name__ == "__main__":
-
     # Current location is /scratch/alpine/$USER/hgsoc/pooled
     cwd = os.getcwd()
-    res, pair_df = match_sample_id(cwd)
+    file_path1 = cwd + "/bcftools/all/bcftools_all_samples.vcf.gz"
+    file_path2 = cwd + "/bcftools/all/bcftools_all_samples.vcf.gz"
+    res, pair_df = match_sample_id(file_path1, file_path2)
 
     df = pd.DataFrame(
         res["matched_GPb_diff"],
         columns=res["matched_donors2"],
         index=res["matched_donors1"],
     )
-    # make_heatmap(cwd, df)
+    make_heatmap(cwd, df)
 
-    # pair_df.to_csv(cwd + "/bcftools/all/sample_pairing_all_v_all.csv", index=False)
+    # Save the sample pairing and the heatmap data
+    pair_df.to_csv(cwd + "/bcftools/all/sample_pairing_all_v_all.csv", index=False)
     df.to_csv(cwd + "/bcftools/all/heatmap_raw_all_v_all.csv", index=True)

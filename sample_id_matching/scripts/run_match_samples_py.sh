@@ -13,7 +13,6 @@
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu
 #SBATCH --mail-type=ALL
 
-module load python/3.10.2
 module load anaconda
 conda activate python_vireosnp_install
 
