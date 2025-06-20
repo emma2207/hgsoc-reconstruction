@@ -7,6 +7,11 @@ def prepare_count_matrix(INPUT_PATH: str) -> pd.DataFrame:
     """From the folder with alignment results, this function traverses
     the folder hierarchy to find all the readspergene.out.tab files and
     combines them into a count matrix.
+
+    Input: 
+        INPUT_PATH: Path to the folder with alignment results.
+    Output:
+        DataFrame with the count matrix, where rows are genes and columns are samples.
     """
 
     df = pd.DataFrame()
@@ -44,10 +49,14 @@ def prepare_count_matrix(INPUT_PATH: str) -> pd.DataFrame:
 
 
 def sample_overview_data_wrangling(
-    INPUT_PATH: str, DATA_TYPE: Literal["Bulk", "Dissociated Bulk"]
+    INPUT_PATH: str, data_type: Literal["bulk", "diss_bulk"]
 ) -> pd.DataFrame:
     """From the samples_overview.xlsx spreadsheet extract the samples in each subset 
     and the site of origin, and clean up the dataframe.
+
+    Input:
+        INPUT_PATH: Path to the folder with the samples_overview.xlsx file.
+        data_type: Type of data, either "bulk" or "diss_bulk".
 
     Output:
         Dataframe for either the bulk or dissociated bulk samples with columns for 
@@ -55,9 +64,9 @@ def sample_overview_data_wrangling(
         sorted by subset date and sample id.
     """
 
-    if DATA_TYPE == "Bulk":
+    if data_type == "bulk":
         cols = ["0509", "0626"]
-    elif DATA_TYPE == "Dissociated Bulk":
+    elif data_type == "diss_bulk":
         cols = ["0414", "0418"]
 
     df = pd.read_excel(INPUT_PATH + "samples_overview.xlsx", header=1, index_col=0)
