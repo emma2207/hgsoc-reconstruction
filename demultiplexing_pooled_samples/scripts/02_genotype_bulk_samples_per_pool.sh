@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH --array=1-10
+#SBATCH --array=1
 #SBATCH --nodes=1
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
@@ -60,20 +60,32 @@ samples_230626=("2216" "2221" "2230" "2238" "2246" \
 bam_files=()
 for sample in "${sample_array[@]}"
 do
-	if [[ " ${samples_230414[*]} " =~ " ${sample} " ]]; then
-		bam_files+=("${bulk_bam_location}/230414/${sample}/STAR/Aligned.sortedByCoord.out.bam")
-	elif [[ " ${samples_230418[*]} " =~ " ${sample} " ]]; then
-		bam_files+=("${bulk_bam_location}/230418/${sample}/STAR/Aligned.sortedByCoord.out.bam")
-	elif [[ " ${samples_230509[*]} " =~ " $sample " ]]; then
-		bam_files+=("${bulk_bam_location}/230509/${sample}/STAR/Aligned.sortedByCoord.out.bam")
-	elif [[ " ${samples_230626[*]} " =~ " $sample " ]]; then
-		bam_files+=("${bulk_bam_location}/230626/${sample}/STAR/Aligned.sortedByCoord.out.bam")
+	if [[ "$data_type" == "diss_bulk" ]]; then
+		if [[ " ${samples_230414[*]} " =~ " ${sample} " ]]; then
+			bam_files+=("${bulk_bam_location}/230414/${sample}/STAR/Aligned.sortedByCoord.out.bam")
+		elif [[ " ${samples_230418[*]} " =~ " ${sample} " ]]; then
+			bam_files+=("${bulk_bam_location}/230418/${sample}/STAR/Aligned.sortedByCoord.out.bam")
+		else
+			echo "Sample ${sample} not found in dissociated bulk."
+		fi
+	elif [[ "$data_type" == "bulk" ]]; then
+		if [[ " ${samples_230509[*]} " =~ " $sample " ]]; then
+			bam_files+=("${bulk_bam_location}/230509/${sample}/STAR/Aligned.sortedByCoord.out.bam")
+		elif [[ " ${samples_230626[*]} " =~ " $sample " ]]; then
+			bam_files+=("${bulk_bam_location}/230626/${sample}/STAR/Aligned.sortedByCoord.out.bam")
+		else
+			echo "Sample ${sample} not found in bulk."
+		fi
 	else
-		echo "Sample ${sample} not found in bulk or dissociated bulk."
+		echo "Invalid data type: ${data_type}. Use 'diss_bulk' or 'bulk'."
+		exit 1
 	fi
 done
 
 echo ${bam_files[@]}
+nr_bam_files=${#bam_files[@]}
+read_depth_cutoff=$((30 * ${nr_bam_files}))
+echo "Number of BAM files: ${nr_bam_files}"
 
 # Run bcftools
 bcftools mpileup -Ou \
@@ -83,6 +95,16 @@ bcftools call -mv -Ov \
 	-o ${output_location}/bcftools_${data_type}_pool${pool}.vcf
 
 bcftools reheader \
-	-s bcftools_${data_type}_rename.txt \
+	-s bcftools/bcftools_${data_type}_rename.txt \
 	${output_location}/bcftools_${data_type}_pool${pool}.vcf > \
 	${output_location}/bcftools_${data_type}_pool${pool}_rehead.vcf 
+
+# Filtering with bcftools
+# Quality score greater than 20
+bcftools view \
+	-i "QUAL>20" ${output_location}/bcftools_${data_type}_pool${pool}_rehead.vcf \
+	> ${output_location}/bcftools_qual_filter_${data_type}_pool${pool}.vcf
+# Read depth greater than 30 x # of samples
+bcftools view \
+	-i "DP>${nr_bam_files}" ${output_location}/bcftools_qual_filter_${data_type}_pool${pool}.vcf \
+	> ${output_location}/bcftools_qual_dp_filter_${data_type}_pool${pool}.vcf
