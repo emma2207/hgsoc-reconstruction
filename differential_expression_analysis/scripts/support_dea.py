@@ -8,7 +8,7 @@ def prepare_count_matrix(INPUT_PATH: str) -> pd.DataFrame:
     the folder hierarchy to find all the readspergene.out.tab files and
     combines them into a count matrix.
 
-    Input: 
+    Input:
         INPUT_PATH: Path to the folder with alignment results.
     Output:
         DataFrame with the count matrix, where rows are genes and columns are samples.
@@ -51,7 +51,7 @@ def prepare_count_matrix(INPUT_PATH: str) -> pd.DataFrame:
 def sample_overview_data_wrangling(
     INPUT_PATH: str, data_type: Literal["bulk", "diss_bulk"]
 ) -> pd.DataFrame:
-    """From the samples_overview.xlsx spreadsheet extract the samples in each subset 
+    """From the samples_overview.xlsx spreadsheet extract the samples in each subset
     and the site of origin, and clean up the dataframe.
 
     Input:
@@ -59,8 +59,8 @@ def sample_overview_data_wrangling(
         data_type: Type of data, either "bulk" or "diss_bulk".
 
     Output:
-        Dataframe for either the bulk or dissociated bulk samples with columns for 
-        site of origin and long sample id (includes which subset the data come from), 
+        Dataframe for either the bulk or dissociated bulk samples with columns for
+        site of origin and long sample id (includes which subset the data come from),
         sorted by subset date and sample id.
     """
 
