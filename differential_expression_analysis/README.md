@@ -1,10 +1,10 @@
 # Differential Expression Analysis
 
-We looked at differentially expressed genes in bulk RNA-seq data of HGSOC, specifically looking for differentially exressed (DE) genes between different sample locations (ovary and omentum).
+We looked at differentially expressed genes in bulk RNA-seq data of HGSOC, specifically looking for differentially expressed (DE) genes between different sample locations (ovary and omentum).
 
 However, in the end we learned that the sample annotations were not reliable, and so we cannot trust the results coming out of this analysis.
 
-In a few places, we used a list of adipocyte genetic markers from from [Emont et al, 2022](https://www.nature.com/articles/s41586-022-04518-2]), supplementary table 1.
+In a few places, we used a list of adipocyte genetic markers from [Emont et al, 2022](https://www.nature.com/articles/s41586-022-04518-2]), supplementary table 1.
 
 ## PyDESeq2
 
@@ -27,7 +27,7 @@ In the end, I was hesitant to trust these results over PyDESeq2 because of the l
 To get the notebook to run, you'll need supporting functions from the [Bayexpress Github](https://github.com/Morris-Research-Group/bayexpress), specifically `bayexpress_functions.py`. 
 You can clone the repo or download that file specifically.
 
-Similar the the pydeseq2 analysis, the `bayexpress.ipynb` notebook, needs a count matrix, and a mapping of gene ensemble id to gene names. 
+Similar to the pydeseq2 analysis, the `bayexpress.ipynb` notebook, needs a count matrix, and a mapping of gene ensemble id to gene names. 
 Additionally, for comparison with the pyDESeq2 analysis, we use a list of differentially expressed genes as found by the pyDESeq2 analysis.
 
 

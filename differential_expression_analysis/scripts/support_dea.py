@@ -20,7 +20,7 @@ def prepare_count_matrix(INPUT_PATH: str) -> pd.DataFrame:
         for file in files:
             if file.endswith("out.tab"):
                 single_sample_counts = pd.read_csv(
-                    subdir + "/" + file, delimiter="\t", header=[0, 1, 2, 3]
+                    os.path.join(subdir, file), delimiter="\t", header=[0, 1, 2, 3]
                 )
                 # Rename columns
                 single_sample_counts.columns = [
@@ -35,7 +35,7 @@ def prepare_count_matrix(INPUT_PATH: str) -> pd.DataFrame:
                 ]
                 # Rename the counts column with the sample name
                 pre_count_matrix = pre_count_matrix.rename(
-                    columns={"Counts Unstranded RNA-seq": subdir[-11:]}
+                    columns={"Counts Unstranded RNA-seq": os.path.join(os.path.split(os.path.split(subdir)[0])[1], os.path.basename(subdir))}
                 )
                 # Merge counts from each file
                 if df.empty:
@@ -69,7 +69,7 @@ def sample_overview_data_wrangling(
     elif data_type == "diss_bulk":
         cols = ["0414", "0418"]
 
-    df = pd.read_excel(INPUT_PATH + "samples_overview.xlsx", header=1, index_col=0)
+    df = pd.read_excel(os.path.join(INPUT_PATH, "samples_overview.xlsx"), header=1, index_col=0)
     df = df[cols + ["Site of origin"]]
     df.drop(index=["Total across columns"], inplace=True)
     df = df.dropna(subset=cols, how="all")
@@ -95,8 +95,7 @@ def gene_ensemble_id_mapping(PATH: str) -> list[tuple[str, str]]:
     """
 
     with open(PATH) as f:
-        gtf = list(f)
-        gtf = gtf[5:]
+        gtf = [line for line in f if not line.startswith("#")]
 
     gtf = [x for x in gtf if 'gene_id "' in x and 'gene_name "' in x]
 
