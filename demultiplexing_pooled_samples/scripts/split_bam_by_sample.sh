@@ -1,11 +1,11 @@
 #!/bin/sh
 
-#SBATCH --array=2
+#SBATCH --array=5-6
 #SBATCH --nodes=1
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --mem=4G
-#SBATCH --time=01:00:00
+#SBATCH --time=12:00:00
 #SBATCH --ntasks=1
 #SBATCH --account=amc-general
 #SBATCH --job-name=split-bam
