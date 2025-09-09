@@ -6,3 +6,6 @@
 */data/
 */figures/
 */old/
+*/output_data/
+__pycache__
+*/.vscode/
