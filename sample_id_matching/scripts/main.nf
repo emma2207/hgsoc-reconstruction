@@ -2,29 +2,36 @@
 
 /*
  * main.nf — run simulated data pipeline
- * 
- * Every process has to be run for every sample in every dataset that we want to create
- * pseudobulks for.
  */
 
 nextflow.enable.dsl = 2
 
-include { QC_READS_WITH_FASTP } from './processes/fastp.nf'
-// include { ALIGNMENT_WITH_STAR } from './processes/star_alignment.nf'
-// include { SPLIT_READS } from './processes/subset-bam.nf'
-// include { CREATE_PSEUDOBULK } from './processes/pseudobulk_creation.nf'
+include { QC_READS_WITH_FASTP } from './modules/fastp.nf'
+include { ALIGNMENT_WITH_STAR } from './modules/star_alignment.nf'
+include { CREATE_PSEUDOBULKS } from './modules/make_pseudobulks.nf'
 
 workflow {
-    // Create initial trigger channel
-    // fastq_r1 = Channel.fromPath("${params.petaLibrary}/Pool1-GEX-*_R1_001.fastq.gz").collect()
-    // fastq_r2 = Channel.fromPath("${params.petaLibrary}/Pool1-GEX-*_R2_001.fastq.gz").collect()
+    // Input fastqs
     fastq_r1 = Channel.fromPath("${params.testSet}/${params.sample}/SRR*_1_truncated.fastq.gz").collect()
     fastq_r2 = Channel.fromPath("${params.testSet}/${params.sample}/SRR*_2_truncated.fastq.gz").collect()
 
-    // fastqs = fastq_r1.combine(fastq_r2).collect()
-    // Run pipeline processes
-    QC_READS_WITH_FASTP(fastq_r1, fastq_r2)
-    // ALIGNMENT_WITH_STAR(ref_genome, QC_READS_WITH_FASTP.out)
-    // SPLIT_READS(cell_barcodes, ALIGNMENT_WITH_STAR.out)
-    // CREATE_PSEUDOBULK(SPLIT_READS.out)
+    // Input barcodes
+    barcodes = Channel.fromPath("${params.projectDir}/../data/barcodes/${params.dataset}/${params.sample}/*_sub.csv", checkIfExists: true)
+
+    // QC
+    trimmed_fastqs = QC_READS_WITH_FASTP(fastq_r1, fastq_r2)
+    // Input merged fastqs
+    fastq_r1 = Channel.fromPath("${params.outputDir}/fastp/${params.dataset}/${params.sample}/${params.sample}_R1_merged.fastq.gz").collect()
+    fastq_r2 = Channel.fromPath("${params.outputDir}/fastp/${params.dataset}/${params.sample}/${params.sample}_R2_merged.fastq.gz").collect()
+    merged_fastqs = fastq_r1.combine(fastq_r2)
+    // Align fastqs
+    bam = ALIGNMENT_WITH_STAR(merged_fastqs)
+
+    bam_dir = Channel.fromPath("${params.outputDir}/star/${params.dataset}/${params.sample}", type: 'dir')
+    n_barcodes = channel.of(100)
+    n_pseudobulks = channel.of(1)
+    split_reads_input = bam_dir.combine(barcodes).combine(n_barcodes).combine(n_pseudobulks) 
+    split_reads_input.view()
+    // Create pseudobulks
+    barcodes = CREATE_PSEUDOBULKS(split_reads_input)
 }

@@ -47,7 +47,7 @@ fi
 # --------------------------------------------------
 # 1) Load miniforge, activate Conda environment sim_conda
 # --------------------------------------------------
-# module load miniforge
+module load miniforge
 
 ENV_YML="${PRJ_DIR}/simulation_environment.yml"
 
@@ -58,7 +58,6 @@ ENV_YML="${PRJ_DIR}/simulation_environment.yml"
  fi
 
 echo "••• Activating Conda environment simulation_environment"
-conda init bash
 conda activate simulation_environment
 
 # --------------------------------------------------
@@ -82,9 +81,9 @@ echo "••• Launching Nextflow"
 NEXTFLOW_WORK_DIR="${PRJ_DIR}/nextflow"
 
 if [ "${RUN_MODE}" == "HPC" ]; then
-    nextflow run main.nf -profile slurm -resume -w "${NEXTFLOW_WORK_DIR}" -process.echo
+    nextflow run main.nf -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo
 else
-    nextflow run main.nf -profile local -resume -w "${NEXTFLOW_WORK_DIR}"
+    echo "Currently it can only run on HPC via Slurm."
 fi
 
 echo "••• Pipeline finished 🎉"
