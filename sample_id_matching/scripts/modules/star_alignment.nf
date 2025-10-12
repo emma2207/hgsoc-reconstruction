@@ -7,10 +7,10 @@ process ALIGNMENT_WITH_STAR {
 	publishDir 'results/', mode: 'copy'
 
 	input:
-	tuple path(fastq_r1), path(fastq_r2)
+	tuple val(sample_name), path(fastq_r1), path(fastq_r2)
 
 	output:
-	tuple path("star/${params.dataset}/${params.sample}/Aligned.sortedByCoord.out.bam"), path("star/${params.dataset}/${params.sample}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
+	tuple path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam"), path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
 
 	script:
 	"""
@@ -29,7 +29,7 @@ process ALIGNMENT_WITH_STAR {
 	fi
 
 	# Create output directory
-	output_location="star/${params.dataset}/${params.sample}"
+	output_location="star/${params.dataset}/${sample_name}"
 	mkdir -p \$output_location
 
 	echo "FASTQ R1: $fastq_r1"

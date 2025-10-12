@@ -7,23 +7,23 @@ process CREATE_PSEUDOBULKS {
     publishDir 'results/', mode: 'copy'
 
     input:
-    tuple path(bam), path(bai)
+    tuple val(sample_name), path(bam), path(bai)
     val(n_barcodes)
     val(n_pseudobulks)
 
     output:
-    path("subset-bam/${params.dataset}/${params.sample}/pseudobulk_*.bam")
+    path("subset-bam/${params.dataset}/${sample_name}/pseudobulk_*.bam")
 
     script:
     """
-    output_location="subset-bam/${params.dataset}/${params.sample}"
+    output_location="subset-bam/${params.dataset}/${sample_name}"
     mkdir -p \$output_location
 
     echo "Random barcode selection..."
 
     python ${params.projectDir}/select_barcodes.py \
         -d ${params.dataset} \
-        -s ${params.sample} \
+        -s ${sample_name} \
         -b "$bam" \
         -n $n_barcodes \
         -j $n_pseudobulks
@@ -33,7 +33,7 @@ process CREATE_PSEUDOBULKS {
         echo "Subsetting pseudobulk \$i out of $n_pseudobulks"
 
         subset-bam -b "$bam" \
-            -c "subset-bam/${params.dataset}/${params.sample}/selected_barcodes_\$i.txt" \
+            -c "subset-bam/${params.dataset}/${sample_name}/selected_barcodes_\$i.txt" \
             -o "\${output_location}/pseudobulk_\$i.bam" \
             --cores 1 
     done

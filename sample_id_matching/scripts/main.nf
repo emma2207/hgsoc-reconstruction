@@ -51,9 +51,12 @@ workflow {
                 fastqs_r2 << file(row.'R2_path_run_3')
             }
 
-            tuple(fastqs_r1, fastqs_r2)
+            tuple(row.'Sample Name', fastqs_r1, fastqs_r2)
         }
         .view { row -> "Sample fastq dirs: ${row}" }
+
+    sample_name = sample_ch.map { it[0] }
+    sample_name.view { x -> "Sample name: ${x}" }
 
     // I need to extract the sample names from the csv and feed those to the subsequent processes
 
@@ -64,11 +67,11 @@ workflow {
     // Align fastqs
     merged_fastqs = fastp_out.merged_R1.combine(fastp_out.merged_R2)
     merged_fastqs.view { x -> "Merged fastqs: ${x}" }
-    bam = ALIGNMENT_WITH_STAR(merged_fastqs)
+    bam = ALIGNMENT_WITH_STAR(sample_name.combine(merged_fastqs))
     bam.aligned_reads.view { x -> "Aligned Reads: ${x}" }
 
     // Create pseudobulks
     n_barcodes = channel.of(100)
     n_pseudobulks = channel.of(1)
-    CREATE_PSEUDOBULKS(bam.aligned_reads, n_barcodes, n_pseudobulks)
+    CREATE_PSEUDOBULKS(sample_name.combine(bam.aligned_reads), n_barcodes, n_pseudobulks)
 }
