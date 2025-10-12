@@ -4,11 +4,13 @@ process ALIGNMENT_WITH_STAR {
 
 	label 'star'
 
+	publishDir 'results/', mode: 'copy'
+
 	input:
 	tuple path(fastq_r1), path(fastq_r2)
 
 	output:
-	tuple path("Aligned.sortedByCoord.out.bam"), path("Aligned.sortedByCoord.out.bam.bai")
+	tuple path("star/${params.dataset}/${params.sample}/Aligned.sortedByCoord.out.bam"), path("star/${params.dataset}/${params.sample}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
 
 	script:
 	"""
@@ -27,8 +29,8 @@ process ALIGNMENT_WITH_STAR {
 	fi
 
 	# Create output directory
-	mkdir -p "${params.outputDir}/star/${params.dataset}/${params.sample}"
-	output_location="${params.outputDir}/star/${params.dataset}/${params.sample}"
+	output_location="star/${params.dataset}/${params.sample}"
+	mkdir -p \$output_location
 
 	echo "FASTQ R1: $fastq_r1"
 	echo "FASTQ R2: $fastq_r2"
@@ -48,20 +50,14 @@ process ALIGNMENT_WITH_STAR {
 		--genomeDir ${params.refGenome} \
 		--runThreadN 6 \
 		--readFilesIn $fastq_r1 $fastq_r2 \
+		--quantMode GeneCounts \
 		--readFilesCommand gunzip -c \
-		--quantMode GeneCounts\ 
+		--outFileNamePrefix "\${output_location}/"
 
 	echo "Start indexing..."
 
-	samtools index Aligned.sortedByCoord.out.bam
-
-	cp -r ./* \${output_location}/
+	samtools index \${output_location}/Aligned.sortedByCoord.out.bam
 
 	echo "Finished indexing!"
-	"""
-
-	stub:
-	"""
-	echo "Aligning reads for sample ${params.sample} in dataset ${params.dataset}"
 	"""
 }

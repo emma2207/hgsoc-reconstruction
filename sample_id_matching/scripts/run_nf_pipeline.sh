@@ -81,9 +81,9 @@ echo "••• Launching Nextflow"
 NEXTFLOW_WORK_DIR="${PRJ_DIR}/nextflow"
 
 if [ "${RUN_MODE}" == "HPC" ]; then
-    nextflow run main.nf -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo
+    nextflow run main.nf -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume
 else
-    echo "Currently it can only run on HPC via Slurm."
+    nextflow run main.nf -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume
 fi
 
 echo "••• Pipeline finished 🎉"

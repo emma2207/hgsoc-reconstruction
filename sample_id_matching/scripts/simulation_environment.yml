@@ -8,6 +8,6 @@ dependencies:
   - fastp 
   - star
   - samtools
-  # - subset-bam
+  - subset-bam
   - pysam
   - pandas
