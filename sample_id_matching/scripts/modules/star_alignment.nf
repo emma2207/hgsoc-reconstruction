@@ -36,6 +36,7 @@ process ALIGNMENT_WITH_STAR {
 
 	# Run STAR alignment
 	STAR \
+		--outSAMtype BAM SortedByCoordinate \
 		--soloType CB_UMI_Simple \
 		--soloCBwhitelist None \
 		--soloCBstart 1 \
@@ -48,8 +49,7 @@ process ALIGNMENT_WITH_STAR {
 		--runThreadN 6 \
 		--readFilesIn $fastq_r1 $fastq_r2 \
 		--readFilesCommand gunzip -c \
-		--outSAMtype BAM SortedByCoordinate \
-		--quantMode GeneCounts
+		--quantMode GeneCounts\ 
 
 	echo "Start indexing..."
 

@@ -1,4 +1,5 @@
 import argparse
+import os
 import pysam
 import random
 
@@ -58,9 +59,12 @@ if __name__ == "__main__":
         # Randomly sample barcodes
         random_barcodes = random.sample(unique_barcodes, args.n_barcodes)
 
+        subset_dir = f"subset-bam/{args.dataset}/{args.sample}"
+        os.makedirs(subset_dir, exist_ok=True)
+
         # Write to file
         with open(
-            f"../../../../output_data/subset-bam/{args.dataset}/{args.sample}/selected_barcodes_{i+1}.txt",
+            f"{subset_dir}/selected_barcodes_{i+1}.txt",
             "w",
         ) as f:
             for barcode in random_barcodes:

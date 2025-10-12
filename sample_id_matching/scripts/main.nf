@@ -6,32 +6,75 @@
 
 nextflow.enable.dsl = 2
 
+include { PROCESS_METADATA } from './modules/process_metadata.nf'
 include { QC_READS_WITH_FASTP } from './modules/fastp.nf'
 include { ALIGNMENT_WITH_STAR } from './modules/star_alignment.nf'
 include { CREATE_PSEUDOBULKS } from './modules/make_pseudobulks.nf'
 
 workflow {
-    // Input fastqs
-    fastq_r1 = Channel.fromPath("${params.testSet}/${params.sample}/SRR*_1_truncated.fastq.gz").collect()
-    fastq_r2 = Channel.fromPath("${params.testSet}/${params.sample}/SRR*_2_truncated.fastq.gz").collect()
+    // Input metadata
+    metadata = Channel.fromPath("${params.dataDir}/metadata/SraRunTable_${params.datatype}_${params.dataset}_test.csv")
+    input_data = Channel.fromPath("${params.dataDir}/test_fastq/${params.dataset}/${params.datatype}", type: 'dir')
 
-    // Input barcodes
-    barcodes = Channel.fromPath("${params.projectDir}/../data/barcodes/${params.dataset}/${params.sample}/*_sub.csv", checkIfExists: true)
+    // Process metadata
+    fastqs = PROCESS_METADATA(metadata, input_data)
+    // fastqs.fastq_dirs_csv.view { x -> "Test channel: ${x}" }
+
+    // Note that the fastqs directory contains an arbitrary number of samples, all of which we want to process 
+    // through the rest of the pipeline on their own.
+    sample_ch = fastqs.fastq_dirs_csv
+        .splitCsv( header: true )
+        .map { row ->
+            def fastqs_r1 = []
+            def fastqs_r2 = []
+            if (row.containsKey('R1_path_run_0')) {
+                fastqs_r1 << file(row.'R1_path_run_0')
+            } 
+            if (row.containsKey('R1_path_run_1')) {
+                fastqs_r1 << file(row.'R1_path_run_1')
+            } 
+            if (row.containsKey('R1_path_run_2')) {
+                fastqs_r1 << file(row.'R1_path_run_2')
+            } 
+            if (row.containsKey('R1_path_run_3')) {
+                fastqs_r1 << file(row.'R1_path_run_3')
+            } 
+            if (row.containsKey('R2_path_run_0')) {
+                fastqs_r2 << file(row.'R2_path_run_0')
+            }
+            if (row.containsKey('R2_path_run_1')) {
+                fastqs_r2 << file(row.'R2_path_run_1')
+            }
+            if (row.containsKey('R2_path_run_2')) {
+                fastqs_r2 << file(row.'R2_path_run_2')
+            }
+            if (row.containsKey('R2_path_run_3')) {
+                fastqs_r2 << file(row.'R2_path_run_3')
+            }
+
+            tuple(fastqs_r1, fastqs_r2)
+        }
+        .view { row -> "Sample fastq dirs: ${row}" }
 
     // QC
-    trimmed_fastqs = QC_READS_WITH_FASTP(fastq_r1, fastq_r2)
+    fastp_out = QC_READS_WITH_FASTP(sample_ch)
+    fastp_out.merged_R1.view { x -> "Fastp merged R1: ${x}" }
+
+    // Input barcodes
+    // barcodes = Channel.fromPath("${params.projectDir}/../data/barcodes/${params.dataset}/${params.sample}/*_sub.csv", checkIfExists: true)
+
+    
     // Input merged fastqs
-    fastq_r1 = Channel.fromPath("${params.outputDir}/fastp/${params.dataset}/${params.sample}/${params.sample}_R1_merged.fastq.gz").collect()
-    fastq_r2 = Channel.fromPath("${params.outputDir}/fastp/${params.dataset}/${params.sample}/${params.sample}_R2_merged.fastq.gz").collect()
-    merged_fastqs = fastq_r1.combine(fastq_r2)
+    merged_fastqs = fastp_out.merged_R1.combine(fastp_out.merged_R2)
+    merged_fastqs.view { x -> "Merged fastqs: ${x}" }
     // Align fastqs
     bam = ALIGNMENT_WITH_STAR(merged_fastqs)
 
-    bam_dir = Channel.fromPath("${params.outputDir}/star/${params.dataset}/${params.sample}", type: 'dir')
+    // bam_dir = Channel.fromPath("${params.outputDir}/star/${params.dataset}/${params.sample}", type: 'dir')
+    
+    bam.aligned_reads.view { x -> "Aligned Reads: ${x}" }
     n_barcodes = channel.of(100)
     n_pseudobulks = channel.of(1)
-    split_reads_input = bam_dir.combine(barcodes).combine(n_barcodes).combine(n_pseudobulks) 
-    split_reads_input.view()
-    // Create pseudobulks
-    barcodes = CREATE_PSEUDOBULKS(split_reads_input)
+    // // Create pseudobulks
+    barcodes = CREATE_PSEUDOBULKS(bam.aligned_reads, n_barcodes, n_pseudobulks)
 }

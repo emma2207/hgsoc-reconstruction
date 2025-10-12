@@ -18,7 +18,8 @@ process CREATE_PSEUDOBULKS {
 
     echo "Random barcode selection..."
 
-    python ${params.projectDir}/select_barcodes.py -d ${params.dataset} \
+    python ${params.projectDir}/select_barcodes.py \
+        -d ${params.dataset} \
         -s ${params.sample} \
         -b "$bam_dir/Aligned.sortedByCoord.out.bam" \
         -n $n_barcodes \

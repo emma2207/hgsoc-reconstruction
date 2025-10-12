@@ -1,14 +1,6 @@
 import argparse
 import os
 import pandas as pd
-import re
-
-
-def create_output_dirs(base_dir, dataset, sample_names):
-    for sample in sample_names:
-        dir_path = os.path.join(base_dir, 'fastq', dataset, sample)
-        os.makedirs(dir_path, exist_ok=True)
-    return 
 
 
 if __name__ == "__main__":
@@ -35,39 +27,54 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
+    parser.add_argument(
+        "-f",
+        "--fastq_path",
+        dest="fastq_dir",
+        help="fastq data path",
+        required=True,
+        type=str,
+    )
 
     args = parser.parse_args()
 
     # Take in SRA metadata and output a run:name mapping csv
     metadata_df = pd.read_csv(args.metadata)
     mapping_df = metadata_df[["Run", "Sample Name"]].drop_duplicates()
-    mapping_df.to_csv(
-        f"../data/run-name_mapping/run_name_mapping_{args.datatype}_{args.dataset}.csv", index=False
+    # Add fastq paths to the mapping dataframe
+    mapping_df["R1_path"] = (
+        "../data/test_fastq/"
+        + args.dataset
+        + "/"
+        + args.datatype
+        + "/"
+        + mapping_df["Run"]
+        + "_1_truncated.fastq.gz"
     )
-
-    # Use dataset and sample names to create a directory structure
-    base_dir = os.getcwd() + "/../data"
-    create_output_dirs(
-        base_dir=base_dir,
-        dataset=args.dataset,
-        sample_names=mapping_df["Sample Name"].unique(),
+    mapping_df["R2_path"] = (
+        "../data/test_fastq/"
+        + args.dataset
+        + "/"
+        + args.datatype
+        + "/"
+        + mapping_df["Run"]
+        + "_2_truncated.fastq.gz"
     )
+    # Count how many runs per sample and pivot the table
+    mapping_df["idx"] = mapping_df.groupby("Sample Name").cumcount()
+    mapping_df["run_idx"] = "run_" + mapping_df["idx"].astype("Int64").astype(str)
+    df = mapping_df.pivot(
+        index="Sample Name", columns="run_idx", values=["R1_path", "R2_path"]
+    ).reset_index()
 
-    # Use run:name mapping to move fastq.gz files to appropriate directory
-    # (Organized by dataset, datatype, sample name)
-    sample_dir = os.path.join(base_dir, "fastq", args.dataset, args.datatype)
-    srr_files = [f for f in os.listdir(sample_dir) if f.endswith(".fastq.gz")]
+    # Flatten the multi-level columns
+    df.columns = [f"{i}_{j}" if j else f"{i}" for i, j in df.columns]
+    df = df.dropna(axis=1, how="all").dropna(axis=0, how="all")
 
-    for srr in srr_files:
-        run_id = re.sub(r"_\d{1}_truncated.fastq.gz", "", srr)
-        sample_name = mapping_df[mapping_df["Run"] == run_id]["Sample Name"].values
-        if len(sample_name) == 1:
-            sample_name = sample_name[0]
-            dest_path = os.path.join(base_dir, "fastq", args.dataset, args.datatype, sample_name)
-            os.makedirs(dest_path, exist_ok=True)
-            os.rename(
-                os.path.join(sample_dir, srr),
-                os.path.join(dest_path, srr),
-            )
-        else:
-            print(f"Warning: Run ID {run_id} has {len(sample_name)} associated samples.")
+    # Save the run:name mapping csv
+    mapping_dir = "run_name_mapping"
+    os.makedirs(mapping_dir, exist_ok=True)
+    df.to_csv(
+        mapping_dir + f"/run_name_mapping_{args.datatype}_{args.dataset}.csv",
+        index=False,
+    )
