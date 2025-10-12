@@ -9,3 +9,5 @@
 */output_data/
 __pycache__
 */.vscode/
+*.png
+*.pdf
