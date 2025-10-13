@@ -71,7 +71,7 @@ workflow {
     bam.aligned_reads.view { x -> "Aligned Reads: ${x}" }
 
     // Create pseudobulks
-    n_barcodes = channel.of(100)
-    n_pseudobulks = channel.of(1)
+    n_barcodes = channel.of(params.n_barcodes)
+    n_pseudobulks = channel.of(params.n_pseudobulks)
     CREATE_PSEUDOBULKS(sample_name.combine(bam.aligned_reads), n_barcodes, n_pseudobulks)
 }
