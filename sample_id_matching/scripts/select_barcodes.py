@@ -57,7 +57,13 @@ if __name__ == "__main__":
 
     for i in range(args.n_pseudobulks):
         # Randomly sample barcodes
-        random_barcodes = random.sample(unique_barcodes, args.n_barcodes)
+        if len(unique_barcodes) > args.n_barcodes:
+            random_barcodes = random.sample(unique_barcodes, args.n_barcodes)
+        else:
+            random_barcodes = unique_barcodes
+            print(
+                f"Warning: Requested {args.n_barcodes} barcodes but only {len(unique_barcodes)} available."
+            )
 
         subset_dir = f"subset-bam/{args.dataset}/{args.sample}"
         os.makedirs(subset_dir, exist_ok=True)

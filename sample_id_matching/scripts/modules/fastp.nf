@@ -22,8 +22,8 @@ process QC_READS_WITH_FASTP {
       echo "Fastq files R2: $R2_paths"
 
       # Combine fastq files across lanes
-      cat $R1_paths > "\$output_location/${sample_name}_R1_merged.fastq.gz"
-      cat $R2_paths > "\$output_location/${sample_name}_R2_merged.fastq.gz"
+      cat $R1_paths > "\${output_location}/${sample_name}_R1_merged.fastq.gz"
+      cat $R2_paths > "\${output_location}/${sample_name}_R2_merged.fastq.gz"
 
 
       # Run fastp
