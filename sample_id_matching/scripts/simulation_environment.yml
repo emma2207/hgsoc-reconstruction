@@ -1,0 +1,13 @@
+name: simulation_environment
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - nextflow=23.04
+  - python=3.13
+  - fastp 
+  - star
+  - samtools
+  - subset-bam
+  - pysam
+  - pandas
