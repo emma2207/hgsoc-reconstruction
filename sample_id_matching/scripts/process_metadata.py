@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Take in SRA metadata and output a run:name mapping csv
+    # Take in Sequence Read Archive (SRA) metadata and output a run:name mapping csv
     metadata_df = pd.read_csv(args.metadata)
     mapping_df = metadata_df[["Run", "Sample Name"]].drop_duplicates()
     # Add fastq paths to the mapping dataframe
