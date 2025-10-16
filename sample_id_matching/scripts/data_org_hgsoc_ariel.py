@@ -7,12 +7,12 @@ if __name__ == "__main__":
     df = pd.read_csv("../data/metadata/SraRunTable_all_hgsoc.csv")
 
     df = df[["Run", "Sample Name"]]
-    # Split Sample Name into Sample ID and Data Type
+    # # Split Sample Name into Sample ID and Data Type
     temp_df = df["Sample Name"].str.split("_", n=1, expand=True)
     temp_df.columns = ["Sample ID", "Data Type"]
     df = pd.concat([df, temp_df], axis=1)
 
-    print("Creating directories...")
+    # print("Creating directories...")
 
     # Make directories for each data type
     data_types = list(df["Data Type"].unique())
@@ -28,3 +28,10 @@ if __name__ == "__main__":
         os.system(f"mv {pl_path}/all/{run}_*.fastq.gz {pl_path}/{data_type}/")
 
     os.system(f"rm -r {pl_path}/all")
+
+    print("Finding sample matches...")
+
+    # Figure out sample matches
+    df = df[df["Data Type"]!="pooled_single_cell"]
+    pivot_df = df.pivot(index="Sample ID", columns="Data Type", values="Run").reset_index()
+    pivot_df.to_csv("../data/sample_matches/sample_matches_hgsoc.csv", index=False)
