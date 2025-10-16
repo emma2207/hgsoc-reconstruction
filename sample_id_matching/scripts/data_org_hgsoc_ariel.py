@@ -12,7 +12,7 @@ if __name__ == "__main__":
     temp_df.columns = ["Sample ID", "Data Type"]
     df = pd.concat([df, temp_df], axis=1)
 
-    # print("Creating directories...")
+    print("Creating directories...")
 
     # Make directories for each data type
     data_types = list(df["Data Type"].unique())
@@ -35,3 +35,4 @@ if __name__ == "__main__":
     df = df[df["Data Type"]!="pooled_single_cell"]
     pivot_df = df.pivot(index="Sample ID", columns="Data Type", values="Run").reset_index()
     pivot_df.to_csv("../data/sample_matches/sample_matches_hgsoc.csv", index=False)
+    
