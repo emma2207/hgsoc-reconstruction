@@ -13,7 +13,7 @@ if __name__ == "__main__":
     single_cell_df = single_cell_df.dropna(axis=1, how="all")
     single_cell_df.rename(columns={"Pool": "Sample ID"}, inplace=True)
     single_cell_df["Sample ID"] = single_cell_df["Sample ID"].str.strip()
-    # single_cell_df.to_csv("../data/sample_matches/sample_matches_central_nervous_system_tumor.csv", index=False)
+    single_cell_df.to_csv("../data/sample_matches/sample_matches_central_nervous_system_tumor.csv", index=False)
 
     # Isolate and clean bulk samples
     bulk_df = df[df["Pool"].str.contains("Pool")]
@@ -40,6 +40,6 @@ if __name__ == "__main__":
     long_df["Pool"] = long_df["Pool"].str.strip()
     long_df = long_df.sort_values(by=["Name", "Sample Number"])
 
-    long_df.to_csv("../data/sample_matches/sample_matches_cnst_long.csv", index=False)
+    long_df.to_csv("../data/sample_matches/sample_matches_cnst_pooled_long.csv", index=False)
 
     print(long_df.head(10))
