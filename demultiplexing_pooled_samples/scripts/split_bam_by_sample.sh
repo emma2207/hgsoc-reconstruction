@@ -29,7 +29,7 @@ find "htseq-count/pool${pool}/" -type d -name "donor*" -print0 | while IFS= read
     barcodes_location=${subdir}
     sample=$(basename "${subdir}")
     echo "Processing sample: ${sample}"
-    mkdir -p subset-bam/pool${pool}/sample${sample}
+    mkdir -p subset-bam/pool${pool}/${sample}
 
     subset-bam -b ${sample_location}/pooled.bam \
         -c ${barcodes_location}/barcodes_per_sample.csv \

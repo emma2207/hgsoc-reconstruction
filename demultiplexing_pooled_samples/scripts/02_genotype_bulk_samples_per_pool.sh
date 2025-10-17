@@ -106,5 +106,5 @@ bcftools view \
 	> ${output_location}/bcftools_qual_filter_${data_type}_pool${pool}.vcf
 # Read depth greater than 30 x # of samples
 bcftools view \
-	-i "DP>${nr_bam_files}" ${output_location}/bcftools_qual_filter_${data_type}_pool${pool}.vcf \
+	-i "DP>${read_depth_cutoff}" ${output_location}/bcftools_qual_filter_${data_type}_pool${pool}.vcf \
 	> ${output_location}/bcftools_qual_dp_filter_${data_type}_pool${pool}.vcf
