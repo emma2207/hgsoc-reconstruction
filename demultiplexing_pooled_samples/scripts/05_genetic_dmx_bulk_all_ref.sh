@@ -37,6 +37,7 @@ else
 	n_samples=2
 fi
 
+# Select the appropriate bulk VCF file based on data type
 if [ "${data_type}" == "diss_bulk" ]; then 
 	bulk_vcf_file=$bulk_vcf_location/bcftools_qual_dp_rm_2507_filter_${data_type}_all.vcf
 elif [ "${data_type}" == "bulk" ]; then 
@@ -46,6 +47,7 @@ else
 	exit 1
 fi
 
+# Run vireo
 vireo \
 	-c $cellsnp_location \
 	-N $n_samples \

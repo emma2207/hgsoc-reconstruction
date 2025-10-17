@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH --array=4
+#SBATCH --array=1-10
 #SBATCH --nodes=1
 #SBATCH --qos=long
 #SBATCH --partition=amilan

@@ -54,6 +54,8 @@ Using CellSNP-lite to genotype the pooled single-cell samples.
 - Genotype single-cell samples using bulk genotypes as references:
     - CellSNP-lite is not available on Alpine by default. You have to install it in your own project directory first.
     - Run `04_genotype_pooled_samples.sh $data_type` to use cellSNP-lite for single-cell genotyping.
+- (Alternatively) genotype single-cell samples without bulk references:
+    - Run `04_genotype_pooled_samples_no_ref.sh` to use cellSNP-lite for single-cell genotyping without using a reference.
 
 
 ## 4. Genetic demultiplexing
@@ -62,6 +64,11 @@ Using Vireo to genetically demultiplex the pooled samples
 
 - Vireo is not available on Alpine by default. You have to install it in your own project directory first.
 - Run `05_genetic_dmx.sh $data_type` to use Vireo to demultiplex the samples.
+- (Alternatively) run `05_genetic_dmx_all_ref.sh` to use Vireo to demultiplex the samples without making any assumptions about which samples are pooled together by using all of the (dissociated) bulk samples as references.
+- Splitting the .bam files by sample (after demultiplexing)
+    - Run `split_barcodes.py` to split the csv files with barcodes of pooled single-cell RNA-seq samples into separate files based on the cell assignments from the genetic demultiplexing. Use `run_split_barcodes.py` to submit the job to the cluster.
+    - Run `split_bam_by_sample.sh` to split the pooled scRNA-seq .bam files by samples based on the cell barcodes that were assigned to specific samples in the previous step.
+- Count the reads per gene (per sample) using `htseq-count.sh`
 
 
 ## 5. Analysis
@@ -71,5 +78,7 @@ Using Vireo to genetically demultiplex the pooled samples
     - `assignment_confidence_table.csv` from the cellranger output (step 1).
 - Compare the genetic demultiplexing results with bulk and dissociated bulk references: `bulk_vs_diss_bulk_ref_gex_dmx.ipynb`. The input data for this notebook (`donor_ids.tsv` files) are part of the output of Vireo (step 4). Two types of visualizations are produced:
     - Histogram of number of cells assigned to each sample for each reference
-    - Heatmaps of the number of cells assigned to each sample (per pool).
+    - Histogram and scatter plot comparing the number of assigned samples for bulk an dissociated bulk references
+    - Histogramsof the number of cells assigned to each sample, comparing different filters
 - `qc_bulk.ipynb` compare the number of variants of each sample before and after applying a quality filter. The input files are .vcf files obtained by running `bcftools` to split the .vcf files containing multiple samples into individual .vcf files: `split_bulk_vcf_files.sh`.
+- `match_sample_ids.ipynb` creates heatmap visualizations of how similar bulk and dissociated bulk samples are.
