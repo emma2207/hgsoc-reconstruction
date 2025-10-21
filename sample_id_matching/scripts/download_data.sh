@@ -36,7 +36,7 @@ fi
 prefetch \
    --option-file "../data/accession_lists/SRR_Acc_List_${data_type}_${dataset}.txt" \
    --output-directory "${download_location}" \
-   --ngc "../data/prj_41891.ngc" 
+   --ngc ${ngc}
 
 # Download .fastq files from .sra files using fasterq-dump
 for accession in $(cat "../data/accession_lists/SRR_Acc_List_${data_type}_${dataset}.txt")
@@ -58,6 +58,4 @@ do
 done
 
 # Move .fastq files to final location
-# mv "${download_location}/"*".fastq.gz" "${final_fastq_location}/"
-# Clean up .sra files to save space
-# rm -r "${download_location}/"*".sra"
+mv "${download_location}/"*".fastq.gz" "${final_fastq_location}/"

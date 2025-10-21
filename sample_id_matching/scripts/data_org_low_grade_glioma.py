@@ -4,7 +4,9 @@ import pandas as pd
 pl_path = "/pl/active/cgreene-sc-hgsoc/mismatch_project_data/low_grade_glioma"
 
 if __name__ == "__main__":
-    df = pd.read_csv("../data/metadata/SraRunTable_all_low_grade_glioma.csv")
+    df = pd.read_csv(
+        pl_path + "/../metadata/sra_run_tables/SraRunTable_all_low_grade_glioma.csv"
+    )
 
     df = df[["Run", "LibrarySource"]]
 
