@@ -130,6 +130,10 @@ ariel_sc_HGSOC/
     - fastq files in subfolders labelled with sample ids
     - a total of 36 samples
 
+Code and notes from before we figured how the data was organized often refers to the data by dates
+- 230414 (or 0414) and 230418 or (0418) for the bulk dissociated poly A+ data
+- 230509 (or 0509) and 230626 or (0626) for the bulk chunk ribo data
+
 ### How do we know this?
 
 A combination of old README's and differential expression analysis, see [hgsoc_data_detective](https://github.com/greenelab/hgsoc_data_detective) (Github repo).

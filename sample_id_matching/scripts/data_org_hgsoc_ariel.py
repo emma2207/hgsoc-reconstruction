@@ -16,8 +16,8 @@ if __name__ == "__main__":
 
     # Make directories for each data type
     data_types = list(df["Data Type"].unique())
-    for data_type in data_types:
-        os.makedirs(f"{pl_path}/{data_type}", exist_ok=True)
+    # for data_type in data_types:
+        # os.makedirs(f"{pl_path}/{data_type}", exist_ok=True)
 
     print("Moving files...")
 
@@ -25,14 +25,15 @@ if __name__ == "__main__":
     for _, row in df.iterrows():
         run = row["Run"]
         data_type = row["Data Type"]
-        os.system(f"mv {pl_path}/all/{run}_*.fastq.gz {pl_path}/{data_type}/")
+        # os.system(f"mv {pl_path}/all/{run}_*.fastq.gz {pl_path}/{data_type}/")
 
-    os.system(f"rm -r {pl_path}/all")
+    # os.system(f"rm -r {pl_path}/all")
 
     print("Finding sample matches...")
 
     # Figure out sample matches
     df = df[df["Data Type"]!="pooled_single_cell"]
-    pivot_df = df.pivot(index="Sample ID", columns="Data Type", values="Run").reset_index()
+    pivot_df = df.pivot(index="Sample ID", columns="Data Type", values="Sample Name").reset_index()
+    print(pivot_df.head(10))
     pivot_df.to_csv("../data/sample_matches/sample_matches_hgsoc.csv", index=False)
     
