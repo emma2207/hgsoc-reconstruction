@@ -8,10 +8,11 @@ process QC_READS_WITH_FASTP {
       tuple val(sample_name), path(R1_paths), path(R2_paths)
 
       output:
-      path("fastp/${params.dataset}/${params.datatype}/${sample_name}_fastp_report.html"), emit: fastp_html
-      path("fastp/${params.dataset}/${params.datatype}/${sample_name}_fastp_report.json"), emit: fastp_json
-      path("fastp/${params.dataset}/${params.datatype}/${sample_name}_R1_merged.fastq.gz"), emit: merged_R1
-      path("fastp/${params.dataset}/${params.datatype}/${sample_name}_R2_merged.fastq.gz"), emit: merged_R2
+      path("fastp/${params.dataset}/${params.datatype}/${sample_name}_fastp_report.html")
+      path("fastp/${params.dataset}/${params.datatype}/${sample_name}_fastp_report.json")
+      tuple val(sample_name),
+            path("fastp/${params.dataset}/${params.datatype}/${sample_name}_R1_merged.fastq.gz"),
+            path("fastp/${params.dataset}/${params.datatype}/${sample_name}_R2_merged.fastq.gz"), emit: merged_fastqs
 
       script:
       """

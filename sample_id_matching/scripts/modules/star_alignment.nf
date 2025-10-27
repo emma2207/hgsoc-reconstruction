@@ -10,11 +10,12 @@ process ALIGNMENT_WITH_STAR {
 	tuple val(sample_name), path(fastq_r1), path(fastq_r2)
 
 	output:
-	tuple path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam"), path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
+	tuple val(sample_name), 
+		path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam"), 
+		path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
 
 	script:
 	"""
-
 	# Check if STAR index exists
 	if [ -f "${params.refGenome}/SAindex" ]
 	then
