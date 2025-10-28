@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     # Isolate and clean pooled samples
     pooled_df = df[df["Pool"].str.contains("Pool")]
-    # Split HTO derived cDNA derived cDNA into 3 columns
+    # Split HTO derived cDNA into 3 columns
     temp_df = pooled_df["HTO derived cDNA"].str.split("/", n=2, expand=True)
     temp_df.columns = [
         "HTO derived cDNA - 1",
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     ]
     pooled_df = pd.concat([pooled_df, temp_df], axis=1)
     pooled_df.drop(columns=["HTO derived cDNA"], inplace=True)
-    # Split mRNA derived cDNA derived cDNA into 3 columns
+    # Split mRNA derived cDNA into 3 columns
     temp_df = pooled_df["mRNA derived cDNA"].str.split("/", n=2, expand=True)
     temp_df.columns = [
         "mRNA derived cDNA - 1",
