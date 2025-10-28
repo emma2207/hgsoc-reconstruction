@@ -18,3 +18,9 @@ if __name__ == "__main__":
         os.system(f"mv {pl_path}/all/{run}_*.fastq.gz {pl_path}/{data_type}/")
 
     os.system(f"rm -r {pl_path}/all")
+
+    # Split SRA Run Table into bulk and single-cell files
+    bulk_df = df[df["LibrarySource"] == "TRANSCRIPTOMIC"]
+    single_cell_df = df[df["LibrarySource"] != "TRANSCRIPTOMIC"]
+    bulk_df.to_csv(pl_path + "/../metadata/sra_run_table_bulk_low_grade_glioma.csv", index=False)
+    single_cell_df.to_csv(pl_path + "/../metadata/sra_run_table_single_cell_low_grade_glioma.csv", index=False)
