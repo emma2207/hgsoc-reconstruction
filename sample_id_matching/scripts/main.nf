@@ -26,35 +26,66 @@ workflow {
         .map { row ->
             def fastqs_r1 = []
             def fastqs_r2 = []
+
             if (row.containsKey('R1_path_run_0')) {
-                fastqs_r1 << file(row.'R1_path_run_0')
+                def r1 = row.'R1_path_run_0'?.toString()?.trim()
+                if (r1) {
+                    fastqs_r1 << file(r1)
+                }
             } 
             if (row.containsKey('R1_path_run_1')) {
-                fastqs_r1 << file(row.'R1_path_run_1')
-            } 
+                def r1 = row.'R1_path_run_1'?.toString()?.trim()
+                if (r1) {
+                    fastqs_r1 << file(r1)
+                }
+            }
             if (row.containsKey('R1_path_run_2')) {
-                fastqs_r1 << file(row.'R1_path_run_2')
-            } 
+                def r1 = row.'R1_path_run_2'?.toString()?.trim()
+                if (r1) {
+                    fastqs_r1 << file(r1)
+                }
+            }
             if (row.containsKey('R1_path_run_3')) {
-                fastqs_r1 << file(row.'R1_path_run_3')
+                def r1 = row.'R1_path_run_3'?.toString()?.trim()
+                if (r1) {
+                    fastqs_r1 << file(r1)
+                }
             }
             if (row.containsKey('R1_path_run_4')) {
-                fastqs_r1 << file(row.'R1_path_run_4')
-            }  
+                def r1 = row.'R1_path_run_4'?.toString()?.trim()
+                if (r1) {
+                    fastqs_r1 << file(r1)
+                }
+            }
             if (row.containsKey('R2_path_run_0')) {
-                fastqs_r2 << file(row.'R2_path_run_0')
+                def r2 = row.'R2_path_run_0'?.toString()?.trim()
+                if (r2) {
+                    fastqs_r2 << file(r2)
+                }
             }
             if (row.containsKey('R2_path_run_1')) {
-                fastqs_r2 << file(row.'R2_path_run_1')
+                def r2 = row.'R2_path_run_1'?.toString()?.trim()
+                if (r2) {
+                    fastqs_r2 << file(r2)
+                }
             }
             if (row.containsKey('R2_path_run_2')) {
-                fastqs_r2 << file(row.'R2_path_run_2')
+                def r2 = row.'R2_path_run_2'?.toString()?.trim()
+                if (r2) {
+                    fastqs_r2 << file(r2)
+                }
             }
             if (row.containsKey('R2_path_run_3')) {
-                fastqs_r2 << file(row.'R2_path_run_3')
+                def r2 = row.'R2_path_run_3'?.toString()?.trim()
+                if (r2) {
+                    fastqs_r2 << file(r2)
+                }
             }
             if (row.containsKey('R2_path_run_4')) {
-                fastqs_r2 << file(row.'R2_path_run_4')
+                def r2 = row.'R2_path_run_4'?.toString()?.trim()
+                if (r2) {
+                    fastqs_r2 << file(r2)
+                }
             }
 
             tuple(row.'Sample Name', fastqs_r1, fastqs_r2)
