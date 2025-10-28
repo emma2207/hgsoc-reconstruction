@@ -22,5 +22,12 @@ if __name__ == "__main__":
     # Split SRA Run Table into bulk and single-cell files
     bulk_df = df[df["LibrarySource"] == "TRANSCRIPTOMIC"]
     single_cell_df = df[df["LibrarySource"] != "TRANSCRIPTOMIC"]
-    bulk_df.to_csv(pl_path + "/../metadata/sra_run_table_bulk_low_grade_glioma.csv", index=False)
-    single_cell_df.to_csv(pl_path + "/../metadata/sra_run_table_single_cell_low_grade_glioma.csv", index=False)
+    bulk_df.to_csv(
+        pl_path + "/../metadata/sra_run_tables/SraRunTable_bulk_low_grade_glioma.csv",
+        index=False,
+    )
+    single_cell_df.to_csv(
+        pl_path
+        + "/../metadata/sra_run_tables/SraRunTable_single-cell_low_grade_glioma.csv",
+        index=False,
+    )

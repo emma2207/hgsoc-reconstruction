@@ -31,6 +31,14 @@ if __name__ == "__main__":
 
     print("Finding sample matches...")
 
+    # Split SRA Run Table into data type specific files
+    for data_type in data_types:
+        data_type_df = df[df["Data Type"] == data_type]
+        data_type_df.to_csv(
+            pl_path + f"/../metadata/sra_run_tables/SraRunTable_{data_type}_hgsoc.csv",
+            index=False,
+        )
+
     # Figure out sample matches
     df = df[df["Data Type"] != "pooled_single_cell"]
     pivot_df = df.pivot(
