@@ -8,17 +8,6 @@ if __name__ == "__main__":
         pl_path + "/../metadata/sra_run_tables/SraRunTable_all_low_grade_glioma.csv"
     )
 
-    df = df[["Run", "LibrarySource"]]
-
-    # Move files to corresponding directories based on the data type
-    for _, row in df.iterrows():
-        run = row["Run"]
-        library_source = row["LibrarySource"]
-        data_type = "bulk" if library_source == "TRANSCRIPTOMIC" else "single-cell"
-        os.system(f"mv {pl_path}/all/{run}_*.fastq.gz {pl_path}/{data_type}/")
-
-    os.system(f"rm -r {pl_path}/all")
-
     # Split SRA Run Table into bulk and single-cell files
     bulk_df = df[df["LibrarySource"] == "TRANSCRIPTOMIC"]
     single_cell_df = df[df["LibrarySource"] != "TRANSCRIPTOMIC"]
@@ -31,3 +20,14 @@ if __name__ == "__main__":
         + "/../metadata/sra_run_tables/SraRunTable_single-cell_low_grade_glioma.csv",
         index=False,
     )
+
+    df = df[["Run", "LibrarySource"]]
+
+    # Move files to corresponding directories based on the data type
+    for _, row in df.iterrows():
+        run = row["Run"]
+        library_source = row["LibrarySource"]
+        data_type = "bulk" if library_source == "TRANSCRIPTOMIC" else "single-cell"
+        os.system(f"mv {pl_path}/all/{run}_*.fastq.gz {pl_path}/{data_type}/")
+
+    os.system(f"rm -r {pl_path}/all")
