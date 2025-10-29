@@ -1,0 +1,17 @@
+name: sample-matching
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.8
+  - bcftools=1.15
+  - samtools=1.15
+  - picard=2.27.4
+  - pandas
+  - numpy
+  - vireosnp
+  - ngscheckmate
+  - pip:
+    - pysam
+    - scikit-learn
