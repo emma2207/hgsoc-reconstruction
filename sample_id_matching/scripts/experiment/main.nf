@@ -15,11 +15,6 @@ include { NGSCHECKMATE } from './modules/ngscheckmate'
 include { CROSSCHECK_FINGERPRINTS } from './modules/fingerprints'
 include { COMPARE_RESULTS } from './modules/compare'
 
-// Parameter definitions
-params.outdir = 'results'
-params.bams = null
-params.genome = null
-
 // Main workflow
 workflow {
     // Input validation
