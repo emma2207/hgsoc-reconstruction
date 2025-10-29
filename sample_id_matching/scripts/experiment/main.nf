@@ -17,18 +17,16 @@ include { COMPARE_RESULTS } from './modules/compare'
 
 // Main workflow
 workflow {
-    // Input validation
-    if (!params.bams) {
-        error "Please provide BAM files using --bams parameter"
-    }
-    if (!params.genome) {
-        error "Please provide a reference genome using --genome parameter"
-    }
-
     // Create channel from BAM files
     bam_files = channel
         .fromPath(params.bams)
-        .map { file -> tuple(file.baseName, file) }
+        // get parent folder name from a Path
+        .map { f ->
+            // safe: get the last element of the parent Path as String
+            def parentName = f.parent ? f.parent.getFileName().toString() : ''
+            tuple(parentName, f)
+        }
+        .view { x -> "Found BAM files: ${x}" }
 
     // 1. Genotype variants and filter in one step
     filtered_vcfs = GENOTYPE_AND_FILTER(bam_files)
