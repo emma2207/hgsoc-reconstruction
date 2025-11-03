@@ -37,32 +37,17 @@ workflow {
     // Process metadata
     fastqs = PROCESS_METADATA(metadata, input_data)
 
-    
-    if (params.dataset == "central_nervous_system_tumor") {
-        sample_ch = fastqs.fastq_dirs_csv
+    // Split the fastqs by R1 and R2 paths for each sample
+    sample_ch = fastqs.fastq_dirs_csv
             .splitCsv(header: true)
             .map { row ->
                 tuple(
                     row.'Sample Name',
                     collectRunsDynamic(row, 'R1_path'),
-                    []  // No R2 paths for single-end data
+                    collectRunsDynamic(row, 'R2_path')
                 )
             }
-            .view { row -> "Sample fastq dirs: ${row}" }
-    } 
-    else {
-        // Split the fastqs by R1 and R2 paths for each sample
-        sample_ch = fastqs.fastq_dirs_csv
-                .splitCsv(header: true)
-                .map { row ->
-                    tuple(
-                        row.'Sample Name',
-                        collectRunsDynamic(row, 'R1_path'),
-                        collectRunsDynamic(row, 'R2_path')
-                    )
-                }
-            .view { row -> "Sample fastq dirs: ${row}" }
-    }
+        .view { row -> "Sample fastq dirs: ${row}" }
 
     // QC
     fastp_out = QC_READS_WITH_FASTP(sample_ch)
