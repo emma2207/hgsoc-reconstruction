@@ -4,7 +4,7 @@ process QC_READS_WITH_FASTP {
 
       publishDir 'results/', mode: 'copy'
       
-      errorStrategy 'finish'
+      errorStrategy 'ignore'
 
       input:
       tuple val(sample_name), path(R1_paths), path(R2_paths)

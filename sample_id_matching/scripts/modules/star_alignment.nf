@@ -6,7 +6,7 @@ process ALIGNMENT_WITH_STAR {
 
 	publishDir 'results/', mode: 'copy'
 
-	errorStrategy 'finish'
+	errorStrategy 'ignore'
 
 	input:
 	tuple val(sample_name), path(fastq_r1), path(fastq_r2)
