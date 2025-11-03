@@ -6,6 +6,8 @@ process ALIGNMENT_WITH_STAR {
 
 	publishDir 'results/', mode: 'copy'
 
+	errorStrategy 'finish'
+
 	input:
 	tuple val(sample_name), path(fastq_r1), path(fastq_r2)
 
@@ -44,9 +46,9 @@ process ALIGNMENT_WITH_STAR {
 		--soloCBwhitelist None \
 		--soloCBstart 1 \
 		--soloCBlen 16 \
-        --soloUMIstart 17 \
+		--soloUMIstart 17 \
 		--soloUMIlen 12 \
-        --soloBarcodeReadLength 0 \
+		--soloBarcodeReadLength 0 \
 		--outSAMattributes NH HI AS nM CB UB \
 		--genomeDir ${params.refGenome} \
 		--runThreadN 6 \

@@ -11,6 +11,24 @@ include { QC_READS_WITH_FASTP } from './modules/fastp.nf'
 include { ALIGNMENT_WITH_STAR } from './modules/star_alignment.nf'
 include { CREATE_PSEUDOBULKS } from './modules/make_pseudobulks.nf'
 
+params.debug = params.get('debug', false)
+
+// Helper to collect R1/R2 files for any matching run columns,
+// preserving numeric order of run indices.
+def collectRunsDynamic(row, prefix) {
+    // collect keys and build a plain-string regex (no slashy regex interpolation)
+    def keys   = row.keySet().toList()
+    def regex  = "${prefix}_run_\\d+"        // note: double-escape for \d inside a GString
+    def matched = keys.findAll { k -> k ==~ regex }
+    def sorted = matched.sort { a, b ->
+        (a =~ /\d+$/)[0].toInteger() <=> (b =~ /\d+$/)[0].toInteger()
+    }
+    def values = sorted.collect { k -> row[k]?.toString()?.trim() }.findAll { it }
+    def files = values.collect { file(it) }
+
+    return files
+}
+
 workflow {
     // Input metadata & fastqs
     metadata = channel.fromPath("${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${params.datatype}_${params.dataset}.csv")
@@ -18,79 +36,33 @@ workflow {
 
     // Process metadata
     fastqs = PROCESS_METADATA(metadata, input_data)
-    // fastqs.fastq_dirs_csv.view { x -> "Test channel: ${x}" }
 
-    // Split the fastqs by R1 and R2 paths for each sample
-    sample_ch = fastqs.fastq_dirs_csv
-        .splitCsv( header: true )
-        .map { row ->
-            def fastqs_r1 = []
-            def fastqs_r2 = []
-
-            if (row.containsKey('R1_path_run_0')) {
-                def r1 = row.'R1_path_run_0'?.toString()?.trim()
-                if (r1) {
-                    fastqs_r1 << file(r1)
-                }
-            } 
-            if (row.containsKey('R1_path_run_1')) {
-                def r1 = row.'R1_path_run_1'?.toString()?.trim()
-                if (r1) {
-                    fastqs_r1 << file(r1)
-                }
+    
+    if (params.dataset == "central_nervous_system_tumor") {
+        sample_ch = fastqs.fastq_dirs_csv
+            .splitCsv(header: true)
+            .map { row ->
+                tuple(
+                    row.'Sample Name',
+                    collectRunsDynamic(row, 'R1_path'),
+                    []  // No R2 paths for single-end data
+                )
             }
-            if (row.containsKey('R1_path_run_2')) {
-                def r1 = row.'R1_path_run_2'?.toString()?.trim()
-                if (r1) {
-                    fastqs_r1 << file(r1)
+            .view { row -> "Sample fastq dirs: ${row}" }
+    } 
+    else {
+        // Split the fastqs by R1 and R2 paths for each sample
+        sample_ch = fastqs.fastq_dirs_csv
+                .splitCsv(header: true)
+                .map { row ->
+                    tuple(
+                        row.'Sample Name',
+                        collectRunsDynamic(row, 'R1_path'),
+                        collectRunsDynamic(row, 'R2_path')
+                    )
                 }
-            }
-            if (row.containsKey('R1_path_run_3')) {
-                def r1 = row.'R1_path_run_3'?.toString()?.trim()
-                if (r1) {
-                    fastqs_r1 << file(r1)
-                }
-            }
-            if (row.containsKey('R1_path_run_4')) {
-                def r1 = row.'R1_path_run_4'?.toString()?.trim()
-                if (r1) {
-                    fastqs_r1 << file(r1)
-                }
-            }
-            if (row.containsKey('R2_path_run_0')) {
-                def r2 = row.'R2_path_run_0'?.toString()?.trim()
-                if (r2) {
-                    fastqs_r2 << file(r2)
-                }
-            }
-            if (row.containsKey('R2_path_run_1')) {
-                def r2 = row.'R2_path_run_1'?.toString()?.trim()
-                if (r2) {
-                    fastqs_r2 << file(r2)
-                }
-            }
-            if (row.containsKey('R2_path_run_2')) {
-                def r2 = row.'R2_path_run_2'?.toString()?.trim()
-                if (r2) {
-                    fastqs_r2 << file(r2)
-                }
-            }
-            if (row.containsKey('R2_path_run_3')) {
-                def r2 = row.'R2_path_run_3'?.toString()?.trim()
-                if (r2) {
-                    fastqs_r2 << file(r2)
-                }
-            }
-            if (row.containsKey('R2_path_run_4')) {
-                def r2 = row.'R2_path_run_4'?.toString()?.trim()
-                if (r2) {
-                    fastqs_r2 << file(r2)
-                }
-            }
-
-            tuple(row.'Sample Name', fastqs_r1, fastqs_r2)
-        }
-        .view { row -> "Sample fastq dirs: ${row}" }
+            .view { row -> "Sample fastq dirs: ${row}" }
+    }
 
     // QC
     fastp_out = QC_READS_WITH_FASTP(sample_ch)

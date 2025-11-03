@@ -27,14 +27,6 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
-    parser.add_argument(
-        "-f",
-        "--fastq_path",
-        dest="fastq_dir",
-        help="fastq data path",
-        required=True,
-        type=str,
-    )
 
     args = parser.parse_args()
 
