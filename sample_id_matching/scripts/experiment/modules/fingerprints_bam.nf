@@ -1,12 +1,12 @@
-process CROSSCHECK_FINGERPRINTS {
+process CROSSCHECK_FINGERPRINTS_BAM {
     tag "${sample_id}"
     
     publishDir "${params.outdir}/fingerprints", mode: 'copy'
     
     input:
-        tuple val(sample_id), path(vcf)
+        tuple val(sample_id), path(bam)
         path haplotype_map
-        val crosscheck_by // SAMPLE or FILE for VCF
+        val crosscheck_by // SAMPLE, LIBRARY, FILE
     
     output:
         tuple val(sample_id), path("${sample_id}.crosscheck_metrics.txt"), emit: metrics
@@ -17,11 +17,11 @@ process CROSSCHECK_FINGERPRINTS {
         set -euo pipefail
         
         # Create input list file
-        echo "${vcf}" > vcf_list.txt
+        echo "${bam}" > bam_list.txt
         
         # Run Picard CrosscheckFingerprints
         picard ${memory} CrosscheckFingerprints \\
-            INPUT=vcf_list.txt \\
+            INPUT=bam_list.txt \\
             HAPLOTYPE_MAP=${haplotype_map} \\
             OUTPUT=${sample_id}.crosscheck_metrics.txt \\
             CROSSCHECK_BY=${crosscheck_by} \\

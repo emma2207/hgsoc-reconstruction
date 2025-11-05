@@ -13,7 +13,11 @@ include { GENOTYPE_AND_FILTER } from './modules/genotype'
 include { VIREO_MATCH } from './modules/vireo'
 include { NGSCHECKMATE } from './modules/ngscheckmate'
 include { CROSSCHECK_FINGERPRINTS } from './modules/fingerprints'
-include { COMPARE_RESULTS } from './modules/compare'
+include { HYSYS } from './modules/hysys'
+include { FILTER_BAM } from './modules/filter_bam'
+include { BAMIXCHECKER } from './modules/bamixchecker'
+include { NGSCHECKMATE_BAM } from './modules/ngscheckmate_bam'
+include { CROSSCHECK_FINGERPRINTS_BAM } from './modules/fingerprints_bam'
 
 // Main workflow
 workflow {
@@ -28,18 +32,20 @@ workflow {
         }
         .view { x -> "Found BAM files: ${x}" }
 
-    // 1. Genotype variants and filter in one step
+    // 1a. Genotype variants and filter in one step
     filtered_vcfs = GENOTYPE_AND_FILTER(bam_files)
 
-    // 2. Run similarity analysis tools in parallel
-    vireo_results = VIREO_MATCH(filtered_vcfs)
-    ngscheckmate_results = NGSCHECKMATE(filtered_vcfs)
-    fingerprint_results = CROSSCHECK_FINGERPRINTS(filtered_vcfs)
+    // 1b. Filter aligned reads
+    filtered_bams = FILTER_BAM(bam_files)
 
-    // 4. Compare results from different tools
-    COMPARE_RESULTS(
-        vireo_results,
-        ngscheckmate_results,
-        fingerprint_results
-    )
+    // 2a. Run similarity analysis tools in parallel on filtered VCFs
+    VIREO_MATCH(filtered_vcfs)
+    NGSCHECKMATE(filtered_vcfs)
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs)
+    HYSYS(filtered_vcfs)
+
+    // 2b. Run similarity analysis tools in parallel on filtered BAMs
+    BAMIXCHECKER(filtered_bams)
+    NGSCHECKMATE_BAM(filtered_bams)
+    CROSSCHECK_FINGERPRINTS_BAM(filtered_bams)
 }
