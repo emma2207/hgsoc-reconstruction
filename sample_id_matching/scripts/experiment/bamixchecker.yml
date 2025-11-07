@@ -1,0 +1,17 @@
+name: bamixchecker
+
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=2.7
+  - scipy<=0.16
+  - numpy
+  - gatk
+  - bedtools
+  - r-base
+  - r-ztable
+  - r-rmarkdown
+  - r-corrplot
+

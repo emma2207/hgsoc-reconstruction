@@ -11,7 +11,9 @@ dependencies:
   - pandas
   - numpy
   - vireosnp
-  - ngscheckmate
+  - pip
+  - gatk
+  - bedtools
   - pip:
     - pysam
     - scikit-learn

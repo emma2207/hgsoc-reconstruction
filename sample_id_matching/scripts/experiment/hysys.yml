@@ -1,0 +1,12 @@
+name: HYSYS
+
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=2.7
+  - numpy
+  - scipy
+  - scikit-learn
+  - r-base
+  - r-ggplot2
