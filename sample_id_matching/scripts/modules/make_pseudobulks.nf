@@ -7,9 +7,11 @@ process CREATE_PSEUDOBULKS {
     publishDir 'results/', mode: 'copy'
 
     input:
-    tuple val(sample_name), path(bam), path(bai)
-    val(n_barcodes)
-    val(n_pseudobulks)
+    tuple val(sample_name), 
+        path(bam), 
+        path(bai),
+        val(n_barcodes),
+        val(n_pseudobulks)
 
     output:
     path("subset-bam/${params.dataset}/${sample_name}/pseudobulk_*.bam")

@@ -6,15 +6,18 @@ process ALIGNMENT_WITH_STAR {
 
 	publishDir 'results/', mode: 'copy'
 
+	errorStrategy 'ignore'
+
 	input:
 	tuple val(sample_name), path(fastq_r1), path(fastq_r2)
 
 	output:
-	tuple path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam"), path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
+	tuple val(sample_name), 
+		path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam"), 
+		path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
 
 	script:
 	"""
-
 	# Check if STAR index exists
 	if [ -f "${params.refGenome}/SAindex" ]
 	then
@@ -43,9 +46,9 @@ process ALIGNMENT_WITH_STAR {
 		--soloCBwhitelist None \
 		--soloCBstart 1 \
 		--soloCBlen 16 \
-        --soloUMIstart 17 \
+		--soloUMIstart 17 \
 		--soloUMIlen 12 \
-        --soloBarcodeReadLength 0 \
+		--soloBarcodeReadLength 0 \
 		--outSAMattributes NH HI AS nM CB UB \
 		--genomeDir ${params.refGenome} \
 		--runThreadN 6 \
