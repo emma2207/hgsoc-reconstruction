@@ -3,7 +3,7 @@
 #SBATCH --account=amc-general
 #SBATCH --output=sim_nf_%J.log
 #SBATCH --error=sim_nf_%J.err
-#SBATCH --time=01:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --partition=amilan
 #SBATCH --qos=normal
 #SBATCH --mem=4G

@@ -4,8 +4,8 @@
 #SBATCH --qos=long
 #SBATCH --partition=amilan
 #SBATCH --mem=4G
-#SBATCH --time=3-00:00:00
-#SBATCH --ntasks=6
+#SBATCH --time=1-00:00:00
+#SBATCH --ntasks=1
 #SBATCH --account=amc-general
 #SBATCH --job-name=sra-toolkit
 #SBATCH --output=download_data_%J.log
@@ -34,12 +34,12 @@ fi
 
 # Use .txt file of accession numbers to prefetch .sra files
 prefetch \
-   --option-file "../data/accession_lists/SRR_Acc_List_${data_type}_${dataset}.txt" \
+   --option-file "${final_fastq_location}/../../accession_lists/SRR_Acc_List_${data_type}_${dataset}.txt" \
    --output-directory "${download_location}" \
    --ngc ${ngc}
 
 # Download .fastq files from .sra files using fasterq-dump
-for accession in $(cat "../data/accession_lists/SRR_Acc_List_${data_type}_${dataset}.txt")
+for accession in $(cat "${final_fastq_location}/../../accession_lists/SRR_Acc_List_${data_type}_${dataset}.txt")
 do
     if [ ! -f "${final_fastq_location}/${accession}_*.fastq.gz" ]
     then 

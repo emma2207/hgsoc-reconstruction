@@ -16,7 +16,6 @@ process PROCESS_METADATA {
       python ${params.projectDir}/process_metadata.py \
             -d ${params.dataset} \
             -t ${params.datatype} \
-            -m $metadata \
-            -f $fastq_dir
+            -m $metadata
       """
 }
