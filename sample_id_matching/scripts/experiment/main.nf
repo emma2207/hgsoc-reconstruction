@@ -16,8 +16,6 @@ include { CROSSCHECK_FINGERPRINTS } from './modules/fingerprints'
 include { HYSYS } from './modules/hysys'
 include { FILTER_BAM } from './modules/filter_bam'
 include { BAMIXCHECKER } from './modules/bamixchecker'
-include { NGSCHECKMATE_BAM } from './modules/ngscheckmate_bam'
-include { CROSSCHECK_FINGERPRINTS_BAM } from './modules/fingerprints_bam'
 
 // Main workflow
 workflow {
@@ -46,6 +44,4 @@ workflow {
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     BAMIXCHECKER(filtered_bams)
-    NGSCHECKMATE_BAM(filtered_bams)
-    CROSSCHECK_FINGERPRINTS_BAM(filtered_bams)
 }
