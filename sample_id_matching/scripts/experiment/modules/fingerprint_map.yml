@@ -1,0 +1,10 @@
+name: fingerprint_map
+
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=2.7
+  - plink2
+  - pyvcf
+  - ldsc

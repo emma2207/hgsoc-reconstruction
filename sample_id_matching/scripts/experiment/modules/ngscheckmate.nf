@@ -1,40 +1,31 @@
+#!/usr/bin/env nextflow
+
 process NGSCHECKMATE {
-    tag "${sample_id}"
-    
+    tag "ngscheckmate"
+    conda "${params.conda}/ngscheckmate"
     publishDir "${params.outdir}/ngscheckmate", mode: 'copy'
+    errorStrategy 'ignore'
     
     input:
-        tuple val(sample_id), path(vcf)
-        path snp_bed
+        path(vcf_path)
     
     output:
-        tuple val(sample_id), path("output_corr_matrix.txt"), path("output_all_results.txt"), emit: results
-        path "r_script.r.Rout"
-        path "plots/*"
+        tuple path("${params.dataset}_all.txt"), 
+            path("${params.dataset}_matched.txt"), 
+            path("${params.dataset}_output_corr_matrix.txt"), emit: results
     
     script:
         """
         set -euo pipefail
-        
-        # Create vcf list file
-        echo "${vcf}" > vcf_list.txt
-        
-        # Create output directory
-        mkdir -p plots
+
+        echo \$(ls $vcf_path)
         
         # Run NGSCheckMate in VCF mode
-        python ${params.NGS_CHECKMATE_HOME}/ncm.py \\
+        python ${params.NGS_CHECKMATE}/ncm.py \\
             -V \\
-            -l vcf_list.txt \\
-            -bed ${snp_bed} \\
+            -d ${vcf_path} \\
+            -bed ${params.NGS_CHECKMATE}/SNP/SNP_GRCh38_hg38_wChr.bed \\
             -O . \\
-            -N ${sample_id} \\
-            -f
-        
-        # Rename outputs to standardized names
-        [ -f "${sample_id}_corr_matrix.txt" ] && mv "${sample_id}_corr_matrix.txt" output_corr_matrix.txt
-        [ -f "${sample_id}_all_results.txt" ] && mv "${sample_id}_all_results.txt" output_all_results.txt
-        [ -f "r_script.r.pdf" ] && mv r_script.r.pdf plots/sample_clustering.pdf
-        [ -f "${sample_id}.matched.result.txt" ] && mv "${sample_id}.matched.result.txt" plots/matched_samples.txt
+            -N ${params.dataset}
         """
 }

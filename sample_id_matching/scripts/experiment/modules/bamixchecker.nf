@@ -1,41 +1,40 @@
-nextflow.enable.dsl = 2
+#!/usr/bin/env nextflow
 
 process BAMIXCHECKER {
     tag "${sample_id}"
+    conda "${params.conda}/bamixchecker"
     publishDir "${params.outdir}/bamixchecker", mode: 'copy'
+    // errorStrategy 'ignore'
     
     input:
-      tuple val(sample_id), path(bam)
-      path(ref)  // Reference genome fasta
-      val(ref_ver) // Reference version (hg19 or hg38)
-      path(bed) // Optional targeted regions BED file
+        path(bam)
     
     output:
-      path("BAMixChecker/BAMixChecker_report.html"), emit: report
-      path("BAMixChecker/BAMixChecker_heatmap.pdf"), emit: heatmap
-      path("BAMixChecker/Total_result.txt"), emit: results
-      path("BAMixChecker/Matched_samples.txt"), optional: true
-      path("BAMixChecker/Mismatched_samples.txt"), optional: true
+        path("BAMixChecker_report.html")
+        path("BAMixChecker_heatmap.pdf")
+        path("Total_result.txt")
+        path("Matched_samples.txt"), optional: true
+        path("Mismatched_samples.txt"), optional: true
 
     script:
-      def bed_arg = bed ? "--BEDfile ${bed}" : ""
-      """
-      set -euo pipefail
+        """
+        set -euo pipefail
 
-      # Create config file for BAMixChecker
-      echo "GATK=gatk" > BAMixChecker.config
-      echo "BEDTOOLS=bedtools" >> BAMixChecker.config
+        # Create config file for BAMixChecker
+        echo "GATK=${params.conda}/bamixchecker/bin/gatk" > BAMixChecker.config
+        echo "BEDTOOLS=${params.conda}/bamixchecker/bin/bedtools" >> BAMixChecker.config
 
-      # Create input file list
-      echo "${bam}" > bam_list.txt
+        # Create input file list
+        for file in ${bam}
+        do
+            echo "\$file" >> bam_list.txt
+        done
 
-      # Run BAMixChecker
-      python /path/to/BAMixChecker/BAMixChecker.py \\
-        -l bam_list.txt \\
-        -r ${ref} \\
-        -v ${ref_ver} \\
-        ${bed_arg} \\
-        -o . \\
-        -p 4
-      """
+        # Run BAMixChecker
+        python ${params.BAMIXCHECKER}/BAMixChecker.py \\
+          -l bam_list.txt \\
+          -r ${params.refGenome}/fasta/genome.fa \\
+          -o . \\
+          -p 4
+        """
 }

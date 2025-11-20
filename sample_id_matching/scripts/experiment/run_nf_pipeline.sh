@@ -3,7 +3,7 @@
 #SBATCH --account=amc-general
 #SBATCH --output=experiment_nf_%J.log
 #SBATCH --error=experiment_nf_%J.err
-#SBATCH --time=1-00:00:00
+#SBATCH --time=01:00:00
 #SBATCH --partition=amilan
 #SBATCH --qos=normal
 #SBATCH --mem=4G
@@ -45,24 +45,11 @@ if [ "${RUN_MODE}" == "HPC" ]; then
 fi
 
 # --------------------------------------------------
-# 1) Load miniforge, activate Conda environment
+# 1) Ensure that Nextflow is installed
 # --------------------------------------------------
 module load miniforge
+module load nextflow
 
-ENV_YML="${PRJ_DIR}/environment.yml"
-
-# create the env once; reuse afterwards
- if ! conda env list | grep -q '^environment '; then
-    echo "••• Creating Conda environment from ${ENV_YML}"
-    conda env create -f "${ENV_YML}"
- fi
-
-echo "••• Activating Conda environment"
-conda activate environment
-
-# --------------------------------------------------
-# 2) Ensure that Nextflow is installed
-# --------------------------------------------------
 if ! command -v nextflow &> /dev/null
 then
     echo "Error: Nextflow is not installed or not found in your PATH."
@@ -73,7 +60,7 @@ then
 fi
 
 # --------------------------------------------------
-# 3) Run the pipeline
+# 2) Run the pipeline
 # --------------------------------------------------
 echo "••• Launching Nextflow"
 

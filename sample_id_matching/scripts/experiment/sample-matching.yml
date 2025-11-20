@@ -4,16 +4,10 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - nextflow
   - python=3.8
   - bcftools=1.15
   - samtools=1.15
-  - picard=2.27.4
   - pandas
   - numpy
   - vireosnp
-  - pip
-  - gatk
-  - bedtools
-  - pip:
-    - pysam
-    - scikit-learn

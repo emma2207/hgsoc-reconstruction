@@ -1,5 +1,4 @@
 name: ngscheckmate
-
 channels:
   - conda-forge
   - bioconda
@@ -7,4 +6,4 @@ dependencies:
   - python
   - samtools
   - bcftools
-  - ngscheckmate
+  - bioconda::ngscheckmate

@@ -1,4 +1,4 @@
-name: CrossCheckFingerprints
+name: crosscheckfingerprints
 
 channels:
   - conda-forge

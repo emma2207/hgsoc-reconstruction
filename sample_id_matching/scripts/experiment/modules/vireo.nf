@@ -1,18 +1,23 @@
 #!/usr/bin/env nextflow
 
 process VIREO_MATCH {
-    tag "vireo_matching"
+    tag "vireo"
+    conda "${params.conda}/sample-matching"
     publishDir "${params.outdir}/vireo", mode: 'copy'
+    errorStrategy 'ignore'
     
     input:
-    tuple val(sample_id), path(vcf_file)
+    path(vcf_file)
     
     output:
-    path("vireo_results.txt"), emit: vireo_results
+    tuple path("${params.dataset}/similarity_matrix.csv"), 
+        path("${params.dataset}/matched_samples.csv")
     
     script:
     """
-    # Use the match_sample_id function from match_sample_ids.py
-    python match_sample_ids.py -v ${vcf_file}
+    output_location="${params.dataset}"
+    mkdir -p \$output_location
+
+    python ${params.projectDir}/modules/vireo.py -v ${vcf_file} -d ${params.dataset}
     """
 }
