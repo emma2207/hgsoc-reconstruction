@@ -10,13 +10,16 @@ process NGSCHECKMATE {
         path(vcf_path)
     
     output:
-        tuple path("${params.dataset}_all.txt"), 
-            path("${params.dataset}_matched.txt"), 
-            path("${params.dataset}_output_corr_matrix.txt"), emit: results
+        path("${params.dataset}/output_all.txt")
+        path("${params.dataset}/output_matched.txt")
+        path("${params.dataset}/output_corr_matrix.txt")
     
     script:
         """
         set -euo pipefail
+
+        output_location="${params.dataset}"
+        mkdir -p \$output_location
 
         echo \$(ls $vcf_path)
         
@@ -25,7 +28,6 @@ process NGSCHECKMATE {
             -V \\
             -d ${vcf_path} \\
             -bed ${params.NGS_CHECKMATE}/SNP/SNP_GRCh38_hg38_wChr.bed \\
-            -O . \\
-            -N ${params.dataset}
+            -O \${output_location} 
         """
 }

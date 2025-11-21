@@ -2,7 +2,7 @@
 
 process CROSSCHECK_FINGERPRINTS {
     tag "crosscheck fingerprints"
-    conda "${params.conda}/picard"
+    conda "${params.conda}/fingerprints"
     publishDir "${params.outdir}/fingerprints", mode: 'copy'
     errorStrategy 'ignore'
     
@@ -10,14 +10,17 @@ process CROSSCHECK_FINGERPRINTS {
         path(vcf)
     
     output:
-        path("vcf_list.txt")
-        path("crosscheck_metrics.txt"), emit: metrics
+        path("${params.dataset}/vcf_list.txt")
+        path("${params.dataset}/crosscheck_metrics.txt")
     
     script:
         """
         set -euo pipefail
 
-        # Sort vcf files numerically
+        output_location="${params.dataset}"
+        mkdir -p \$output_location
+
+        # Sort variants in vcf files numerically
         for vcf_file in ${vcf}
         do
             # extract header and isolate ##contig lines
@@ -65,14 +68,14 @@ process CROSSCHECK_FINGERPRINTS {
             bcftools reheader -h new_header.txt \$vcf_file > \$rehead_name
             bcftools sort \$rehead_name > \$sort_name
 
-            echo "\$sort_name\n" >> vcf_list.txt
+            echo "\$sort_name\n" >> \${output_location}/vcf_list.txt
         done
         
         # Run Picard CrosscheckFingerprints
         ${params.conda}/picard/bin/picard CrosscheckFingerprints \\
-            INPUT=vcf_list.txt \\
+            INPUT=\${output_location}/vcf_list.txt \\
             HAPLOTYPE_MAP=${params.projectDir}/modules/hg38_chr.map \\
-            OUTPUT=crosscheck_metrics.txt \\
+            OUTPUT=\${output_location}/crosscheck_metrics.txt \\
             CROSSCHECK_BY=FILE \\
             NUM_THREADS=4 \\
             VALIDATION_STRINGENCY=LENIENT \\

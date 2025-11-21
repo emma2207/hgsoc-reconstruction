@@ -9,15 +9,14 @@
 nextflow.enable.dsl = 2
 
 // Import processes
-include { PREPARE_INPUTS } from './modules/prepare_inputs'
-include { GENOTYPE_AND_FILTER } from './modules/genotype'
-include { VIREO_MATCH } from './modules/vireo'
-include { NGSCHECKMATE } from './modules/ngscheckmate'
-include { CREATE_FINGERPRINT_MAP } from './modules/fingerprint_map'
-include { CROSSCHECK_FINGERPRINTS } from './modules/fingerprints'
-include { HYSYS } from './modules/hysys'
-include { FILTER_BAM } from './modules/filter_bam'
-include { BAMIXCHECKER } from './modules/bamixchecker'
+include { PREPARE_INPUTS } from './modules/0_prepare_inputs'
+include { GENOTYPE_AND_FILTER } from './modules/1a_genotype'
+include { FILTER_BAM } from './modules/1b_filter_bam'
+include { CROSSCHECK_FINGERPRINTS } from './modules/2a_fingerprints'
+include { HYSYS } from './modules/2a_hysys'
+include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
+include { VIREO_MATCH } from './modules/2a_vireo'
+include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 
 // Main workflow
 workflow {
@@ -40,9 +39,6 @@ workflow {
     filtered_vcfs = GENOTYPE_AND_FILTER(prepped_bam_files)
     filtered_vcfs.combined_vcf.view { x -> "Filtered VCFs: ${x}" }
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
-    unique_vcf_paths = filtered_vcfs.individual_vcfs.collect().map { files -> 
-        files.collect { it.parent }.unique() 
-    }.flatten().view{ x -> "Folder: ${x}" }
 
     // 1b. Filter aligned reads
     filtered_bams = FILTER_BAM(bam_files)
@@ -50,10 +46,12 @@ workflow {
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
     VIREO_MATCH(filtered_vcfs.combined_vcf)
+
+    unique_vcf_paths = filtered_vcfs.individual_vcfs.collect().map { files -> 
+        files.collect { it.parent }.unique() 
+    }.flatten().view{ x -> "Folder: ${x}" }
     NGSCHECKMATE(unique_vcf_paths)
 
-    // map_file = channel.fromPath("/projects/${USER}/software/fingerprint_maps/map_files/hg38_chr.map")
-    // map = CREATE_FINGERPRINT_MAP(map_file)
     CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
     HYSYS(filtered_vcfs.individual_vcfs)
 

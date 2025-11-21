@@ -9,6 +9,7 @@ dependencies:
   - numpy
   - gatk4
   - bedtools
+  - picard
   - r-base
   - r-ztable
   - r-rmarkdown
