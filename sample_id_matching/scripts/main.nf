@@ -59,12 +59,14 @@ workflow {
     // Create pseudobulks
     if (params.datatype == 'single-cell' || params.datatype == 'single-nucleus') {
         println "Creating pseudobulks for datatype: ${params.datatype}"
+        
+        n_barcodes = channel.of(params.n_barcodes)
+        n_pseudobulks = channel.of(params.n_pseudobulks)
+        pseudobulk_input = bam.aligned_reads.combine(n_barcodes).combine(n_pseudobulks)
+        CREATE_PSEUDOBULKS(pseudobulk_input)
     } else {
         println "Skipping pseudobulk creation for datatype: ${params.datatype}"
         return
     }
-    n_barcodes = channel.of(params.n_barcodes)
-    n_pseudobulks = channel.of(params.n_pseudobulks)
-    pseudobulk_input = bam.aligned_reads.combine(n_barcodes).combine(n_pseudobulks)
-    CREATE_PSEUDOBULKS(pseudobulk_input)
+    
 }
