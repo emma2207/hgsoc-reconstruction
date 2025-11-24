@@ -1,3 +1,5 @@
+#!/usr/bin/env nextflow
+
 process PROCESS_METADATA {
 
       label 'process_metadata'
@@ -9,7 +11,7 @@ process PROCESS_METADATA {
       path(fastq_dir)
 
       output:
-      path("run_name_mapping/run_name_mapping_${params.datatype}_${params.dataset}.csv"), emit: fastq_dirs_csv
+      path("run_name_mapping/run_name_mapping_${params.datatype}_${params.dataset}.csv")
 
       script:
       """
