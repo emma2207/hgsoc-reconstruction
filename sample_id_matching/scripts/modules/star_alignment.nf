@@ -71,8 +71,6 @@ process ALIGNMENT_WITH_STAR {
 			--outFileNamePrefix "\${output_location}/" \
 			--quantMode GeneCounts
 	fi
-	
-
 	echo "Start indexing..."
 
 	samtools index \${output_location}/Aligned.sortedByCoord.out.bam
