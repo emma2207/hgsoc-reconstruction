@@ -14,7 +14,8 @@ process ALIGNMENT_WITH_STAR {
 	output:
 	tuple val(sample_name), 
 		path("star/${params.dataset}/${params.datatype}/${sample_name}/Aligned.sortedByCoord.out.bam"), 
-		path("star/${params.dataset}/${params.datatype}/${sample_name}/Aligned.sortedByCoord.out.bam.bai")
+		path("star/${params.dataset}/${params.datatype}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
+	path("star/${params.dataset}/${params.datatype}/${sample_name}/ReadsPerGene.out.tab")
 
 	script:
 	"""

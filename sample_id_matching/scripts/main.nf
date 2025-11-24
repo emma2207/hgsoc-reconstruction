@@ -54,7 +54,7 @@ workflow {
     
     // Align fastqs
     bam = ALIGNMENT_WITH_STAR(fastp_out.merged_fastqs)
-    bam.view { x -> "Aligned Reads: ${x}" }
+    bam.aligned_reads.view { x -> "Aligned Reads: ${x}" }
 
     // Create pseudobulks
     if (params.datatype == 'single-cell' || params.datatype == 'single-nucleus') {
@@ -65,6 +65,6 @@ workflow {
     }
     n_barcodes = channel.of(params.n_barcodes)
     n_pseudobulks = channel.of(params.n_pseudobulks)
-    pseudobulk_input = bam.combine(n_barcodes).combine(n_pseudobulks)
+    pseudobulk_input = bam.aligned_reads.combine(n_barcodes).combine(n_pseudobulks)
     CREATE_PSEUDOBULKS(pseudobulk_input)
 }

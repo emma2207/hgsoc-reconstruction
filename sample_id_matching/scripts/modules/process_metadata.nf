@@ -4,7 +4,7 @@ process PROCESS_METADATA {
 
       label 'process_metadata'
 
-      publishDir 'results/'
+      publishDir 'results/', mode: 'copy'
 
       input:
       path(metadata)
