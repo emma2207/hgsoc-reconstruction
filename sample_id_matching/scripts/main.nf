@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 /*
- * main.nf — run simulated data pipeline
+ * main.nf — run pseudobulking or bulk preprocessing
  */
 
 nextflow.enable.dsl = 2
@@ -38,8 +38,7 @@ workflow {
     fastqs = PROCESS_METADATA(metadata, input_data)
 
     // Split the fastqs by R1 and R2 paths for each sample
-    sample_ch = fastqs.fastq_dirs_csv
-            .splitCsv(header: true)
+    sample_ch = fastqs.splitCsv(header: true)
             .map { row ->
                 tuple(
                     row.'Sample Name',
@@ -58,8 +57,16 @@ workflow {
     bam.aligned_reads.view { x -> "Aligned Reads: ${x}" }
 
     // Create pseudobulks
-    n_barcodes = channel.of(params.n_barcodes)
-    n_pseudobulks = channel.of(params.n_pseudobulks)
-    pseudobulk_input = bam.aligned_reads.combine(n_barcodes).combine(n_pseudobulks)
-    CREATE_PSEUDOBULKS(pseudobulk_input)
+    if (params.datatype == 'single-cell' || params.datatype == 'single-nucleus') {
+        println "Creating pseudobulks for datatype: ${params.datatype}"
+        
+        n_barcodes = channel.of(params.n_barcodes)
+        n_pseudobulks = channel.of(params.n_pseudobulks)
+        pseudobulk_input = bam.aligned_reads.combine(n_barcodes).combine(n_pseudobulks)
+        CREATE_PSEUDOBULKS(pseudobulk_input)
+    } else {
+        println "Skipping pseudobulk creation for datatype: ${params.datatype}"
+        return
+    }
+    
 }

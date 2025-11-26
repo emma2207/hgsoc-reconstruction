@@ -13,8 +13,9 @@ process ALIGNMENT_WITH_STAR {
 
 	output:
 	tuple val(sample_name), 
-		path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam"), 
-		path("star/${params.dataset}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
+		path("star/${params.dataset}/${params.datatype}/${sample_name}/Aligned.sortedByCoord.out.bam"), 
+		path("star/${params.dataset}/${params.datatype}/${sample_name}/Aligned.sortedByCoord.out.bam.bai"), emit: aligned_reads
+	path("star/${params.dataset}/${params.datatype}/${sample_name}/ReadsPerGene.out.tab")
 
 	script:
 	"""
@@ -32,7 +33,7 @@ process ALIGNMENT_WITH_STAR {
 	fi
 
 	# Create output directory
-	output_location="star/${params.dataset}/${sample_name}"
+	output_location="star/${params.dataset}/${params.datatype}/${sample_name}"
 	mkdir -p \$output_location
 
 	echo "FASTQ R1: $fastq_r1"
@@ -40,23 +41,36 @@ process ALIGNMENT_WITH_STAR {
 	echo "Reference Genome: ${params.refGenome}"
 
 	# Run STAR alignment
-	STAR \
-		--outSAMtype BAM SortedByCoordinate \
-		--soloType CB_UMI_Simple \
-		--soloCBwhitelist None \
-		--soloCBstart 1 \
-		--soloCBlen 16 \
-		--soloUMIstart 17 \
-		--soloUMIlen 12 \
-		--soloBarcodeReadLength 0 \
-		--outSAMattributes NH HI AS nM CB UB \
-		--genomeDir ${params.refGenome} \
-		--runThreadN 6 \
-		--readFilesIn $fastq_r1 $fastq_r2 \
-		--quantMode GeneCounts \
-		--readFilesCommand gunzip -c \
-		--outFileNamePrefix "\${output_location}/"
+	if [ "${params.datatype}" == "single-cell" ] || [ "${params.datatype}" == "single-nucleus" ]; then
+		echo "Running STAR in single-cell mode..."
 
+		STAR \
+			--outSAMtype BAM SortedByCoordinate \
+			--soloType CB_UMI_Simple \
+			--soloCBwhitelist None \
+			--soloCBstart 1 \
+			--soloCBlen 16 \
+			--soloUMIstart 17 \
+			--soloUMIlen 12 \
+			--soloBarcodeReadLength 0 \
+			--outSAMattributes NH HI AS nM CB UB \
+			--genomeDir ${params.refGenome} \
+			--runThreadN 6 \
+			--readFilesIn $fastq_r1 $fastq_r2 \
+			--quantMode GeneCounts \
+			--readFilesCommand gunzip -c \
+			--outFileNamePrefix "\${output_location}/"
+	else
+		echo "Running STAR in bulk RNA-seq mode..."
+		STAR \
+			--outSAMtype BAM SortedByCoordinate \
+			--genomeDir ${params.refGenome} \
+			--runThreadN 6 \
+			--readFilesIn $fastq_r1 $fastq_r2 \
+			--readFilesCommand gunzip -c \
+			--outFileNamePrefix "\${output_location}/" \
+			--quantMode GeneCounts
+	fi
 	echo "Start indexing..."
 
 	samtools index \${output_location}/Aligned.sortedByCoord.out.bam

@@ -1,3 +1,5 @@
+#!/usr/bin/env nextflow
+
 process QC_READS_WITH_FASTP {
       
       label 'fastp'
