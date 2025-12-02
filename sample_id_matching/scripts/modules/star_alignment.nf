@@ -3,10 +3,9 @@
 process ALIGNMENT_WITH_STAR {
 
 	label 'star'
-
 	publishDir 'results/', mode: 'copy'
-
 	errorStrategy 'ignore'
+	cache false
 
 	input:
 	tuple val(sample_name), path(fastq_r1), path(fastq_r2)
@@ -41,9 +40,8 @@ process ALIGNMENT_WITH_STAR {
 	echo "Reference Genome: ${params.refGenome}"
 
 	# Run STAR alignment
-	if [ "${params.datatype}" == "single-cell" ] || [ "${params.datatype}" == "single-nucleus" ]; then
-		echo "Running STAR in single-cell mode..."
-
+	if [[ ( ${params.datatype} == "single-cell" || ${params.datatype} == "single-nucleus" ) && "${params.read_type}" == "paired" ]]; then
+		echo "Running STAR in single-cell mode with paired-end reads"
 		STAR \
 			--outSAMtype BAM SortedByCoordinate \
 			--soloType CB_UMI_Simple \
@@ -60,13 +58,43 @@ process ALIGNMENT_WITH_STAR {
 			--quantMode GeneCounts \
 			--readFilesCommand gunzip -c \
 			--outFileNamePrefix "\${output_location}/"
-	else
-		echo "Running STAR in bulk RNA-seq mode..."
+	elif [ "${params.read_type}" == "paired" ]
+	then
+		echo "Running STAR in bulk RNA-seq mode with paired-end reads"
 		STAR \
 			--outSAMtype BAM SortedByCoordinate \
 			--genomeDir ${params.refGenome} \
 			--runThreadN 6 \
 			--readFilesIn $fastq_r1 $fastq_r2 \
+			--readFilesCommand gunzip -c \
+			--outFileNamePrefix "\${output_location}/" \
+			--quantMode GeneCounts
+	elif [ "${params.datatype}" == "single-cell" ] || [ "${params.datatype}" == "single-nucleus" ]
+	then
+		echo "Running STAR in single-cell mode with single-end reads"
+		STAR \
+			--outSAMtype BAM SortedByCoordinate \
+			--soloType CB_UMI_Simple \
+			--soloCBwhitelist None \
+			--soloCBstart 1 \
+			--soloCBlen 16 \
+			--soloUMIstart 17 \
+			--soloUMIlen 12 \
+			--soloBarcodeReadLength 0 \
+			--outSAMattributes NH HI AS nM CB UB \
+			--genomeDir ${params.refGenome} \
+			--runThreadN 6 \
+			--readFilesIn $fastq_r1 \
+			--quantMode GeneCounts \
+			--readFilesCommand gunzip -c \
+			--outFileNamePrefix "\${output_location}/"
+	else
+		echo "Running STAR in bulk RNA-seq mode with single-end reads"
+		STAR \
+			--outSAMtype BAM SortedByCoordinate \
+			--genomeDir ${params.refGenome} \
+			--runThreadN 6 \
+			--readFilesIn $fastq_r1 \
 			--readFilesCommand gunzip -c \
 			--outFileNamePrefix "\${output_location}/" \
 			--quantMode GeneCounts
