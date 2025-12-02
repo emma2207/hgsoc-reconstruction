@@ -40,6 +40,9 @@ process QC_READS_WITH_FASTP {
       else
             # Combine fastq files across lanes
             cat $R1_paths > "\${output_location}/${sample_name}_R1_merged.fastq.gz"
+            # Create an empty R2_merged.fastq.gz file to satisfy the process output declaration.
+            # This is needed because the output tuple always declares the R2 file, even though it's marked optional.
+            # The file is not used for single-end reads.
             touch "\${output_location}/${sample_name}_R2_merged.fastq.gz"
 
             # Run fastp
