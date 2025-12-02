@@ -46,15 +46,10 @@ workflow {
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
     VIREO_MATCH(filtered_vcfs.combined_vcf)
-
-    unique_vcf_paths = filtered_vcfs.individual_vcfs.collect().map { files -> 
-        files.collect { it.parent }.unique() 
-    }.flatten().view{ x -> "Folder: ${x}" }
-    NGSCHECKMATE(unique_vcf_paths)
-
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs)
     CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
     HYSYS(filtered_vcfs.individual_vcfs)
 
-    // // 2b. Run similarity analysis tools in parallel on filtered BAMs
+    // 2b. Run similarity analysis tools in parallel on filtered BAMs
     BAMIXCHECKER(filtered_bams.bam.collect())
 }

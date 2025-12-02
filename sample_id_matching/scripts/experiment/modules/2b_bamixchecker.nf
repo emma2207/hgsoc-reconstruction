@@ -1,10 +1,10 @@
 #!/usr/bin/env nextflow
 
 process BAMIXCHECKER {
-    tag "BAMixChecker"
     conda "${params.conda}/bamixchecker"
-    publishDir "${params.outdir}", mode: 'copy'
-    // errorStrategy 'ignore'
+    publishDir "${params.outdir}/bamixchecker", mode: 'copy'
+    errorStrategy 'ignore'
+    cache false
     
     input:
         path(bam)
@@ -29,7 +29,7 @@ process BAMIXCHECKER {
             base_name=\$(basename "\$file")
             base_name=\${base_name%.bam}
 
-            ${params.conda}/picard/bin/picard AddOrReplaceReadGroups \\
+            ${params.conda}/bamixchecker/bin/picard AddOrReplaceReadGroups \\
                 I=\$file \\
                 O=\${base_name}_rg.bam \\
                 SORT_ORDER=coordinate \\

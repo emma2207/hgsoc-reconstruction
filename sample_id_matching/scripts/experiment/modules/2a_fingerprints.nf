@@ -1,10 +1,10 @@
 #!/usr/bin/env nextflow
 
 process CROSSCHECK_FINGERPRINTS {
-    tag "crosscheck fingerprints"
     conda "${params.conda}/fingerprints"
     publishDir "${params.outdir}/fingerprints", mode: 'copy'
     errorStrategy 'ignore'
+    cache false
     
     input:
         path(vcf)
@@ -72,13 +72,12 @@ process CROSSCHECK_FINGERPRINTS {
         done
         
         # Run Picard CrosscheckFingerprints
-        ${params.conda}/picard/bin/picard CrosscheckFingerprints \\
+        ${params.conda}/fingerprints/bin/picard CrosscheckFingerprints \\
             INPUT=\${output_location}/vcf_list.txt \\
             HAPLOTYPE_MAP=${params.projectDir}/modules/hg38_chr.map \\
             OUTPUT=\${output_location}/crosscheck_metrics.txt \\
             CROSSCHECK_BY=FILE \\
             NUM_THREADS=4 \\
-            VALIDATION_STRINGENCY=LENIENT \\
-            EXIT_CODE_WHEN_NO_VALID_CHECKS=1
+            VALIDATION_STRINGENCY=LENIENT        
         """
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env nextflow
 
 process HYSYS {
-    tag "hysys"
     conda "${params.conda}/hysys"
     publishDir "${params.outdir}/hysys", mode: 'copy'
-    errorStrategy 'ignore'
+    errorStrategy 'ignore' 
+    cache false
     
     input:
         path(vcf)
@@ -28,14 +28,22 @@ process HYSYS {
             base_name=\${base_name%.vcf.gz}
             base_name=\${base_name%.vcf}
 
+            bcftools annotate --set-id '%CHROM\\_%POS' \${file} -o \${output_location}/\${base_name}.vcf.gz
+
+            echo "Successfully annotated \${file}"
+
             # Add AF field to VCFs and convert VCFs to required format 
             # (SNP_ID CHR POS VAF)
-            bcftools +fill-tags \$file -- -t AF | \
+            bcftools +fill-tags \${output_location}/\${base_name}.vcf.gz -- -t AF | \
             bcftools query -f '%ID\t%CHROM\t%POS\t%AF\n' | \
-            awk '\$4!="."' | sort -k1,1 > "\${base_name}.snps"
+            awk '\$4!="."' | sort -k1,1 > "\${output_location}/\${base_name}.snps"
+
+            echo "Created \${base_name}.snps"
 
             # Add file-path to list
-            echo "\${base_name}.snps" >> \${output_location}/sample_list.txt
+            echo "\${output_location}/\${base_name}.snps" >> \${output_location}/sample_list.txt
+
+            echo "Added \${basename} to sample_list"
         done
         
         # HYSYS
@@ -44,10 +52,14 @@ process HYSYS {
             \${output_location}/sample_list.txt \\
             \${output_location}/sample_list.txt \\
             \${output_location}/concordance_output.txt
+
+        echo "Ran concordance"
             
         # Run model analysis for detecting swaps
         ${params.HYSYS}/HaveYouSwappedYourSamples.sh model \\
             \${output_location}/concordance_output.txt \\
             > \${output_location}/model_results.txt
+
+        echo "Ran modelling"
         """
 }

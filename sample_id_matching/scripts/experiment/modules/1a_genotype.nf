@@ -1,7 +1,6 @@
 #!/usr/bin/env nextflow
 
 process GENOTYPE_AND_FILTER {
-    tag "genotype & filter"
     conda "${params.conda}/sample-matching"
     publishDir "${params.outdir}/vcf", mode: 'copy'
     

@@ -1,10 +1,10 @@
 #!/usr/bin/env nextflow
 
 process VIREO_MATCH {
-    tag "vireo"
     conda "${params.conda}/sample-matching"
     publishDir "${params.outdir}/vireo", mode: 'copy'
     errorStrategy 'ignore'
+    cache false
     
     input:
         path(vcf_file)
