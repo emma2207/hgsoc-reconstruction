@@ -42,38 +42,16 @@ if __name__ == "__main__":
     metadata_df = pd.read_csv(args.metadata)
     mapping_df = metadata_df[["Run", "Sample Name"]].drop_duplicates()
     # Add fastq paths to the mapping dataframe
+    base_path = (
+        "/pl/active/cgreene-sc-hgsoc/mismatch_project_data"
+        + "/" + args.dataset
+        + "/" + args.datatype
+    )
     if args.read_type == "paired":
-        mapping_df["R1_path"] = (
-            "/pl/active/cgreene-sc-hgsoc/mismatch_project_data"
-            + "/"
-            + args.dataset
-            + "/"
-            + args.datatype
-            + "/"
-            + mapping_df["Run"]
-            + "_1.fastq.gz"
-        )
-        mapping_df["R2_path"] = (
-            "/pl/active/cgreene-sc-hgsoc/mismatch_project_data"
-            + "/"
-            + args.dataset
-            + "/"
-            + args.datatype
-            + "/"
-            + mapping_df["Run"]
-            + "_2.fastq.gz"
-        )
+        mapping_df["R1_path"] = base_path + "/" + mapping_df["Run"] + "_1.fastq.gz"
+        mapping_df["R2_path"] = base_path + "/" + mapping_df["Run"] + "_2.fastq.gz"
     else:
-        mapping_df["R1_path"] = (
-            "/pl/active/cgreene-sc-hgsoc/mismatch_project_data"
-            + "/"
-            + args.dataset
-            + "/"
-            + args.datatype
-            + "/"
-            + mapping_df["Run"]
-            + ".fastq.gz"
-        )
+        mapping_df["R1_path"] = base_path + "/" + mapping_df["Run"] + ".fastq.gz"
     # Count how many runs per sample and pivot the table
     mapping_df["idx"] = mapping_df.groupby("Sample Name").cumcount()
     mapping_df["run_idx"] = "run_" + mapping_df["idx"].astype("Int64").astype(str)
