@@ -43,7 +43,7 @@ process HYSYS {
             # Add file-path to list
             echo "\${output_location}/\${base_name}.snps" >> \${output_location}/sample_list.txt
 
-            echo "Added \${basename} to sample_list"
+            echo "Added \${base_name} to sample_list"
         done
         
         # HYSYS
