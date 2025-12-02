@@ -5,7 +5,7 @@ process FILTER_BAM {
     publishDir "${params.outdir}/filtered_bam", mode: 'copy'
 
     input:
-      tuple val(sample_id), val(pseudobulk), path(bam_files)
+      tuple val(sample_id), val(pseudobulk), path(bam_files), val(datatype)
     
     output:
         path("${params.dataset}/*_filtered.bam"), emit: bam
@@ -18,11 +18,11 @@ process FILTER_BAM {
         output_location="${params.dataset}"
         mkdir -p \$output_location
 
-        if [ ${params.datatype} == "single-cell" ] || [ ${params.datatype} == "single-nucleus" ]
+        if [ ${params.pseudobulk} == true ]
         then
             output_name=\${output_location}/${sample_id}_${pseudobulk}_filtered.bam
         else
-            output_name=\${output_location}/${sample_id}_${params.datatype}_filtered.bam
+            output_name=\${output_location}/${sample_id}_${datatype}_filtered.bam
         fi
         
         # Filter BAM file
@@ -31,6 +31,5 @@ process FILTER_BAM {
 
         # Index the filtered BAM
         samtools index \${output_name}
-        
         """
 }

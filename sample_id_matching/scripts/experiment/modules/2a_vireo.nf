@@ -4,7 +4,6 @@ process VIREO_MATCH {
     conda "${params.conda}/sample-matching"
     publishDir "${params.outdir}/vireo", mode: 'copy'
     errorStrategy 'ignore'
-    cache false
     
     input:
         path(vcf_file)

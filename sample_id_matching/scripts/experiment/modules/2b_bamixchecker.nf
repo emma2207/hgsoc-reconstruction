@@ -4,7 +4,6 @@ process BAMIXCHECKER {
     conda "${params.conda}/bamixchecker"
     publishDir "${params.outdir}/bamixchecker", mode: 'copy'
     errorStrategy 'ignore'
-    cache false
     
     input:
         path(bam)

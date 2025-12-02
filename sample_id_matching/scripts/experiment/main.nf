@@ -20,14 +20,19 @@ include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 
 // Main workflow
 workflow {
-    // Create channel from BAM files
+    // Find all bams with the listed datatypes
+    bam_patterns = ["bulk", "single-cell"].collect { datatype ->
+        "${params.dataDir}/${params.dataset}/${datatype}/*/Aligned.sortedByCoord.out.bam" 
+    }
     bam_files = channel
-        .fromPath(params.bams)
-        // get parent folder name from a Path
+        .fromPath(bam_patterns)
         .map { f ->
             // safe: get the last element of the parent Path as String
             def parentName = f.parent ? f.parent.getFileName().toString() : ''
-            tuple(parentName, f.baseName, f)
+            // datatype is in the path: .../${dataset}/${datatype}/${sample}/file.bam
+            def datatype = f.toString().contains('/bulk/') ? 'bulk' : 
+                          f.toString().contains('/single-cell/') ? 'single-cell' : 'unknown'
+            tuple(parentName, f.baseName, f, datatype)
         }
         .view { x -> "Found BAM files: ${x}" }
 
@@ -41,15 +46,15 @@ workflow {
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
     // 1b. Filter aligned reads
-    filtered_bams = FILTER_BAM(bam_files)
-    filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
+    // filtered_bams = FILTER_BAM(bam_files)
+    // filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    VIREO_MATCH(filtered_vcfs.combined_vcf)
-    NGSCHECKMATE(filtered_vcfs.individual_vcfs)
-    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
-    HYSYS(filtered_vcfs.individual_vcfs)
+    // VIREO_MATCH(filtered_vcfs.combined_vcf)
+    // NGSCHECKMATE(filtered_vcfs.individual_vcfs)
+    // CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
+    // HYSYS(filtered_vcfs.individual_vcfs)
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
-    BAMIXCHECKER(filtered_bams.bam.collect())
+    // BAMIXCHECKER(filtered_bams.bam.collect())
 }

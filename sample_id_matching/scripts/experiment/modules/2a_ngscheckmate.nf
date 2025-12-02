@@ -4,7 +4,6 @@ process NGSCHECKMATE {
     conda "${params.conda}/ngscheckmate"
     publishDir "${params.outdir}/ngscheckmate", mode: 'copy'
     errorStrategy 'ignore'
-    cache false
     
     input:
         path(vcf)

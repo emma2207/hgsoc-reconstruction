@@ -4,7 +4,6 @@ process CROSSCHECK_FINGERPRINTS {
     conda "${params.conda}/fingerprints"
     publishDir "${params.outdir}/fingerprints", mode: 'copy'
     errorStrategy 'ignore'
-    cache false
     
     input:
         path(vcf)
