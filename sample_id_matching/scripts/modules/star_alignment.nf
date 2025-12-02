@@ -5,7 +5,6 @@ process ALIGNMENT_WITH_STAR {
 	label 'star'
 	publishDir 'results/', mode: 'copy'
 	errorStrategy 'ignore'
-	cache false
 
 	input:
 	tuple val(sample_name), path(fastq_r1), path(fastq_r2)
