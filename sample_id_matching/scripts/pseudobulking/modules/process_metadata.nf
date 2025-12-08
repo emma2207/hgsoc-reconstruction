@@ -1,21 +1,23 @@
+#!/usr/bin/env nextflow
+
 process PROCESS_METADATA {
 
       label 'process_metadata'
-
-      publishDir 'results/'
+      publishDir 'results/', mode: 'copy'
 
       input:
       path(metadata)
       path(fastq_dir)
 
       output:
-      path("run_name_mapping/run_name_mapping_${params.datatype}_${params.dataset}.csv"), emit: fastq_dirs_csv
+      path("run_name_mapping/run_name_mapping_${params.datatype}_${params.dataset}_${params.read_type}.csv")
 
       script:
       """
       python ${params.projectDir}/process_metadata.py \
             -d ${params.dataset} \
             -t ${params.datatype} \
+            -r ${params.read_type} \
             -m $metadata
       """
 }
