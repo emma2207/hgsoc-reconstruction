@@ -29,7 +29,7 @@ process GENOTYPE_AND_FILTER {
         # Call variants using bcftools and pipe directly to filtering
         bcftools mpileup -Ou -f ${params.refGenome}/fasta/genome.fa ${bam_files} | \
         bcftools call -mv -Ou | \
-        bcftools view -Oz -i 'QUAL>=20 && DP>=1' -o \${all_variants_output}
+        bcftools view -Oz -i 'QUAL>=20 && DP>=30' -o \${all_variants_output}
 
         echo "Finished genotyping!"
 
