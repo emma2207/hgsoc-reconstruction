@@ -5,12 +5,13 @@ process GENOTYPE_AND_FILTER {
     publishDir "${params.outdir}/vcf", mode: 'copy'
     
     input:
-        path(bam_files)
+        path bam_files
+        val modalities 
 
     
-    output:
-        path("${params.dataset}/filtered_variants.vcf.gz"), emit: combined_vcf
-        path("${params.dataset}/*_filtered_variants.vcf.gz"), emit: individual_vcfs
+    // output:
+        // path("${params.dataset}/*/filtered_variants.vcf.gz"), emit: combined_vcf
+        // path("${params.dataset}/*/*_filtered_variants.vcf.gz"), emit: individual_vcfs
 
     script:
         """
@@ -24,12 +25,26 @@ process GENOTYPE_AND_FILTER {
         fi
         mkdir -p \$output_location
 
+        # List samples by modality
+        for mod in ${modalities.join(' ')}
+        do  
+            echo "\$mod"
+            for bam in $bam_files
+            do
+                echo "\$bam"
+                if [[ "\$bam" == *"\$mod"* ]]
+                then
+                    echo "\$bam" >> "\${output_location}/\${mod}_files.txt"
+                fi
+            done
+        done
+
         echo "Start genotyping"
 
         # Call variants using bcftools and pipe directly to filtering
         bcftools mpileup -Ou -f ${params.refGenome}/fasta/genome.fa ${bam_files} | \
         bcftools call -mv -Ou | \
-        bcftools view -Oz -i 'QUAL>=20 && DP>=30' -o \${all_variants_output}
+        bcftools view -Oz -i 'QUAL>=20 && DP>=1' -o \${all_variants_output}
 
         echo "Finished genotyping!"
 
@@ -37,6 +52,15 @@ process GENOTYPE_AND_FILTER {
         bcftools index \${all_variants_output}
 
         echo "Finished indexing..."
+
+        # Save variants separately for different modalities
+        for mod in in ${modalities.join(' ')}
+        do
+            bcftools view -S "\${output_location}/\${mod}_samples_vcf.txt" \
+                -Oz -o "\${output_location}/\${mod}.vcf.gz" \
+                \${all_variants_output}
+            bcftools index \${output_location}/\${mod}.vcf.gz
+        done
 
         # Save variants individually
         for sample in `bcftools query -l \${all_variants_output}` 

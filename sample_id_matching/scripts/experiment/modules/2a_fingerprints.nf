@@ -77,6 +77,7 @@ process CROSSCHECK_FINGERPRINTS {
             OUTPUT=\${output_location}/crosscheck_metrics.txt \\
             CROSSCHECK_BY=FILE \\
             NUM_THREADS=4 \\
-            VALIDATION_STRINGENCY=LENIENT        
+            VALIDATION_STRINGENCY=LENIENT \\
+            EXIT_CODE_WHEN_MISMATCH=0    
         """
 }

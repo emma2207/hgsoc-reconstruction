@@ -5,7 +5,7 @@ import pandas as pd
 import vireoSNP
 
 
-def match_sample_id(file_path, dataset):
+def match_sample_id(file1, file2, dataset):
     """
     Match sample IDs using vireoSNP.
 
@@ -18,8 +18,8 @@ def match_sample_id(file_path, dataset):
 
     # match bulk to dissociated bulk
     res = vireoSNP.vcf.match_VCF_samples(
-        file_path,
-        file_path,
+        file1,
+        file2,
         GT_tag1="PL",
         GT_tag2="PL",
     )
@@ -51,10 +51,18 @@ if __name__ == "__main__":
         description="Match sample IDs using vireoSNP"
     )
     parser.add_argument(
-        "-v",
-        "--vcf_file",
-        dest="vcf_file",
-        help="Path to the VCF file with all samples",
+        "-v1",
+        "--vcf_file1",
+        dest="vcf_file1",
+        help="Path to the VCF file with one set of samples",
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
+        "-v2",
+        "--vcf_file2",
+        dest="vcf_file2",
+        help="Path to the VCF file with another set of samples",
         required=True,
         type=str,
     )
@@ -69,4 +77,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    match_sample_id(args.vcf_file, args.dataset)
+    match_sample_id(args.vcf_file1, args.vcf_file2, args.dataset)

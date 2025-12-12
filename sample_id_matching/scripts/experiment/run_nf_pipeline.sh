@@ -3,7 +3,7 @@
 #SBATCH --account=amc-general
 #SBATCH --output=experiment_nf_%J.log
 #SBATCH --error=experiment_nf_%J.err
-#SBATCH --time=08:00:00
+#SBATCH --time=04:00:00
 #SBATCH --partition=amilan
 #SBATCH --qos=normal
 #SBATCH --mem=4G
@@ -68,9 +68,9 @@ echo "••• Launching Nextflow"
 NEXTFLOW_WORK_DIR="${PRJ_DIR}/nextflow"
 
 if [ "${RUN_MODE}" == "HPC" ]; then
-    nextflow run main.nf -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume
+    nextflow run main.nf -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 else
-    nextflow run main.nf -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume
+    nextflow run main.nf -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 fi
 
 echo "••• Pipeline finished 🎉"

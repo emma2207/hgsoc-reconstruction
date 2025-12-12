@@ -6,7 +6,7 @@ process VIREO_MATCH {
     errorStrategy 'ignore'
     
     input:
-        path(vcf_file)
+        path(vcf_files)
     
     output:
         path("${params.dataset}/similarity_matrix.csv")
@@ -18,7 +18,8 @@ process VIREO_MATCH {
         mkdir -p \$output_location
 
         python ${params.projectDir}/modules/vireo.py \\
-            -v ${vcf_file} \\
+            -v1 ${vcf_files[0]} \\
+            -v2 ${vcf_files[1]} \\
             -d ${params.dataset}
         """
 }

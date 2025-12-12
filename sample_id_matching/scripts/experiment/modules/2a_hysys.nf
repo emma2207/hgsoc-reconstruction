@@ -4,7 +4,6 @@ process HYSYS {
     conda "${params.conda}/hysys"
     publishDir "${params.outdir}/hysys", mode: 'copy'
     errorStrategy 'ignore' 
-    cache false
     
     input:
         path(vcf)
@@ -28,7 +27,7 @@ process HYSYS {
             base_name=\${base_name%.vcf.gz}
             base_name=\${base_name%.vcf}
 
-            bcftools annotate --set-id '%CHROM\\_%POS' \${file} -o \${output_location}/\${base_name}.vcf.gz
+            bcftools annotate --set-id '%CHROM\\_%POS\\_%REF\\_%ALT' \${file} -o \${output_location}/\${base_name}.vcf.gz
 
             echo "Successfully annotated \${file}"
 
