@@ -3,9 +3,9 @@
 #SBATCH --account=amc-general
 #SBATCH --output=experiment_nf_%J.log
 #SBATCH --error=experiment_nf_%J.err
-#SBATCH --time=04:00:00
+#SBATCH --time=5-00:00:00
 #SBATCH --partition=amilan
-#SBATCH --qos=normal
+#SBATCH --qos=long
 #SBATCH --mem=4G
 #SBATCH --nodes=1 
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu
