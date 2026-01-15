@@ -1,0 +1,11 @@
+name: hysys
+
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=2.7
+  - numpy
+  - scipy
+  - scikit-learn=0.17
+  - bcftools>=1.16
