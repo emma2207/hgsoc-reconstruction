@@ -1,4 +1,4 @@
-# Data organization
+# 1. Data organization
 
 ## "Original" HGSOC dataset
 The dataset that the sample mismatch project, inadvertently, started with is the HGSOC dataset in the petalibrary location `/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC`. This PR does not touch that data. It only adds some notes about the data organization in the `README_data_org.md`. This README was also added to the petalibrary folder.
@@ -14,6 +14,8 @@ Datasets associated with the single-cell pediatric cancer atlas (scPCA)
 - wilms tumor
 
 ### Data download
+See `/scripts/data_download`.
+
 All datasets in this section are available on the Sequence Read Archive (SRA). The listed scPCA-associated datasets were all publicly available, and we had to request access to the HGSOC dataset.
 
 Looking through the scPCA database, papers, and SRA, we compiled SRA accession lists (.txt lists of SRA accession numbers) and SRA run tables (metadata .csv files) for each dataset. We renamed those files to `SRR_Acc_List_${data_type}_${dataset}.txt` and `SraRunRable_${data_type}_${dataset}.csv` respectively.
@@ -25,10 +27,14 @@ Some accessions always failed to download, and we ended up downloading them manu
 The `check_downloads.sh` script can be run to check whether all accessions were downloaded, and it outputs any missing accessions in a .txt file.
 
 ### Data organization
+See `/scripts/data_download`.
+
 The low-grade glioma and HGSOC datasets came in a single accession list (not separated by bulk and single-cell / single-nucleus), and for downstream uses we split them into `$data_type` folders using metadata in the SRA run tables. 
 `data_org_hgsoc_ariel.py` and `data_org_low_grade_glioma.py` this for the two datasets.
 
 ### Sample matches
+See `/scripts/data_download`.
+
 To run the desired experiments, we need to know the presumed sample matches (i.e. which bulk RNA-seq sample should match which single-cell RNA-seq sample) for each dataset. 
 For the HGSOC dataset we were able to figure this out from the SRA run table and the paper.
 For all the other datasets, we contacted the data owners listed in the scPCA and asked for the information. The format in which we received the information varied and so we are processing it individually to create similar sample-match records.
@@ -49,7 +55,33 @@ A few datasets contain pooled single-cell / single-nucleus data. We want a recor
 
 The pool-contents records are labelled `pool_contents_${dataset}.csv`.
 
-# Pseudobulk Nextflow Pipeline
+
+# 2. Exploratory Analysis Sample ID Matching
+
+Using various approaches to match paired bulk and dissociated bulk samples.  
+
+## Vireo
+
+Using Vireo's `match_VCF_samples()` function to match samples. 
+
+- See [documentation](https://vireosnp.readthedocs.io/en/latest/index.html) for installation details.
+Use either `match_sample_ids_bulk.ipynb` or `match_sample_ids.py` and `run_match_samples_py.sh` to match the samples. 
+The latter option is recommended for big / slow datasets, but the functionality is the same. 
+- Heatmaps of the "distance" between bulk and dissociated bulk samples are created by the scripts and `match_VCF_samples()` also directly outputs the matched samples in an array.
+
+## NGS Checkmate
+
+Trying an available software to do the sample matching for us.
+
+- Download and install [NGSCheckMate](https://github.com/parklab/NGSCheckMate/).
+- Run NGS Checkmate using `run_ngscheckmate.sh`. I actually ran the command directly in the terminal, but I wanted to keep an example of the syntax. It requires a .bed file that comes with the package (or you can find / make a custom one yourself), and .vcf files for individual samples, which we created using `bcftools` in `../demultiplexing_pooled_samples/scripts/split_bulk_vcf_files.sh`
+- Analyze the results with `ngscheckmate_qc.ipynb`. It creates a heatmap of the correlation between the bulk and dissociated bulk samples. 
+
+The program did not output a clear match between the bulk and the dissociated bulk samples. It is important to note that we did not play with the settings (.bed file, .vcf file filtering, etc) much, and these results might get better after optimization.
+
+
+# 3. Pseudobulk Nextflow Pipeline
+See `/scripts/pseudobulking`.
 
 Nextflow pipeline to make pseudobulks *at the read level*
 
@@ -71,26 +103,27 @@ In order of operations:
     - **select_barcodes.py:** takes aligned reads from single-cell or single-nucleus RNA-seq, finds the unique barcodes and randomly samples them.
 
 
-# Sample ID Matching
+# 4. Experimental Nextflow Pipeline
+See `/scripts/experiment`.
 
-Using various approaches to match paired bulk and dissociated bulk samples.  
+Nextflow pipeline to test tools to detect sample mislabeling (i.e. sample swaps or match samples).
+This workflow is branched into two paths: one for .vcf files getting fed into tools and one for tools that need .bam files.
 
-## Vireo
+## Main files
+- **sample-matching.yml:** yml specifying software dependencies for everything but the individual tools.
+- **run_nf_pipeline.sh:** shell script to run the whole pipeline on the cluster
+- **nextflow.config:** specifies global parameters and profiles for different execution environments. Note that the params can easily be overwritten via a command line argument at the time of execution.
+- **main.nf:** main nextflow file. This is the file that needs to be execute to execute the whole workflow. 
+- **prompt.md:** original Github copilot prompt to get the basics of the pipeline set up. The current version of the pipeline is very different from the pipeline resulting directly from this prompt.
 
-Using Vireo's `match_VCF_samples()` function to match samples. 
+## Modules
 
-- See [documentation](https://vireosnp.readthedocs.io/en/latest/index.html) for installation details.
-Use either `match_sample_ids_bulk.ipynb` or `match_sample_ids.py` and `run_match_samples_py.sh` to match the samples. 
-The latter option is recommended for big / slow datasets, but the functionality is the same. 
-- Heatmaps of the "distance" between bulk and dissociated bulk samples are created by the scripts and `match_VCF_samples()` also directly outputs the matched samples in an array.
-
-
-## NGS Checkmate
-
-Trying an available software to do the sample matching for us.
-
-- Download and install [NGSCheckMate](https://github.com/parklab/NGSCheckMate/).
-- Run NGS Checkmate using `run_ngscheckmate.sh`. I actually ran the command directly in the terminal, but I wanted to keep an example of the syntax. It requires a .bed file that comes with the package (or you can find / make a custom one yourself), and .vcf files for individual samples, which we created using `bcftools` in `../demultiplexing_pooled_samples/scripts/split_bulk_vcf_files.sh`
-- Analyze the results with `ngscheckmate_qc.ipynb`. It creates a heatmap of the correlation between the bulk and dissociated bulk samples. 
-
-The program did not output a clear match between the bulk and the dissociated bulk samples. It is important to note that we did not play with the settings (.bed file, .vcf file filtering, etc) much, and these results might get better after optimization.
+Each module specifies a nextflow process that is called in main:
+- **0_prepare_inputs.nf:** prepare input files .bam files
+- **1a_genotype.nf:** performs variant calling for each sample and applies some (optional) filters. It results in a .vcf file and these get fed into any module whose file starts with 2a.
+- **1b_filter_bam.nf:** filters the aligned reads by quality score and these filtered .bam's get fed into any module whose file starts with 2b.
+- **2a_fingerprints.nf:** applies the tool CrosscheckFingerprints and needs the conda env specified in `fingerprints.yml`.
+- **2a_hysys.nf:** applies the tool HaveYouSwappedYourSamples and needs the conda env specified in `hysys.yml`.
+- **2a_ngscheckmate.nf:** applies the tool NGSCheckmate and needs the conda env specified in `ngscheckmate.yml`.
+- **2a_vireo.nf:** applies the tool Vireo through a python script `vireo.py`.
+- **2b_bamixchecker.mf:** applies the tool BAMixChecker needs the conda env specifie din `bamixchecker.yml`.

@@ -1,0 +1,9 @@
+name: ngscheckmate
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=2.7
+  - samtools
+  - bcftools
+  - bioconda::ngscheckmate

@@ -31,7 +31,7 @@ def collectRunsDynamic(row, prefix) {
 
 workflow {
     // Input metadata & fastqs
-    metadata = channel.fromPath("${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${params.datatype}_${params.dataset}.csv")
+    metadata = channel.fromPath("${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${params.datatype}_${params.dataset}_${params.read_type}.csv")
     input_data = channel.fromPath("${params.petaLibrary}/${params.dataset}/${params.datatype}", type: 'dir')
 
     // Process metadata

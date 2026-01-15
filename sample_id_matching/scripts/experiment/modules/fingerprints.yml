@@ -1,0 +1,8 @@
+name: fingerprints
+
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - picard=3.1
+  - bcftools
