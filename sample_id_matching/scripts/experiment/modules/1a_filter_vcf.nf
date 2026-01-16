@@ -1,0 +1,98 @@
+#!/usr/bin/env nextflow
+
+process FILTER_VCF {
+    conda "${params.conda}/sample-matching"
+    publishDir "${params.outdir}/vcf", mode: 'copy'
+    
+    input:
+        path(vcf_file)
+        val(modalities)
+
+    
+    output:
+        path("${params.dataset}/*/filtered_variants_*.vcf.gz"), emit: modality_vcfs
+        path("${params.dataset}/*/*_filtered_variants.vcf.gz"), emit: individual_vcfs
+
+    script:
+        """
+        output_location="${params.dataset}/real_data"
+        mkdir -p \$output_location
+
+        # List samples by modality
+        for sample in `bcftools query -l $vcf_file`
+        do  
+            for mod in ${modalities.join(' ')}
+            do  
+                if [[ "\$sample" ==  *"\$mod"* ]]
+                then
+                    echo "\$sample"
+                    echo "\$sample" >> "\${output_location}/\${mod}_samples_vcf.txt"
+                fi
+
+                if [[ "\$mod" == "bulk_diss_polyA" && "\$sample" == *"2507"* ]]
+                then
+                    skip_sample=\$sample
+                fi
+            done
+        done
+
+        echo "Made lists"
+
+        # Save variants separately for different modalities
+        for mod in ${modalities.join(' ')}
+        do
+            echo "\$mod"
+            bcftools view -S "\${output_location}/\${mod}_samples_vcf.txt" \
+                -Oz -o "\${output_location}/\${mod}.vcf.gz" \
+                $vcf_file
+            echo "split"
+            bcftools index \${output_location}/\${mod}.vcf.gz
+
+            nr_samples=\$( bcftools query -l \${output_location}/\${mod}.vcf.gz | wc -l )
+            read_depth_cutoff=\$(( 30 * nr_samples ))
+
+            all_variants_output="\${output_location}/filtered_variants_\${mod}.vcf.gz"
+            
+            # Filter variants
+            bcftools view \
+                -Oz \
+                -i "QUAL>=20 && DP>=\${read_depth_cutoff}" \
+                -o \${all_variants_output} \
+                \${output_location}/\${mod}.vcf.gz
+
+            # Index the filtered VCF
+            bcftools index \${all_variants_output}
+
+            # Additional filter removing low quality sample 2507 from bulk_diss_polyA in hgsoc_new
+            if [[ "\$mod" ==  "bulk_diss_polyA" ]]
+            then
+                bcftools view \
+                    -s ^"\${skip_sample}" \
+                    -o "\${output_location}/filtered_variants_2_\${mod}.vcf.gz" \
+                    \${all_variants_output}
+
+                # Index the filtered VCF
+                bcftools index "\${output_location}/filtered_variants_2_\${mod}.vcf.gz"
+            fi
+
+        done
+        
+        echo "Finished splitting by modalities!"
+
+        # Save variants individually
+        for sample in `bcftools query -l $vcf_file` 
+        do  
+            echo "\$sample"
+            sample_id="\${sample%????}"
+            echo \$sample_id
+            bcftools view \
+                -c1 -Oz -s \$sample \
+                -o "\${output_location}/\${sample_id}_filtered_variants.vcf.gz" \
+                $vcf_file
+
+            bcftools index \${output_location}/\${sample_id}_filtered_variants.vcf.gz
+        done
+
+        echo "Finished splitting output by sample"
+        """
+}
