@@ -17,6 +17,8 @@ include { HYSYS } from './modules/2a_hysys'
 include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 include { BAMIXCHECKER } from './modules/2b_bamixchecker'
+include { CONPAIR } from './modules/2b_conpair'
+include { BAMMATCHER } from './modules/2b_bam-matcher'
 
 // Main workflow
 workflow {
@@ -60,4 +62,6 @@ workflow {
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     BAMIXCHECKER(filtered_bams.bam.collect())
+    CONPAIR(filtered_bams.bam.collect())
+    BAMMATCHER(filtered_bams.bam.collect())
 }

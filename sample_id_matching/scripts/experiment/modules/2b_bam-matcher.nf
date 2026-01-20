@@ -1,15 +1,15 @@
 #!/usr/bin/env nextflow
 
-process CONPAIR {
-    conda "${params.conda}/conpair"
-    publishDir "${params.outdir}/conpair", mode: 'copy'
+process BAMMATCHER {
+    conda "${params.conda}/bam-matcher"
+    publishDir "${params.outdir}/bam-matcher", mode: 'copy'
     errorStrategy 'ignore'
     
     input:
         path(bam)
     
     output:
-        path("${params.dataset}/*_concordance.txt")
+        path("${params.dataset}/*_output_report.txt")
     
     script:
         """
@@ -20,10 +20,10 @@ process CONPAIR {
 
         count=${#bam[@]}
 
-        # Run conpair over all pairs of bams (without repetition)
+        # Run bam-matcher over all pairs of bams (without repetition)
         for ((i = 0; i < count; i++))
         do
-            for ((j = i + 1; j < count; j++))
+            for ((j = i; j < count; j++))
             do
                 bam_1="${bams[i]}"
                 bam_2="${bams[j]}"
@@ -32,15 +32,14 @@ process CONPAIR {
                 sample_1=\$(basename "\${bam_1}" .bam)
                 sample_2=\$(basename "\${bam_2}" .bam)
                 
-                output_file="\${output_location}/\${sample_1}_vs_\${sample_2}_concordance.txt"
+                output_file="\${output_location}/\${sample_1}_vs_\${sample_2}_output_report.txt"
 
-                # Run CONPAIR
-                python ${params.CONPAIR}/scripts/verify_concordance.py \\
-                    -T \${bam_1} \\
-                    -N \${bam_2} \\
-                    -O \${output_file}
+                # Run BAMMATCHER
+                python ${params.BAMMATCHER}/bam-matcher.py \\
+                    -B1 \${bam_1} \\
+                    -B2 \${bam_2} \\
+                    -o \${output_file}
             done
-
         done
         """
 }
