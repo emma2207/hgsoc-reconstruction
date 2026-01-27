@@ -10,8 +10,9 @@ process FILTER_VCF {
 
     
     output:
-        path("${params.dataset}/*/filtered_variants_*.vcf.gz"), emit: modality_vcfs
-        path("${params.dataset}/*/*_filtered_variants.vcf.gz"), emit: individual_vcfs
+        path("${params.dataset}/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
+        path("${params.dataset}/*/filtered_variants_rd_*.vcf.gz"), emit: modality_vcfs
+        path("${params.dataset}/*/*_modality_variants.vcf.gz")
 
     script:
         """
@@ -43,22 +44,23 @@ process FILTER_VCF {
         do
             echo "\$mod"
             bcftools view -S "\${output_location}/\${mod}_samples_vcf.txt" \
-                -Oz -o "\${output_location}/\${mod}.vcf.gz" \
+                -Oz -o "\${output_location}/\${mod}_modality_variants.vcf.gz" \
                 $vcf_file
             echo "split"
-            bcftools index \${output_location}/\${mod}.vcf.gz
+            bcftools index \${output_location}/\${mod}_modality_variants.vcf.gz
 
-            nr_samples=\$( bcftools query -l \${output_location}/\${mod}.vcf.gz | wc -l )
-            read_depth_cutoff=\$(( 30 * nr_samples ))
+            nr_samples=\$( bcftools query -l \${output_location}/\${mod}_modality_variants.vcf.gz | wc -l )
+            rd=2
+            read_depth_cutoff=\$(( \$rd * nr_samples ))
 
-            all_variants_output="\${output_location}/filtered_variants_\${mod}.vcf.gz"
+            all_variants_output="\${output_location}/filtered_variants_rd_\${rd}_\${mod}.vcf.gz"
             
             # Filter variants
             bcftools view \
                 -Oz \
                 -i "QUAL>=20 && DP>=\${read_depth_cutoff}" \
                 -o \${all_variants_output} \
-                \${output_location}/\${mod}.vcf.gz
+                \${output_location}/\${mod}_modality_variants.vcf.gz
 
             # Index the filtered VCF
             bcftools index \${all_variants_output}
@@ -68,11 +70,11 @@ process FILTER_VCF {
             then
                 bcftools view \
                     -s ^"\${skip_sample}" \
-                    -o "\${output_location}/filtered_variants_2_\${mod}.vcf.gz" \
+                    -o "\${output_location}/filtered_variants2_rd_\${rd}_\${mod}.vcf.gz" \
                     \${all_variants_output}
 
                 # Index the filtered VCF
-                bcftools index "\${output_location}/filtered_variants_2_\${mod}.vcf.gz"
+                bcftools index "\${output_location}/filtered_variants2_rd_\${rd}_\${mod}.vcf.gz"
             fi
 
         done
@@ -87,10 +89,11 @@ process FILTER_VCF {
             echo \$sample_id
             bcftools view \
                 -c1 -Oz -s \$sample \
-                -o "\${output_location}/\${sample_id}_filtered_variants.vcf.gz" \
+                -i "QUAL>=20 && DP>=\${rd}" \
+                -o "\${output_location}/\${sample_id}_individual_variants.vcf.gz" \
                 $vcf_file
 
-            bcftools index \${output_location}/\${sample_id}_filtered_variants.vcf.gz
+            bcftools index \${output_location}/\${sample_id}_individual_variants.vcf.gz
         done
 
         echo "Finished splitting output by sample"

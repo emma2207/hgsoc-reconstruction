@@ -3,9 +3,10 @@ name: conpair
 channels:
   - conda-forge
   - bioconda
+
 dependencies:
   - python>=2.7
   - numpy
   - scipy
   - gatk
-  - java
+  - samtools

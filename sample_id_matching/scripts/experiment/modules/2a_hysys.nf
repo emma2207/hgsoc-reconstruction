@@ -7,6 +7,7 @@ process HYSYS {
     
     input:
         path(vcf)
+        val(modalities)
     
     output:
         path("${params.dataset}/concordance_output.txt")
@@ -27,29 +28,39 @@ process HYSYS {
             base_name=\${base_name%.vcf.gz}
             base_name=\${base_name%.vcf}
 
-            bcftools annotate --set-id '%CHROM\\_%POS\\_%REF\\_%ALT' \${file} -o \${output_location}/\${base_name}.vcf.gz
+            bcftools annotate --set-id '%CHROM\\_%POS\\_%REF\\_%ALT' \
+                \${file} -o \${output_location}/\${base_name}.vcf.gz
 
             echo "Successfully annotated \${file}"
 
             # Add AF field to VCFs and convert VCFs to required format 
             # (SNP_ID CHR POS VAF)
             bcftools +fill-tags \${output_location}/\${base_name}.vcf.gz -- -t AF | \
-            bcftools query -f '%ID\t%CHROM\t%POS\t%AF\n' | \
+                bcftools query -f '%ID\t%CHROM\t%POS\t%AF\n' | \
             awk '\$4!="."' | sort -k1,1 > "\${output_location}/\${base_name}.snps"
 
             echo "Created \${base_name}.snps"
 
             # Add file-path to list
-            echo "\${output_location}/\${base_name}.snps" >> \${output_location}/sample_list.txt
-
-            echo "Added \${base_name} to sample_list"
+            for mod in ${modalities.join(' ')}
+            do
+                if [[ "\$base_name" == *"\$mod"* ]]
+                then
+                    if ! [[ \$file == *"2507"* && \$file == *"bulk_diss_polyA"* ]]
+                    then
+                        echo "\${output_location}/\${base_name}.snps" >> \\
+                            \${output_location}/sample_list_\${mod}.txt
+                        echo "Added \${base_name} to sample_list_\${mod}.txt"
+                    fi
+                fi
+            done
         done
         
         # HYSYS
         # Run concordance calculation
         ${params.HYSYS}/HaveYouSwappedYourSamples.sh conc -s \\
-            \${output_location}/sample_list.txt \\
-            \${output_location}/sample_list.txt \\
+            \${output_location}/sample_list_${modalities[0]}.txt \\
+            \${output_location}/sample_list_${modalities[1]}.txt \\
             \${output_location}/concordance_output.txt
 
         echo "Ran concordance"
