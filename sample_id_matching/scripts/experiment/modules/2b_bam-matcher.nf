@@ -9,13 +9,18 @@ process BAMMATCHER {
         tuple path(bam), path(bai)
     
     output:
-        path("${params.dataset}/*_output_report.txt")
+        path("${params.dataset}/*/*_output_report.txt")
     
     script:
         """
         set -euo pipefail
 
-        output_location="${params.dataset}"
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk"
+        else
+            output_location="${params.dataset}/real_data" 
+        fi
         mkdir -p \$output_location
 
         # Convert paired bam/bai inputs to arrays
@@ -42,6 +47,18 @@ process BAMMATCHER {
                 -r SM:\${sample_name} \\
                 -o temp_\${processed_bam} \\
                 \${original_bam}
+            
+            # Reorder BAM file to match reference chromosome ordering
+            echo "Reordering BAM file to match reference chromosome order for \${sample_name}..."
+            java -jar ${params.conda}/bam-matcher/share/picard-3.0.0-0/picard.jar ReorderSam \\
+                I=temp_\${processed_bam} \\
+                O=\${processed_bam} \\
+                SD=${params.projectDir}/genome.dict
+            
+            # Clean up temporary file
+            rm temp_\${processed_bam}
+
+            samtools index \${processed_bam}
             
             processed_bams+=(\${processed_bam})
         done

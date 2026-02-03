@@ -2,21 +2,28 @@
 
 process BAMIXCHECKER {
     conda "${params.conda}/bamixchecker"
-    publishDir "${params.outdir}/bamixchecker", mode: 'copy'
+    publishDir "${params.outdir}/2b_bamixchecker", mode: 'copy'
     errorStrategy 'ignore'
     
     input:
         path(bam)
     
     output:
-        path("${params.dataset}/BAMixChecker/BAMixChecker_Report.html")
-        path("${params.dataset}/BAMixChecker/BAMixChecker_Heatmap.pdf")
-        path("${params.dataset}/BAMixChecker/Total_result.txt")
-        path("${params.dataset}/BAMixChecker/Matched_samples.txt"), optional: true
-        path("${params.dataset}/BAMixChecker/Mismatched_samples.txt"), optional: true
+        path("${params.dataset}/*/BAMixChecker/BAMixChecker_Report.html")
+        path("${params.dataset}/*/BAMixChecker/BAMixChecker_Heatmap.pdf")
+        path("${params.dataset}/*/BAMixChecker/Total_result.txt")
+        path("${params.dataset}/*/BAMixChecker/Matched_samples.txt"), optional: true
+        path("${params.dataset}/*/BAMixChecker/Mismatched_samples.txt"), optional: true
     script:
         """
         set -euo pipefail
+
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
+        else
+            output_location="${params.dataset}/real_data" 
+        fi
 
         # Create config file for BAMixChecker
         echo "GATK=${params.conda}/bamixchecker/bin/gatk" > BAMixChecker.config
@@ -90,7 +97,7 @@ process BAMIXCHECKER {
         python ${params.BAMIXCHECKER}/BAMixChecker.py \\
             -l bam_list.txt \\
             -r ${params.refGenome}/fasta/genome.fa \\
-            -o ${params.dataset} \\
+            -o \${output_location} \\
             --OFFFileNameMatching \\
             -p 4
         """

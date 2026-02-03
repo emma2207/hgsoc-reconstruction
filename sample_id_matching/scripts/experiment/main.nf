@@ -3,7 +3,7 @@
 /*
  * Pipeline for sample matching analysis
  * This pipeline analyzes BAM files to determine if samples come from the same donor
- * using multiple tools: bcftools, Vireo, NGSCheckMate, and CrossCheckFingerprints
+ * using multiple tools: BAMixChecker, HYSYS, Vireo, NGSCheckMate, and CrossCheckFingerprints
  */
 
 nextflow.enable.dsl = 2
@@ -21,22 +21,34 @@ include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 // Main workflow
 workflow {
     // Find all bams with the listed datatypes
-    modalities = ["bulk", "single-cell"]
-    bam_patterns = modalities.collect { datatype ->
-        "${params.bamsDir}/${params.dataset}/${datatype}/*/Aligned.sortedByCoord.out.bam"
-    }
-    bam_files = channel
-        .fromPath(bam_patterns)
-        .map { f ->
-            // safe: get the last element of the parent Path as String
-            def parentName = f.parent ? f.parent.getFileName().toString() : ''
-            // datatype is in the path: .../${dataset}/${datatype}/${sample}/file.bam
-            def datatype = f.toString().contains('/bulk/') ? 'bulk' : 
-                          f.toString().contains('/single-cell/') ? 'single-cell' : 'unknown'
-            tuple(parentName, f.baseName, f, datatype)
+    if (!params.pseudobulk) {
+        modalities = ["bulk", "single-nucleus"]
+        bam_patterns = modalities.collect { datatype ->
+            "${params.bamsDir}/${params.dataset}/${datatype}/*/Aligned.sortedByCoord.out.bam" 
         }
-        .view { x -> "Found BAM files: ${x}" }
-
+        
+        bam_files = channel
+            .fromPath(bam_patterns)
+            .map { f ->
+                // safe: get the last element of the parent Path as String
+                def parentName = f.parent ? f.parent.getFileName().toString() : ''
+                // datatype is in the path: .../${dataset}/${datatype}/${sample}/file.bam
+                def datatype = f.toString().contains('/bulk/') ? 'bulk' : 
+                              f.toString().contains('/single-nucleus/') ? 'single-nucleus' : 'unknown'
+                tuple(parentName, f.baseName, f, datatype)
+            }
+            .view { x -> "Found BAM files: ${x}" }
+    } else {
+        modalities = ["pseudobulk"]
+        bam_files = channel.fromPath("${params.pseudobulkDir}/${params.dataset}/*/pseudobulk_*_ncells_1000_*.bam")
+            .map { f ->
+                // safe: get the last element of the parent Path as String
+                def parentName = f.parent ? f.parent.getFileName().toString() : ''
+                tuple(parentName, f.baseName, f, 'pseudobulk')
+            }
+            .view { x -> "Found Pseudobulk BAM files: ${x}" }
+    }
+    
     // 0. Prepare inputs
     prepped_bam_files = PREPARE_INPUTS(bam_files).collect()
     prepped_bam_files.view { x -> "Prepared BAM files: ${x}" }
@@ -44,7 +56,6 @@ workflow {
     // 1a. Genotype variants and filter in one step'
     mod_channel = channel.fromList(modalities)
     filtered_vcfs = GENOTYPE_AND_FILTER(prepped_bam_files, mod_channel.collect())
-    filtered_vcfs.combined_vcf.view { x -> "Filtered VCFs: ${x}" }
     filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 

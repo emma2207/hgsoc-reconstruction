@@ -2,7 +2,7 @@
 
 process FILTER_VCF {
     conda "${params.conda}/sample-matching"
-    publishDir "${params.outdir}/vcf", mode: 'copy'
+    publishDir "${params.outdir}/1a_vcf", mode: 'copy'
     
     input:
         path(vcf_file)
@@ -16,7 +16,12 @@ process FILTER_VCF {
 
     script:
         """
-        output_location="${params.dataset}/real_data"
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
+        else
+            output_location="${params.dataset}/real_data/read_depth_${params.read_depth}" 
+        fi
         mkdir -p \$output_location
 
         # List samples by modality
@@ -50,10 +55,9 @@ process FILTER_VCF {
             bcftools index \${output_location}/\${mod}_modality_variants.vcf.gz
 
             nr_samples=\$( bcftools query -l \${output_location}/\${mod}_modality_variants.vcf.gz | wc -l )
-            rd=2
-            read_depth_cutoff=\$(( \$rd * nr_samples ))
+            read_depth_cutoff=\$(( ${params.read_depth} * nr_samples ))
 
-            all_variants_output="\${output_location}/filtered_variants_rd_\${rd}_\${mod}.vcf.gz"
+            all_variants_output="\${output_location}/filtered_variants_rd_${params.read_depth}_\${mod}.vcf.gz"
             
             # Filter variants
             bcftools view \
@@ -70,11 +74,11 @@ process FILTER_VCF {
             then
                 bcftools view \
                     -s ^"\${skip_sample}" \
-                    -o "\${output_location}/filtered_variants2_rd_\${rd}_\${mod}.vcf.gz" \
+                    -o "\${output_location}/filtered_variants2_rd_${params.read_depth}_\${mod}.vcf.gz" \
                     \${all_variants_output}
 
                 # Index the filtered VCF
-                bcftools index "\${output_location}/filtered_variants2_rd_\${rd}_\${mod}.vcf.gz"
+                bcftools index "\${output_location}/filtered_variants2_rd_${params.read_depth}_\${mod}.vcf.gz"
             fi
 
         done
@@ -89,7 +93,7 @@ process FILTER_VCF {
             echo \$sample_id
             bcftools view \
                 -c1 -Oz -s \$sample \
-                -i "QUAL>=20 && DP>=\${rd}" \
+                -i "QUAL>=20 && DP>=${params.read_depth}" \
                 -o "\${output_location}/\${sample_id}_individual_variants.vcf.gz" \
                 $vcf_file
 

@@ -5,7 +5,7 @@
 #SBATCH --error=experiment_nf_%J.err
 #SBATCH --time=1-00:00:00
 #SBATCH --partition=amilan
-#SBATCH --qos=long
+#SBATCH --qos=normal
 #SBATCH --mem=4G
 #SBATCH --nodes=1 
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu

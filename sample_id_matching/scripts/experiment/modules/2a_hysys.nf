@@ -2,7 +2,7 @@
 
 process HYSYS {
     conda "${params.conda}/hysys"
-    publishDir "${params.outdir}/hysys", mode: 'copy'
+    publishDir "${params.outdir}/2a_hysys", mode: 'copy'
     errorStrategy 'ignore' 
     
     input:
@@ -10,14 +10,19 @@ process HYSYS {
         val(modalities)
     
     output:
-        path("${params.dataset}/concordance_output.txt")
-        path("${params.dataset}/model_results.txt")
+        path("${params.dataset}/*/concordance_output.txt")
+        path("${params.dataset}/*/model_results.txt")
     
     script:
         """
         set -euo pipefail
 
-        output_location="${params.dataset}"
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
+        else
+            output_location="${params.dataset}/real_data/read_depth_${params.read_depth}" 
+        fi
         mkdir -p \$output_location
 
         # Prep HYSYS input
@@ -43,7 +48,7 @@ process HYSYS {
 
             # Add file-path to list
             for mod in ${modalities.join(' ')}
-            do
+            do  
                 if [[ "\$base_name" == *"\$mod"* ]]
                 then
                     if ! [[ \$file == *"2507"* && \$file == *"bulk_diss_polyA"* ]]
@@ -54,15 +59,24 @@ process HYSYS {
                     fi
                 fi
             done
+            
         done
         
         # HYSYS
         # Run concordance calculation
-        ${params.HYSYS}/HaveYouSwappedYourSamples.sh conc -s \\
-            \${output_location}/sample_list_${modalities[0]}.txt \\
-            \${output_location}/sample_list_${modalities[1]}.txt \\
-            \${output_location}/concordance_output.txt
-
+        if [ ${params.pseudobulk} == true ]
+        then 
+            ${params.HYSYS}/HaveYouSwappedYourSamples.sh conc -s \\
+                \${output_location}/sample_list_${modalities[0]}.txt \\
+                \${output_location}/sample_list_${modalities[0]}.txt \\
+                \${output_location}/concordance_output.txt
+        else
+            ${params.HYSYS}/HaveYouSwappedYourSamples.sh conc -s \\
+                \${output_location}/sample_list_${modalities[0]}.txt \\
+                \${output_location}/sample_list_${modalities[1]}.txt \\
+                \${output_location}/concordance_output.txt
+        fi
+        
         echo "Ran concordance"
             
         # Run model analysis for detecting swaps

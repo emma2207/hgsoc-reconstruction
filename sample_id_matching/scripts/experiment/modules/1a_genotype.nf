@@ -2,7 +2,7 @@
 
 process GENOTYPE_AND_FILTER {
     conda "${params.conda}/sample-matching"
-    publishDir "${params.outdir}/vcf", mode: 'copy'
+    publishDir "${params.outdir}/1a_vcf", mode: 'copy'
     
     input:
         path bam_files
@@ -19,14 +19,12 @@ process GENOTYPE_AND_FILTER {
         """
         if [ ${params.pseudobulk} == true ]
         then 
-            output_location="${params.dataset}/pseudobulk"
-            all_variants_output="\${output_location}/filtered_variants.vcf.gz"
-            rd_filtered_variants="\${output_location}/filtered_variants_rd_1.vcf.gz"
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_1"
         else
-            output_location="${params.dataset}/real_data"
-            all_variants_output="\${output_location}/filtered_variants.vcf.gz"
-            rd_filtered_variants="\${output_location}/filtered_variants_rd_1.vcf.gz"
+            output_location="${params.dataset}/real_data/read_depth_1" 
         fi
+        all_variants_output="\${output_location}/filtered_variants.vcf.gz"
+        rd_filtered_variants="\${output_location}/filtered_variants_rd_1.vcf.gz"
         mkdir -p \$output_location
 
         # List samples by modality

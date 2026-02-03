@@ -5,7 +5,7 @@ import pandas as pd
 import vireoSNP
 
 
-def match_sample_id(file1, file2, dataset):
+def match_sample_id(file1, file2, output_dir):
     """
     Match sample IDs using vireoSNP.
 
@@ -38,7 +38,7 @@ def match_sample_id(file1, file2, dataset):
     )
 
     # Save similarity matrix to CSV and matches
-    output_dir = f"{dataset}"
+    output_dir = f"{output_dir}"
     os.makedirs(output_dir, exist_ok=True)
     similarity_matrix.to_csv(output_dir + "/similarity_matrix.csv")
     df.to_csv(output_dir + "/matched_samples.csv", index=False)
@@ -67,14 +67,14 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-d",
-        "--dataset",
-        dest="dataset",
-        help="Dataset name (e.g., hgsoc, high_grade_glioma)",
+        "-o",
+        "--output_dir",
+        dest="output_dir",
+        help="Output directory name",
         required=True,
         type=str,
     )
 
     args = parser.parse_args()
 
-    match_sample_id(args.vcf_file1, args.vcf_file2, args.dataset)
+    match_sample_id(args.vcf_file1, args.vcf_file2, args.output_dir)

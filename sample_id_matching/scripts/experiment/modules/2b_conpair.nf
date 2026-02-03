@@ -9,8 +9,8 @@ process CONPAIR {
         path(bam)
     
     output:
-        path("${params.dataset}/*.bam")
-        path("${params.dataset}/*_concordance.txt")
+        path("${params.dataset}/*/*.bam")
+        path("${params.dataset}/*/*_concordance.txt")
     
     script:
         """
@@ -20,7 +20,12 @@ process CONPAIR {
         export GATK_JAR=/projects/${USER}/software/anaconda/envs/conpair/opt/gatk-3.8/GenomeAnalysisTK.jar
         export PYTHONPATH=/projects/${USER}/software/conpair/modules
 
-        output_location="${params.dataset}"
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk"
+        else
+            output_location="${params.dataset}/real_data" 
+        fi
         mkdir -p \$output_location
 
         # Convert bam input to bash array and count files

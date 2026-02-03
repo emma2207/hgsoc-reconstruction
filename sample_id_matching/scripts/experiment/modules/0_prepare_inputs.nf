@@ -2,17 +2,22 @@
 
 process PREPARE_INPUTS {
     conda "${params.conda}/sample-matching"
-    publishDir "${params.outdir}/prepared_bams", mode: 'copy'
+    publishDir "${params.outdir}/0_prepared_bams", mode: 'copy'
     
     input:
         tuple val(sample_id), val(nr), path(bam_files), val(datatype)
     
     output:
-        path("${params.dataset}/*.bam")
+        path("${params.dataset}/*/*.bam")
 
     script:
         """
-        output_location="${params.dataset}"
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
+        else
+            output_location="${params.dataset}/real_data" 
+        fi
         mkdir -p \$output_location
         
         # Rename BAM files using the filename and the folder name
