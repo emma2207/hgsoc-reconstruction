@@ -10,10 +10,10 @@ process GENOTYPE_AND_FILTER {
 
     
     output:
-        path("${params.dataset}/*/*_modality_variants.vcf.gz"), emit: modality_vcfs
-        path("${params.dataset}/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
-        path("${params.dataset}/*/filtered_variants.vcf.gz")
-        path("${params.dataset}/*/filtered_variants_rd_*.vcf.gz")
+        path("${params.dataset}/*/*/*/*_modality_variants.vcf.gz"), emit: modality_vcfs
+        path("${params.dataset}/*/*/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
+        path("${params.dataset}/*/*/*/filtered_variants.vcf.gz")
+        path("${params.dataset}/*/*/*/filtered_variants_rd_*.vcf.gz")
 
     script:
         """
@@ -21,7 +21,7 @@ process GENOTYPE_AND_FILTER {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_1"
         else
-            output_location="${params.dataset}/real_data/read_depth_1" 
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_1" 
         fi
         all_variants_output="\${output_location}/filtered_variants.vcf.gz"
         rd_filtered_variants="\${output_location}/filtered_variants_rd_1.vcf.gz"

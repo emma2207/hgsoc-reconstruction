@@ -9,11 +9,10 @@ process NGSCHECKMATE {
         path(vcf)
     
     output:
-        path("${params.dataset}/*/vcf_list.txt")
-        path("${params.dataset}/*/output_all.txt")
-        path("${params.dataset}/*/output_matched.txt")
-        path("${params.dataset}/*/output_output_corr_matrix.txt")
-    
+        path("${params.dataset}/*/*/*/output_all.txt")
+        path("${params.dataset}/*/*/*/output_matched.txt")
+        path("${params.dataset}/*/*/*/output_output_corr_matrix.txt")
+
     script:
         """
         set -euo pipefail
@@ -22,7 +21,7 @@ process NGSCHECKMATE {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
         else
-            output_location="${params.dataset}/real_data/read_depth_${params.read_depth}" 
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
         fi
         mkdir -p \$output_location
 

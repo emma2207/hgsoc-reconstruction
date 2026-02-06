@@ -9,11 +9,12 @@ process BAMIXCHECKER {
         path(bam)
     
     output:
-        path("${params.dataset}/*/BAMixChecker/BAMixChecker_Report.html")
-        path("${params.dataset}/*/BAMixChecker/BAMixChecker_Heatmap.pdf")
-        path("${params.dataset}/*/BAMixChecker/Total_result.txt")
-        path("${params.dataset}/*/BAMixChecker/Matched_samples.txt"), optional: true
-        path("${params.dataset}/*/BAMixChecker/Mismatched_samples.txt"), optional: true
+        path("${params.dataset}/*/*/BAMixChecker/BAMixChecker_Report.html")
+        path("${params.dataset}/*/*/BAMixChecker/BAMixChecker_Heatmap.pdf")
+        path("${params.dataset}/*/*/BAMixChecker/Total_result.txt")
+        path("${params.dataset}/*/*/BAMixChecker/Matched_samples.txt")
+        path("${params.dataset}/*/*/BAMixChecker/Mismatched_samples.txt")
+
     script:
         """
         set -euo pipefail
@@ -22,7 +23,7 @@ process BAMIXCHECKER {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
         else
-            output_location="${params.dataset}/real_data" 
+            output_location="${params.dataset}/real_data/ncells_null" 
         fi
 
         # Create config file for BAMixChecker

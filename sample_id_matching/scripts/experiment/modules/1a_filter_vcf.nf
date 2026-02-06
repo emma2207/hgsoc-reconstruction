@@ -10,9 +10,9 @@ process FILTER_VCF {
 
     
     output:
-        path("${params.dataset}/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
-        path("${params.dataset}/*/filtered_variants_rd_*.vcf.gz"), emit: modality_vcfs
-        path("${params.dataset}/*/*_modality_variants.vcf.gz")
+        path("${params.dataset}/*/*/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
+        path("${params.dataset}/*/*/*/*_modality_variants.vcf.gz")
+        path("${params.dataset}/*/*/*/filtered_variants_rd_*.vcf.gz"), emit: modality_vcfs
 
     script:
         """
@@ -20,7 +20,7 @@ process FILTER_VCF {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
         else
-            output_location="${params.dataset}/real_data/read_depth_${params.read_depth}" 
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
         fi
         mkdir -p \$output_location
 

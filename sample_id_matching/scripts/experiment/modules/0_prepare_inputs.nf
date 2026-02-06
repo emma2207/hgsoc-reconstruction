@@ -8,7 +8,7 @@ process PREPARE_INPUTS {
         tuple val(sample_id), val(nr), path(bam_files), val(datatype)
     
     output:
-        path("${params.dataset}/*/*.bam")
+        path("${params.dataset}/*/*/*.bam")
 
     script:
         """
@@ -16,7 +16,7 @@ process PREPARE_INPUTS {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
         else
-            output_location="${params.dataset}/real_data" 
+            output_location="${params.dataset}/real_data/ncells_null" 
         fi
         mkdir -p \$output_location
         

@@ -10,8 +10,8 @@ process HYSYS {
         val(modalities)
     
     output:
-        path("${params.dataset}/*/concordance_output.txt")
-        path("${params.dataset}/*/model_results.txt")
+        path("${params.dataset}/*/*/*/concordance_output.txt")
+        path("${params.dataset}/*/*/*/model_results.txt")
     
     script:
         """
@@ -21,7 +21,7 @@ process HYSYS {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
         else
-            output_location="${params.dataset}/real_data/read_depth_${params.read_depth}" 
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
         fi
         mkdir -p \$output_location
 

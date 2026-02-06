@@ -9,7 +9,7 @@ process BAMMATCHER {
         tuple path(bam), path(bai)
     
     output:
-        path("${params.dataset}/*/*_output_report.txt")
+        path("${params.dataset}/*/*/*/*_output_report.txt")
     
     script:
         """

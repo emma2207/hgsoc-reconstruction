@@ -9,9 +9,8 @@ process CROSSCHECK_FINGERPRINTS {
         path(vcf)
     
     output:
-        path("${params.dataset}/*/vcf_list.txt")
-        path("${params.dataset}/*/crosscheck_metrics.txt")
-    
+        path("${params.dataset}/*/*/*/crosscheck_metrics.txt")
+
     script:
         """
         set -euo pipefail
@@ -20,7 +19,7 @@ process CROSSCHECK_FINGERPRINTS {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
         else
-            output_location="${params.dataset}/real_data/read_depth_${params.read_depth}" 
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
         fi
         mkdir -p \$output_location
 

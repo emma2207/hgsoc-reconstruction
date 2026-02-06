@@ -8,7 +8,7 @@ process FILTER_BAM {
       tuple val(sample_id), val(pseudobulk), path(bam_files), val(datatype)
     
     output:
-        path("${params.dataset}/*/*_filtered.bam"), emit: bam
+        path("${params.dataset}/*/*/*_filtered.bam"), emit: bam
 
     script:
         """
@@ -19,7 +19,7 @@ process FILTER_BAM {
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
             output_name=\${output_location}/${sample_id}_${pseudobulk}_filtered.bam
         else
-            output_location="${params.dataset}/real_data"
+            output_location="${params.dataset}/real_data/ncells_null"
             output_name=\${output_location}/${sample_id}_${datatype}_filtered.bam
         fi
         mkdir -p \$output_location
