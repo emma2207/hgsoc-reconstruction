@@ -24,7 +24,7 @@ process VIREO_MATCH {
             python ${params.projectDir}/modules/vireo.py \\
                 -v1 ${vcf_files} \\
                 -v2 ${vcf_files} \\
-                -o \${output_location
+                -o \${output_location}
         else
             output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}"
             mkdir -p \$output_location
