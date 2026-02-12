@@ -13,7 +13,7 @@ process BAMIXCHECKER {
         path("${params.dataset}/*/*/BAMixChecker/BAMixChecker_Heatmap.pdf")
         path("${params.dataset}/*/*/BAMixChecker/Total_result.txt")
         path("${params.dataset}/*/*/BAMixChecker/Matched_samples.txt")
-        path("${params.dataset}/*/*/BAMixChecker/Mismatched_samples.txt")
+        path("${params.dataset}/*/*/BAMixChecker/Mismatched_samples.txt"), optional: true
 
     script:
         """

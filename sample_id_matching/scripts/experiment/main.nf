@@ -10,7 +10,8 @@ nextflow.enable.dsl = 2
 
 // Import processes
 include { PREPARE_INPUTS } from './modules/0_prepare_inputs'
-include { GENOTYPE_AND_FILTER } from './modules/1a_genotype'
+include { GENOTYPE_INDIVIDUAL } from './modules/1a_genotype_individual'
+include { MERGE_AND_FILTER_VCFS } from './modules/1a_merge_vcfs'
 include { FILTER_BAM } from './modules/1b_filter_bam'
 include { CROSSCHECK_FINGERPRINTS } from './modules/2a_fingerprints'
 include { HYSYS } from './modules/2a_hysys'
@@ -50,12 +51,19 @@ workflow {
     }
     
     // 0. Prepare inputs
-    prepped_bam_files = PREPARE_INPUTS(bam_files).collect()
+    prepped_bam_files = PREPARE_INPUTS(bam_files)
     prepped_bam_files.view { x -> "Prepared BAM files: ${x}" }
 
-    // 1a. Genotype variants and filter in one step'
+    // 1a. Genotype individual samples in parallel
+    individual_vcfs = GENOTYPE_INDIVIDUAL(prepped_bam_files)
+
+    // 1a. Merge and filter variants
     mod_channel = channel.fromList(modalities)
-    filtered_vcfs = GENOTYPE_AND_FILTER(prepped_bam_files, mod_channel.collect())
+    filtered_vcfs = MERGE_AND_FILTER_VCFS(
+        individual_vcfs.vcf.collect(), 
+        individual_vcfs.index.collect(), 
+        mod_channel.collect()
+    )
     filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 

@@ -9,6 +9,7 @@ process FILTER_BAM {
     
     output:
         path("${params.dataset}/*/*/*_filtered.bam"), emit: bam
+        path("${params.dataset}/*/*/*_filtered.bam.bai")
 
     script:
         """

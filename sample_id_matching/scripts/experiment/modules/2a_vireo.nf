@@ -19,15 +19,20 @@ process VIREO_MATCH {
         if [ ${params.pseudobulk} == true ]
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
+            mkdir -p \$output_location
+
+            python ${params.projectDir}/modules/vireo.py \\
+                -v1 ${vcf_files} \\
+                -v2 ${vcf_files} \\
+                -o \${output_location
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}"
+            mkdir -p \$output_location
+
+            python ${params.projectDir}/modules/vireo.py \\
+                -v1 ${vcf_files[0]} \\
+                -v2 ${vcf_files[1]} \\
+                -o \${output_location}
         fi
-
-        mkdir -p \$output_location
-
-        python ${params.projectDir}/modules/vireo.py \\
-            -v1 ${vcf_files} \\
-            -v2 ${vcf_files} \\
-            -o \${output_location}
         """
 }

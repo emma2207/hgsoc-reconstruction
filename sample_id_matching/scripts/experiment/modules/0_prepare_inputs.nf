@@ -9,6 +9,7 @@ process PREPARE_INPUTS {
     
     output:
         path("${params.dataset}/*/*/*.bam")
+        path("${params.dataset}/*/*/*.bam.bai")
 
     script:
         """
@@ -29,6 +30,9 @@ process PREPARE_INPUTS {
             do
                 new_name="\${output_location}/${sample_id}_${nr}.bam"
                 mv "\$bam_file" "\$new_name"
+                
+                # Index the BAM file
+                samtools index "\$new_name"
 
                 echo "Renamed \$bam_file to \$new_name"
             done
@@ -39,6 +43,9 @@ process PREPARE_INPUTS {
             do
                 new_name="\${output_location}/${sample_id}_${datatype}.bam"
                 mv "\$bam_file" "\$new_name"
+                
+                # Index the BAM file
+                samtools index "\$new_name"
 
                 echo "Renamed \$bam_file to \$new_name"
             done
