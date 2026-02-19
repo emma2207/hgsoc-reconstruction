@@ -7,26 +7,28 @@ import matplotlib.pyplot as plt
 
 dataset_regex_dict = {
     "hgsoc": r"[a-zA-Z0-9]{32}_",
-    "low_grade_glioma": r"^GSM[0-9]{7}_"
+    "low_grade_glioma": r"^GSM[0-9]{7}_",
 }
 
-
+####################################################
+### Functions to convert long dataframes to matrices
+####################################################
 def long_df_to_matrix_bamixchecker(df, metric="Concordance Rate"):
     # Use pivot_table for much faster matrix creation
     matrix = df.pivot_table(
         index=0,
-        columns='Sample',
+        columns="Sample",
         values=metric,
-        aggfunc='first'  # Use first value if duplicates exist
+        aggfunc="first",  # Use first value if duplicates exist
     )
-    
+
     # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df.index) | set(df['Sample']))
+    all_samples = sorted(set(df.index) | set(df["Sample"]))
     matrix = matrix.reindex(index=all_samples, columns=all_samples)
-    
+
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
-    
+
     # Order rows and columns
     matrix = matrix[matrix.columns.sort_values()]
     matrix = matrix.reindex(sorted(matrix.index))
@@ -37,30 +39,27 @@ def long_df_to_matrix_bamixchecker(df, metric="Concordance Rate"):
 def long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE"):
     # Use pivot_table for much faster matrix creation
     matrix = df.pivot_table(
-        index='LEFT_SAMPLE',
-        columns='RIGHT_SAMPLE', 
+        index="LEFT_SAMPLE",
+        columns="RIGHT_SAMPLE",
         values=metric,
-        aggfunc='first'  # Use first value if duplicates exist
+        aggfunc="first",  # Use first value if duplicates exist
     )
-    
+
     # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df['LEFT_SAMPLE']) | set(df['RIGHT_SAMPLE']))
+    all_samples = sorted(set(df["LEFT_SAMPLE"]) | set(df["RIGHT_SAMPLE"]))
     matrix = matrix.reindex(index=all_samples, columns=all_samples)
-    
+
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
-    
+
     # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(
-        key=lambda x: x.str.split('_').str[0]).sort_index(key=lambda x: x.str.split('_', n=1).str[1]
+    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
+        key=lambda x: x.str.split("_", n=1).str[1]
     )
     matrix = matrix.reindex(
         sorted(
-            sorted(
-                matrix.columns,
-                key=lambda x: x.split('_', 1)[0]
-            ),
-            key=lambda x: x.split('_', 1)[1]
+            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
+            key=lambda x: x.split("_", 1)[1],
         )
     )
     matrix = matrix[matrix.index]
@@ -72,29 +71,26 @@ def long_df_to_matrix_hysys(df):
     # Use pivot_table for much faster matrix creation
     matrix = df.pivot_table(
         index=0,
-        columns='Sample',
-        values='Concordance',
-        aggfunc='first'  # Use first value if duplicates exist
+        columns="Sample",
+        values="Concordance",
+        aggfunc="first",  # Use first value if duplicates exist
     )
-    
+
     # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df.index) | set(df['Sample']))
+    all_samples = sorted(set(df.index) | set(df["Sample"]))
     matrix = matrix.reindex(index=all_samples, columns=all_samples)
-    
+
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
-    
+
     # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(
-        key=lambda x: x.str.split('_').str[0]).sort_index(key=lambda x: x.str.split('_', n=1).str[1]
+    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
+        key=lambda x: x.str.split("_", n=1).str[1]
     )
     matrix = matrix.reindex(
         sorted(
-            sorted(
-                matrix.columns,
-                key=lambda x: x.split('_', 1)[0]
-            ),
-            key=lambda x: x.split('_', 1)[1]
+            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
+            key=lambda x: x.split("_", 1)[1],
         )
     )
     matrix = matrix[matrix.index]
@@ -106,33 +102,30 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     # Use pivot_table for much faster matrix creation
     matrix = df.pivot_table(
         index=0,
-        columns='Sample',
+        columns="Sample",
         values=metric,
-        aggfunc='first'  # Use first value if duplicates exist
+        aggfunc="first",  # Use first value if duplicates exist
     )
-    
+
     # Convert correlation values to percentage (divide by 100)
     if metric == "Correlation":
         matrix = matrix / 100
-    
+
     # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df.index) | set(df['Sample']))
+    all_samples = sorted(set(df.index) | set(df["Sample"]))
     matrix = matrix.reindex(index=all_samples, columns=all_samples)
-    
+
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
-    
+
     # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(
-        key=lambda x: x.str.split('_').str[0]).sort_index(key=lambda x: x.str.split('_', n=1).str[1]
+    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
+        key=lambda x: x.str.split("_", n=1).str[1]
     )
     matrix = matrix.reindex(
         sorted(
-            sorted(
-                matrix.columns,
-                key=lambda x: x.split('_', 1)[0]
-            ),
-            key=lambda x: x.split('_', 1)[1]
+            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
+            key=lambda x: x.split("_", 1)[1],
         )
     )
     matrix = matrix[matrix.index]
@@ -140,58 +133,68 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     return matrix
 
 
+#####################################################
+### Functions to parse tool outputs and create heatmap matrices
+#####################################################
 def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
     if pseudobulk:
         df = pd.read_csv(
-            DATA_PATH + 
-            f"2b_bamixchecker/{dataset}/pseudobulk/ncells_{ncells}/BAMixChecker/Total_result.txt", 
-            sep="\t", index_col=0, header=None
+            DATA_PATH
+            + f"2b_bamixchecker/{dataset}/pseudobulk/ncells_{ncells}/BAMixChecker/Total_result.txt",
+            sep="\t",
+            index_col=0,
+            header=None,
         )
     else:
         df = pd.read_csv(
-            DATA_PATH + 
-            f"2b_bamixchecker/{dataset}/real_data/ncells_null/BAMixChecker/Total_result.txt", 
-            sep="\t", index_col=0, header=None
+            DATA_PATH
+            + f"2b_bamixchecker/{dataset}/real_data/ncells_null/BAMixChecker/Total_result.txt",
+            sep="\t",
+            index_col=0,
+            header=None,
         )
-        
+
     df.columns = ["Sample", "Concordance Rate", "Conclusion"]
 
     regex_exp = dataset_regex_dict.get(dataset, "")
     rename_dict = {
-        x: 
-        re.sub(regex_exp, "", x.replace("_filtered_rg.bam", ""))
+        x: re.sub(regex_exp, "", x.replace("_filtered_rg.bam", ""))
         for x in list(set(df.index) | set(df["Sample"]))
     }
     df.index = df.index.map(rename_dict)
     df["Sample"] = df["Sample"].map(rename_dict)
-    
+
     matrix = long_df_to_matrix_bamixchecker(df)
 
     return df, matrix
 
 
-def parse_heatmap_matrix_crosscheckfingerprints(DATA_PATH, pseudobulk, dataset, ncells, rd):
+def parse_heatmap_matrix_crosscheckfingerprints(
+    DATA_PATH, pseudobulk, dataset, ncells, rd
+):
     # Read CrosscheckFingerprints output
     if pseudobulk:
         df = pd.read_csv(
-            DATA_PATH + 
-            f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt", 
-            sep="\t", skiprows=6, header=0
+            DATA_PATH
+            + f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt",
+            sep="\t",
+            skiprows=6,
+            header=0,
         )
     else:
         df = pd.read_csv(
-            DATA_PATH + 
-            f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt", 
-            sep="\t", skiprows=6, header=0
+            DATA_PATH
+            + f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt",
+            sep="\t",
+            skiprows=6,
+            header=0,
         )
     df = df[["LEFT_SAMPLE", "RIGHT_SAMPLE", "LOD_SCORE", "RESULT"]]
 
     regex_exp = dataset_regex_dict.get(dataset, "")
 
     rename_dict = {
-        x: 
-        re.sub(regex_exp, "", x.replace(".bam", "").replace("ds.", ""))
-        
+        x: re.sub(regex_exp, "", x.replace(".bam", "").replace("ds.", ""))
         for x in list(set(df["LEFT_SAMPLE"]) | set(df["RIGHT_SAMPLE"]))
     }
     df["LEFT_SAMPLE"] = df["LEFT_SAMPLE"].map(rename_dict)
@@ -206,20 +209,34 @@ def parse_heatmap_matrix_crosscheckfingerprints(DATA_PATH, pseudobulk, dataset, 
 def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
     if pseudobulk:
         df = pd.read_csv(
-            DATA_PATH + f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt", 
-            sep="\t", index_col=0, header=None
+            DATA_PATH
+            + f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt",
+            sep="\t",
+            index_col=0,
+            header=None,
         )
     else:
         df = pd.read_csv(
-            DATA_PATH + f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt", 
-            sep="\t", index_col=0, header=None
+            DATA_PATH
+            + f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt",
+            sep="\t",
+            index_col=0,
+            header=None,
         )
 
     regex_exp = dataset_regex_dict.get(dataset, "")
 
     rename_dict = {
-        x: 
-        re.sub(regex_exp, "", x.replace(f"{dataset}/", "").replace("_individual_variants.snps", "").replace("pseudobulk/", "").replace("real_data/", "").replace(f"ncells_{ncells}/", "").replace(f"read_depth_{rd}/", ""))
+        x: re.sub(
+            regex_exp,
+            "",
+            x.replace(f"{dataset}/", "")
+            .replace("_individual_variants.snps", "")
+            .replace("pseudobulk/", "")
+            .replace("real_data/", "")
+            .replace(f"ncells_{ncells}/", "")
+            .replace(f"read_depth_{rd}/", ""),
+        )
         for x in list(set(df.index) | set(df[1]))
     }
     df.index = df.index.map(rename_dict)
@@ -233,25 +250,34 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
 
 def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd):
     # Read NGSCheckmate output
-    if pseudobulk:  
+    if pseudobulk:
         df = pd.read_csv(
-            DATA_PATH + 
-            f"2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/output_all.txt", 
-            sep="\t", index_col=0, header=None
+            DATA_PATH
+            + f"2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/output_all.txt",
+            sep="\t",
+            index_col=0,
+            header=None,
         )
     else:
         df = pd.read_csv(
-            DATA_PATH + 
-            f"2a_ngscheckmate/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/output_all.txt", 
-            sep="\t", index_col=0, header=None
+            DATA_PATH
+            + f"2a_ngscheckmate/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/output_all.txt",
+            sep="\t",
+            index_col=0,
+            header=None,
         )
 
     regex_exp = dataset_regex_dict.get(dataset, "")
 
     # Clean up sample names
     rename_dict = {
-        x: 
-        re.sub(regex_exp, "", x.replace(".vcf", "").replace("ds.", "").replace("_individual_variants", ""))
+        x: re.sub(
+            regex_exp,
+            "",
+            x.replace(".vcf", "")
+            .replace("ds.", "")
+            .replace("_individual_variants", ""),
+        )
         for x in list(set(df.index) | set(df[2]))
     }
     df.index = df.index.map(rename_dict)
@@ -268,26 +294,26 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
 def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
     if pseudobulk:
         matrix = pd.read_csv(
-            DATA_PATH + 
-            f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv", 
-            index_col=0
+            DATA_PATH
+            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
+            index_col=0,
         )
     else:
         matrix = pd.read_csv(
-            DATA_PATH + 
-            f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv", 
-            index_col=0
+            DATA_PATH
+            + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
+            index_col=0,
         )
 
     regex_exp = dataset_regex_dict.get(dataset, "")
 
     matrix.columns = [
-        re.sub(regex_exp, "", col.replace(".bam", "").replace("ds.", "")) 
+        re.sub(regex_exp, "", col.replace(".bam", "").replace("ds.", ""))
         for col in matrix.columns
     ]
     matrix.index = pd.Index(
         [
-            re.sub(regex_exp, "", idx.replace(".bam", "").replace("ds.", "")) 
+            re.sub(regex_exp, "", idx.replace(".bam", "").replace("ds.", ""))
             for idx in matrix.index
         ]
     )
@@ -300,45 +326,107 @@ def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
     return matrix
 
 
-def parse_hysys_model_results(file_path, dataset):
+#######################################################
+### Functions to parse tool outputs and create sample match dataframes
+#######################################################
+def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
+
+    # Create a mapping for BAMixChecker results
+    # 1 = match, 0 = no match
+    # Note BAMixChecker does not distinguish between "no match" and "inconclusive"
+    result_mapping = {
+        "Unmatched": 0,
+        "Matched": 1,
+    }
+    df, _ = parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells)
+    matrix = long_df_to_matrix_bamixchecker(df, metric="Conclusion").replace(result_mapping)
+    sample_matches = matrix.stack()
+    sample_matches.index = sample_matches.index.set_names(["sample_id_0", "sample_id_1"])
+    sample_matches.name = "match"
+    return pd.DataFrame(sample_matches)
+
+
+def parse_sample_matching_results_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd):
+
+    result_mapping = {
+        "unmatched": 0,
+        "matched": 1,
+    }
+    df, _ = parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd)
+    sample_matches = long_df_to_matrix_ngscheckmate(df, "Matched").replace(result_mapping)
+    sample_matches = sample_matches.stack()
+    sample_matches.index = sample_matches.index.set_names(["sample_id_0", "sample_id_1"])
+    sample_matches.name = "match"
+
+    return pd.DataFrame(sample_matches)
+
+
+def parse_sample_matching_results_crosscheckfingerprints(DATA_PATH, pseudobulk, dataset, ncells, rd):
+
+    # Create a mapping for CrosscheckFingerprints results
+    # 1 = match, 0 = no match, nan = inconclusive
+    result_mapping = {
+        "EXPECTED_MATCH": 1,
+        "UNEXPECTED_MATCH": 1,  
+        "EXPECTED_MISMATCH": 0,
+        "UNEXPECTED_MISMATCH": 0,
+        "INCONCLUSIVE": np.nan
+    }
+    df, _ = parse_heatmap_matrix_crosscheckfingerprints(DATA_PATH, pseudobulk, dataset, ncells, rd)
+    df = df.replace(result_mapping) 
+    sample_matches = df[["LEFT_SAMPLE", "RIGHT_SAMPLE", "RESULT"]]
+    
+
+    return sample_matches.set_index(["LEFT_SAMPLE", "RIGHT_SAMPLE"])
+
+
+def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
     """
     Parse HYSYS model_results.txt file to categorize sample relationships.
-    
+
     Args:
         file_path (str): Path to the model_results.txt file
-        
+        dataset (str): Name of the dataset
+
     Returns:
         pd.DataFrame: DataFrame with MultiIndex (sample1, sample2) and 'match' column
                      Values: 1 (matching), 0 (not matching), NaN (inconclusive)
     """
-    import re
-    import pandas as pd
-    import itertools
-    
-    with open(file_path, 'r') as file:
+    if pseudobulk:
+        file_path = os.path.join(
+            DATA_PATH, 
+            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/model_results.txt", 
+        )
+    else:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/model_results.txt",
+        )
+
+    with open(file_path, "r") as file:
         content = file.read()
-    
+
     # Initialize collections
     matching_pairs = set()
     inconclusive_pairs = set()
     all_samples = set()
-    
+
     # Clean sample names function
     def clean_sample_name(sample_path):
         # Extract filename from path
-        sample_name = sample_path.split('/')[-1]
+        sample_name = sample_path.split("/")[-1]
         # Remove file extension
-        sample_name = sample_name.replace('.snps', '')
+        sample_name = sample_name.replace(".snps", "")
         # Apply same regex cleanup as other tools
         regex_exp = dataset_regex_dict.get(dataset, "")
         sample_name = re.sub(regex_exp, "", sample_name)
         sample_name = sample_name.replace("_individual_variants", "").replace("ds.", "")
         return sample_name
-    
+
     # Find all "reject concordance value" lines (inconclusive)
     reject_pattern = r"reject concordance value.*?\(([^,]+),\s*([^)]+)\)"
     reject_matches = re.findall(reject_pattern, content)
-    
+
     for sample1_path, sample2_path in reject_matches:
         sample1 = clean_sample_name(sample1_path.strip())
         sample2 = clean_sample_name(sample2_path.strip())
@@ -346,57 +434,101 @@ def parse_hysys_model_results(file_path, dataset):
         if sample1 != sample2:  # Don't include self-comparisons
             pair = tuple(sorted([sample1, sample2]))  # Sort to avoid duplicates
             inconclusive_pairs.add(pair)
-    
+
     # Find all "sample X is related to: [Y]" lines (matching)
     related_pattern = r"sample ([^\s]+) is related to: \[([^\]]+)\]"
     related_matches = re.findall(related_pattern, content)
-    
+
     for sample1_path, related_samples_str in related_matches:
         sample1 = clean_sample_name(sample1_path.strip())
         all_samples.add(sample1)
-        
+
         # Parse the list of related samples
-        related_samples = [s.strip().strip("'\"") for s in related_samples_str.split(',')]
-        
+        related_samples = [
+            s.strip().strip("'\"") for s in related_samples_str.split(",")
+        ]
+
         for sample2_path in related_samples:
             sample2 = clean_sample_name(sample2_path.strip())
             all_samples.add(sample2)
             if sample1 != sample2:  # Don't include self-relationships
                 pair = tuple(sorted([sample1, sample2]))  # Sort to avoid duplicates
                 matching_pairs.add(pair)
-    
+
     # Create all possible pairs from all samples
-    all_samples_list = sorted(list(all_samples))
-    all_pairs = list(itertools.combinations(all_samples_list, 2))
-    
+    all_pairs = [(s1, s2) for s1 in all_samples for s2 in all_samples]
+
     # Create DataFrame with all pairs
     pair_data = []
     for pair in all_pairs:
         if pair in matching_pairs:
             match_status = 1  # matching
         elif pair in inconclusive_pairs:
-            match_status = float('nan')  # inconclusive
+            match_status = float("nan")  # inconclusive
         else:
             match_status = 0  # not matching
-        
-        pair_data.append({
-            'sample1': pair[0],
-            'sample2': pair[1], 
-            'match': match_status
-        })
-    
+
+        pair_data.append(
+            {"sample1": pair[0], "sample2": pair[1], "match": match_status}
+        )
+
     # Create DataFrame with MultiIndex
     df = pd.DataFrame(pair_data)
-    df = df.set_index(['sample1', 'sample2'])
-    
+    df = df.set_index(["sample1", "sample2"])
+
     return df
 
+
+def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
+    if pseudobulk:
+        sample_matches = pd.read_csv(
+            DATA_PATH + 
+            f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/matched_samples.csv", 
+            index_col=0
+        ).reset_index()
+    else:
+        sample_matches = pd.read_csv(
+            DATA_PATH + 
+            f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/matched_samples.csv", 
+            index_col=0
+        ).reset_index()
+
+    regex_exp = dataset_regex_dict.get(dataset, "")
+    for col in sample_matches.columns:
+        sample_matches[col] = [
+            re.sub(regex_exp, "", sample.replace(".bam", "").replace("ds.", "")) 
+            for sample in sample_matches[col]
+        ]
+    sample_matches = sample_matches.sort_values(by=["sample_id_0"]).reset_index(drop=True)
+
+    # Vireo will not include all samples in the results if we're comparing two sets of samples of unequal length
+    # We have to get a list of all samples from another tool's results
+    hysys_df, _ = parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd)
+    all_samples = sorted(set(hysys_df.index))
+
+    # Create all possible pairs of samples
+    all_pairs = [(s1, s2) for s1 in all_samples for s2 in all_samples]
+    all_pairs_df = pd.DataFrame(all_pairs, columns=["sample_id_0", "sample_id_1"])
+
+    # Add a "match" column: 1 if pair is in sample_matches, 0 otherwise
+    sample_matches_set = set(zip(sample_matches["sample_id_0"], sample_matches["sample_id_1"]))
+    all_pairs_df["match"] = all_pairs_df.apply(
+        lambda row: 1 if (row["sample_id_0"], row["sample_id_1"]) in sample_matches_set else 0,
+        axis=1
+    )
+
+    return all_pairs_df.set_index(["sample_id_0", "sample_id_1"])
+
+
+######################################################
+## Helper printing functions
+######################################################
 def print_hysys_results_summary(results_df):
     """Print a summary of HYSYS results."""
-    matching_count = (results_df['match'] == 1).sum()
-    not_matching_count = (results_df['match'] == 0).sum()
-    inconclusive_count = results_df['match'].isna().sum()
-    
+    matching_count = (results_df["match"] == 1).sum()
+    not_matching_count = (results_df["match"] == 0).sum()
+    inconclusive_count = results_df["match"].isna().sum()
+
     print("HYSYS Model Results Summary:")
     print("=" * 40)
     print(f"Matching pairs: {matching_count}")
@@ -404,18 +536,18 @@ def print_hysys_results_summary(results_df):
     print(f"Inconclusive pairs: {inconclusive_count}")
     print(f"Total pairs: {len(results_df)}")
     print()
-    
+
     if matching_count > 0:
-        matching_pairs = results_df[results_df['match'] == 1]
+        matching_pairs = results_df[results_df["match"] == 1]
         print("Sample pairs that match:")
         for i, (idx, row) in enumerate(matching_pairs.head(10).iterrows()):
             print(f"  {idx[0]} ↔ {idx[1]}")
         if len(matching_pairs) > 10:
             print(f"  ... and {len(matching_pairs) - 10} more")
         print()
-    
+
     if inconclusive_count > 0:
-        inconclusive_pairs = results_df[results_df['match'].isna()]
+        inconclusive_pairs = results_df[results_df["match"].isna()]
         print("Sample pairs that are inconclusive:")
         for i, (idx, row) in enumerate(inconclusive_pairs.head(10).iterrows()):
             print(f"  {idx[0]} ↔ {idx[1]}")
@@ -423,6 +555,9 @@ def print_hysys_results_summary(results_df):
             print(f"  ... and {len(inconclusive_pairs) - 10} more")
 
 
+######################################################
+### Functions to visualize heatmap matrices
+######################################################
 def all_samples_matrix_viz(
     matrix_df, pseudobulk, tool, dataset, ncells, rd, save_fig=False, FIGURES_PATH=""
 ):
