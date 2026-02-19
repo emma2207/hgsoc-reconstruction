@@ -2,13 +2,16 @@ import os
 import re
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+
+from sklearn.metrics import recall_score, precision_score, f1_score, balanced_accuracy_score, accuracy_score
+from scipy.optimize import linear_sum_assignment
 
 
 dataset_regex_dict = {
     "hgsoc": r"[a-zA-Z0-9]{32}_",
     "low_grade_glioma": r"^GSM[0-9]{7}_",
 }
+
 
 ####################################################
 ### Functions to convert long dataframes to matrices
@@ -339,45 +342,32 @@ def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, n
         "Matched": 1,
     }
     df, _ = parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells)
-    matrix = long_df_to_matrix_bamixchecker(df, metric="Conclusion").replace(result_mapping)
-    sample_matches = matrix.stack()
-    sample_matches.index = sample_matches.index.set_names(["sample_id_0", "sample_id_1"])
-    sample_matches.name = "match"
-    return pd.DataFrame(sample_matches)
+    sample_matches = long_df_to_matrix_bamixchecker(df, metric="Conclusion").replace(
+        result_mapping
+    )
+    return sample_matches
 
 
-def parse_sample_matching_results_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd):
-
-    result_mapping = {
-        "unmatched": 0,
-        "matched": 1,
-    }
-    df, _ = parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd)
-    sample_matches = long_df_to_matrix_ngscheckmate(df, "Matched").replace(result_mapping)
-    sample_matches = sample_matches.stack()
-    sample_matches.index = sample_matches.index.set_names(["sample_id_0", "sample_id_1"])
-    sample_matches.name = "match"
-
-    return pd.DataFrame(sample_matches)
-
-
-def parse_sample_matching_results_crosscheckfingerprints(DATA_PATH, pseudobulk, dataset, ncells, rd):
+def parse_sample_matching_results_crosscheckfingerprints(
+    DATA_PATH, pseudobulk, dataset, ncells, rd
+):
 
     # Create a mapping for CrosscheckFingerprints results
     # 1 = match, 0 = no match, nan = inconclusive
     result_mapping = {
         "EXPECTED_MATCH": 1,
-        "UNEXPECTED_MATCH": 1,  
+        "UNEXPECTED_MATCH": 1,
         "EXPECTED_MISMATCH": 0,
         "UNEXPECTED_MISMATCH": 0,
-        "INCONCLUSIVE": np.nan
+        "INCONCLUSIVE": np.nan,
     }
-    df, _ = parse_heatmap_matrix_crosscheckfingerprints(DATA_PATH, pseudobulk, dataset, ncells, rd)
-    df = df.replace(result_mapping) 
-    sample_matches = df[["LEFT_SAMPLE", "RIGHT_SAMPLE", "RESULT"]]
-    
+    df, _ = parse_heatmap_matrix_crosscheckfingerprints(
+        DATA_PATH, pseudobulk, dataset, ncells, rd
+    )
+    sample_matches = long_df_to_matrix_crosscheckfingerprints(df, metric="RESULT")
+    sample_matches = sample_matches.replace(result_mapping)
 
-    return sample_matches.set_index(["LEFT_SAMPLE", "RIGHT_SAMPLE"])
+    return sample_matches
 
 
 def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
@@ -394,8 +384,8 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
     """
     if pseudobulk:
         file_path = os.path.join(
-            DATA_PATH, 
-            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/model_results.txt", 
+            DATA_PATH,
+            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/model_results.txt",
         )
     else:
         file_path = os.path.join(
@@ -472,34 +462,54 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
             {"sample1": pair[0], "sample2": pair[1], "match": match_status}
         )
 
-    # Create DataFrame with MultiIndex
+    # Create matrix with sample1 as index and sample2 as columns
     df = pd.DataFrame(pair_data)
-    df = df.set_index(["sample1", "sample2"])
+    matrix = df.pivot_table(index="sample1", columns="sample2", values="match")
+    
+    return matrix
 
-    return df
+
+def parse_sample_matching_results_ngscheckmate(
+    DATA_PATH, pseudobulk, dataset, ncells, rd
+):
+
+    result_mapping = {
+        "unmatched": 0,
+        "matched": 1,
+    }
+    df, _ = parse_heatmap_matrix_ngscheckmate(
+        DATA_PATH, pseudobulk, dataset, ncells, rd
+    )
+    sample_matches = long_df_to_matrix_ngscheckmate(df, "Matched").replace(
+        result_mapping
+    )
+
+    return sample_matches
 
 
 def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
     if pseudobulk:
         sample_matches = pd.read_csv(
-            DATA_PATH + 
-            f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/matched_samples.csv", 
-            index_col=0
+            DATA_PATH
+            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
+            index_col=0,
         ).reset_index()
     else:
         sample_matches = pd.read_csv(
-            DATA_PATH + 
-            f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/matched_samples.csv", 
-            index_col=0
+            DATA_PATH
+            + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
+            index_col=0,
         ).reset_index()
 
     regex_exp = dataset_regex_dict.get(dataset, "")
     for col in sample_matches.columns:
         sample_matches[col] = [
-            re.sub(regex_exp, "", sample.replace(".bam", "").replace("ds.", "")) 
+            re.sub(regex_exp, "", sample.replace(".bam", "").replace("ds.", ""))
             for sample in sample_matches[col]
         ]
-    sample_matches = sample_matches.sort_values(by=["sample_id_0"]).reset_index(drop=True)
+    sample_matches = sample_matches.sort_values(by=["sample_id_0"]).reset_index(
+        drop=True
+    )
 
     # Vireo will not include all samples in the results if we're comparing two sets of samples of unequal length
     # We have to get a list of all samples from another tool's results
@@ -511,199 +521,77 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
     all_pairs_df = pd.DataFrame(all_pairs, columns=["sample_id_0", "sample_id_1"])
 
     # Add a "match" column: 1 if pair is in sample_matches, 0 otherwise
-    sample_matches_set = set(zip(sample_matches["sample_id_0"], sample_matches["sample_id_1"]))
+    sample_matches_set = set(
+        zip(sample_matches["sample_id_0"], sample_matches["sample_id_1"])
+    )
     all_pairs_df["match"] = all_pairs_df.apply(
-        lambda row: 1 if (row["sample_id_0"], row["sample_id_1"]) in sample_matches_set else 0,
-        axis=1
+        lambda row: (
+            1 if (row["sample_id_0"], row["sample_id_1"]) in sample_matches_set else 0
+        ),
+        axis=1,
     )
 
     return all_pairs_df.set_index(["sample_id_0", "sample_id_1"])
 
 
 ######################################################
-## Helper printing functions
+### Functions to calculate accuracy metrics
 ######################################################
-def print_hysys_results_summary(results_df):
-    """Print a summary of HYSYS results."""
-    matching_count = (results_df["match"] == 1).sum()
-    not_matching_count = (results_df["match"] == 0).sum()
-    inconclusive_count = results_df["match"].isna().sum()
-
-    print("HYSYS Model Results Summary:")
-    print("=" * 40)
-    print(f"Matching pairs: {matching_count}")
-    print(f"Not matching pairs: {not_matching_count}")
-    print(f"Inconclusive pairs: {inconclusive_count}")
-    print(f"Total pairs: {len(results_df)}")
-    print()
-
-    if matching_count > 0:
-        matching_pairs = results_df[results_df["match"] == 1]
-        print("Sample pairs that match:")
-        for i, (idx, row) in enumerate(matching_pairs.head(10).iterrows()):
-            print(f"  {idx[0]} ↔ {idx[1]}")
-        if len(matching_pairs) > 10:
-            print(f"  ... and {len(matching_pairs) - 10} more")
-        print()
-
-    if inconclusive_count > 0:
-        inconclusive_pairs = results_df[results_df["match"].isna()]
-        print("Sample pairs that are inconclusive:")
-        for i, (idx, row) in enumerate(inconclusive_pairs.head(10).iterrows()):
-            print(f"  {idx[0]} ↔ {idx[1]}")
-        if len(inconclusive_pairs) > 10:
-            print(f"  ... and {len(inconclusive_pairs) - 10} more")
-
-
-######################################################
-### Functions to visualize heatmap matrices
-######################################################
-def all_samples_matrix_viz(
-    matrix_df, pseudobulk, tool, dataset, ncells, rd, save_fig=False, FIGURES_PATH=""
-):
-    """
-    Docstring for all_samples_matrix_viz
-
-    :param matrix_df: Dataframe containing a heatmap / matrix of similarity measures of all samples against all samples
-    :param pseudobulk: True / False
-    :param tool: BAMixChecker / CrosscheckFingerprints / HYSYS / NGSCheckmate / Vireo
-    :param dataset: dataset name
-    :param ncells: number of cells in pseudobulk, "null" in real data
-    :param rd: read depth filter cut-off
-    :param sc: single-cell / single-nucleus
-    :param save_fig: True / False
-    :param FIGURES_PATH: path that figures get saved to
-    """
-
-    if pseudobulk:
-        fig_name = f"pseudobulk_{dataset}_{tool}_rd{rd}_ncells{ncells}_all_samples_similarity_matrix"
-    else:
-        fig_name = f"{dataset}_{tool}_rd{rd}_all_samples_similarity_matrix"
-
-    # Visualize ALL samples against ALL samples
-    extreme_point = max(abs(matrix_df.min().min()), abs(matrix_df.max().max()))
-
-    fig, ax = plt.subplots(figsize=(10, 10))
-    if tool == "CrosscheckFingerprints":
-        cmap = plt.get_cmap("RdBu")
-        cmap.set_bad(color="lightgrey")
-        cax = ax.matshow(matrix_df, cmap=cmap, vmin=-extreme_point, vmax=extreme_point)
-    else:
-        cmap = plt.get_cmap("Oranges")
-        cmap.set_bad(color="lightgrey")
-        cax = ax.matshow(matrix_df, cmap=cmap)
-
-    ax.set_xticks(np.arange(len(matrix_df.columns)))
-    ax.set_yticks(np.arange(len(matrix_df.index)))
-    ax.set_xticklabels(
-        matrix_df.columns, rotation=45, ha="left", fontdict={"fontsize": 10}
-    )
-    ax.set_yticklabels(matrix_df.index, fontdict={"fontsize": 10})
-    ax.xaxis.set_label_position("top")
-    ax.set_title(f"{tool} Similarity Matrix", pad=20)
-
-    fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
-
-    if save_fig:
-        fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.png",
-            ),
-            bbox_inches="tight",
-            dpi=300,
-        )
-        fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.pdf",
-            ),
-            bbox_inches="tight",
-            dpi=300,
-        )
-
-    return
-
-
-def bulk_vs_singlecell_matrix_viz(
-    matrix_df,
-    pseudobulk,
-    tool,
-    dataset,
-    ncells,
-    rd,
-    sc="single-cell",
-    save_fig=False,
-    FIGURES_PATH="",
-):
-    """
-    Docstring for bulk_vs_singlecell_matrix_viz
-
-    :param matrix_df: Dataframe containing a heatmap / matrix of similarity measures of all samples against all samples
-    :param pseudobulk: True / False
-    :param tool: BAMixChecker / CrosscheckFingerprints / HYSYS / NGSCheckmate / Vireo
-    :param dataset: dataset name
-    :param ncells: number of cells in pseudobulk, "null" in real data
-    :param rd: read depth filter cut-off
-    :param sc: single-cell / single-nucleus
-    :param save_fig: True / False
-    :param FIGURES_PATH: path that figures get saved to
-    """
-
-    if pseudobulk:
-        fig_name = f"pseudobulk_{dataset}_{tool}_rd{rd}_ncells{ncells}_bulk_vs_{sc}_similarity_matrix"
-    else:
-        fig_name = f"{dataset}_{tool}_rd{rd}_bulk_vs_{sc}_similarity_matrix"
-
-    # Visualize bulk against single-cell or single-nucleus samples
-    sub_matrix = matrix_df[
-        [
-            col
-            for col in matrix_df.columns
-            if "single-cell" in col or "single-nucleus" in col
-        ]
+def create_pseudobulk_submatrix_vireo(matrix):
+    # Filter Vireo matrix to only samples ending in _1 in rows and samples ending in _2 in columns (or _2 vs _3 or _1 vs _3)
+    pseudobulk_1 = "_1"
+    pseudobulk_2 = "_2"
+    matrix_filtered = matrix.loc[
+        [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
+        [col for col in matrix.columns if col.endswith(pseudobulk_2)]
     ]
-    sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if "bulk" in idx]]
 
-    extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
+    # Minimize diagonal of matrix_filtered by moving rows and columns around
+    # This is the algorith Vireo uses to match samples
+    idx0, idx1 = linear_sum_assignment(matrix_filtered.values)
+    matrix_reordered = pd.DataFrame(
+        matrix_filtered.iloc[idx0, idx1], 
+        index=matrix_filtered.index[idx0], 
+        columns=matrix_filtered.columns[idx1]
+    )
+    # The new order of samples in the index and columns reveals the matching of samples between the two pseudobulk sets. 
+    # Create a sample-matching matrix with 1 on the diagonal and 0 elsewhere, where the order of rows and columns is the same as in matrix_reordered.
+    # This matrix has the inferred sample matches
+    inferred_matches = pd.DataFrame(
+        np.identity(len(matrix_reordered.index)),
+        index=pd.Index(matrix_reordered.index), 
+        columns=pd.Index(matrix_reordered.columns),
+    )
+    # Reorder to the original order of samples
+    ordered_columns = sorted(inferred_matches.columns)
+    ordered_index = sorted(inferred_matches.index)
+    inferred_matches = inferred_matches.loc[ordered_index, ordered_columns]
 
-    fig, ax = plt.subplots(figsize=(8, 8))
-    if tool == "CrosscheckFingerprints":
-        cmap = plt.get_cmap("RdBu")
-        cmap.set_bad(color="lightgrey")
-        cax = ax.matshow(sub_matrix, cmap=cmap, vmin=-extreme_point, vmax=extreme_point)
-    else:
-        cmap = plt.get_cmap("Oranges")
-        cmap.set_bad(color="lightgrey")
-        cax = ax.matshow(sub_matrix, cmap=cmap)
+    return inferred_matches
 
-    ax.set_xticks(np.arange(len(sub_matrix.columns)))
-    ax.set_yticks(np.arange(len(sub_matrix.index)))
-    ax.set_xticklabels(sub_matrix.columns, rotation=45, ha="left")
-    ax.set_yticklabels(sub_matrix.index)
-    ax.xaxis.set_label_position("top")
-    ax.set_xlabel(f"{sc} samples")
-    ax.set_ylabel("Bulk samples")
-    ax.set_title(f"{tool} Bulk vs {sc} Similarity Matrix", pad=20)
 
-    fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
+def true_matches_pseudobulk(matrix):
+    # Make sure the columns are ordered
+    matrix = matrix.loc[sorted(matrix.index), sorted(matrix.columns)]
 
-    if save_fig:
-        fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.png",
-            ),
-            bbox_inches="tight",
-            dpi=300,
-        )
-        fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.pdf",
-            ),
-            bbox_inches="tight",
-            dpi=300,
-        )
+    # Create matrix with true matches
+    true_matches = pd.DataFrame(
+        np.identity(len(matrix)),
+        index=pd.Index(matrix.index),
+        columns=pd.Index(matrix.columns),
+    )
+    
+    return true_matches
 
-    return
+
+def calculate_accuracy_metrics_pseudobulk(inferred_matches):
+
+    true_matches = true_matches_pseudobulk(inferred_matches)
+
+    accuracy = accuracy_score(true_matches.values.flatten(), inferred_matches.values.flatten())
+    balanced_accuracy = balanced_accuracy_score(true_matches.values.flatten(), inferred_matches.values.flatten())
+    precision = precision_score(true_matches.values.flatten(), inferred_matches.values.flatten())
+    recall = recall_score(true_matches.values.flatten(), inferred_matches.values.flatten())
+    f1 = f1_score(true_matches.values.flatten(), inferred_matches.values.flatten())
+
+    return accuracy, balanced_accuracy, precision, recall, f1
