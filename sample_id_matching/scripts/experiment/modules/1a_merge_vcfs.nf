@@ -73,7 +73,7 @@ process MERGE_AND_FILTER_VCFS {
         # Filter individual VCF inputs by read depth
         for vcf_file in ${individual_vcfs}
         do
-            sample_name=\$(basename "\$vcf_file" .vcf.gz)
+            sample_id=\$(basename "\$vcf_file" .vcf.gz)
             # sample_id="\${sample_name%????}"
             echo "Filtering \$sample_id"
             
