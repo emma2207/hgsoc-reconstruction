@@ -3,7 +3,13 @@ import re
 import numpy as np
 import pandas as pd
 
-from sklearn.metrics import recall_score, precision_score, f1_score, balanced_accuracy_score, accuracy_score
+from sklearn.metrics import (
+    recall_score,
+    precision_score,
+    f1_score,
+    balanced_accuracy_score,
+    accuracy_score,
+)
 from scipy.optimize import linear_sum_assignment
 
 
@@ -465,7 +471,7 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
     # Create matrix with sample1 as index and sample2 as columns
     df = pd.DataFrame(pair_data)
     matrix = df.pivot_table(index="sample1", columns="sample2", values="match")
-    
+
     return matrix
 
 
@@ -543,23 +549,23 @@ def create_pseudobulk_submatrix_vireo(matrix):
     pseudobulk_2 = "_2"
     matrix_filtered = matrix.loc[
         [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
-        [col for col in matrix.columns if col.endswith(pseudobulk_2)]
+        [col for col in matrix.columns if col.endswith(pseudobulk_2)],
     ]
 
     # Minimize diagonal of matrix_filtered by moving rows and columns around
     # This is the algorith Vireo uses to match samples
     idx0, idx1 = linear_sum_assignment(matrix_filtered.values)
     matrix_reordered = pd.DataFrame(
-        matrix_filtered.iloc[idx0, idx1], 
-        index=matrix_filtered.index[idx0], 
-        columns=matrix_filtered.columns[idx1]
+        matrix_filtered.iloc[idx0, idx1],
+        index=matrix_filtered.index[idx0],
+        columns=matrix_filtered.columns[idx1],
     )
-    # The new order of samples in the index and columns reveals the matching of samples between the two pseudobulk sets. 
+    # The new order of samples in the index and columns reveals the matching of samples between the two pseudobulk sets.
     # Create a sample-matching matrix with 1 on the diagonal and 0 elsewhere, where the order of rows and columns is the same as in matrix_reordered.
     # This matrix has the inferred sample matches
     inferred_matches = pd.DataFrame(
         np.identity(len(matrix_reordered.index)),
-        index=pd.Index(matrix_reordered.index), 
+        index=pd.Index(matrix_reordered.index),
         columns=pd.Index(matrix_reordered.columns),
     )
     # Reorder to the original order of samples
@@ -580,18 +586,117 @@ def true_matches_pseudobulk(matrix):
         index=pd.Index(matrix.index),
         columns=pd.Index(matrix.columns),
     )
-    
+
     return true_matches
 
 
 def calculate_accuracy_metrics_pseudobulk(inferred_matches):
 
+    # Calculate fraction of inconclusive (NaN) matches
+    total_comparisons = inferred_matches.size
+    inconclusive_matches = inferred_matches.isna().sum().sum()
+    fraction_inconclusive = inconclusive_matches / total_comparisons
+
+    # Replace NaN with 0 for accuracy calculations (treat inconclusive as no match)
+    inferred_matches = inferred_matches.fillna(0).astype(int)
+
+    # Create true matches matrix
     true_matches = true_matches_pseudobulk(inferred_matches)
 
-    accuracy = accuracy_score(true_matches.values.flatten(), inferred_matches.values.flatten())
-    balanced_accuracy = balanced_accuracy_score(true_matches.values.flatten(), inferred_matches.values.flatten())
-    precision = precision_score(true_matches.values.flatten(), inferred_matches.values.flatten())
-    recall = recall_score(true_matches.values.flatten(), inferred_matches.values.flatten())
+    # Calculate accuracy metrics by comparing inferred_matches to true_matches
+    accuracy = accuracy_score(
+        true_matches.values.flatten(), inferred_matches.values.flatten()
+    )
+    balanced_accuracy = balanced_accuracy_score(
+        true_matches.values.flatten(), inferred_matches.values.flatten()
+    )
+    precision = precision_score(
+        true_matches.values.flatten(), inferred_matches.values.flatten()
+    )
+    recall = recall_score(
+        true_matches.values.flatten(), inferred_matches.values.flatten()
+    )
     f1 = f1_score(true_matches.values.flatten(), inferred_matches.values.flatten())
 
-    return accuracy, balanced_accuracy, precision, recall, f1
+    return fraction_inconclusive, accuracy, balanced_accuracy, precision, recall, f1
+
+
+def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_depths):
+    results = []
+
+    for tool in tools:
+        for dataset in datasets:
+            for ncells in ncells_list:
+                for rd in read_depths:
+                    try:
+                        if (tool == "BAMixChecker" and rd == 1):
+                            inferred_matches = (
+                                parse_sample_matching_results_bamixchecker(
+                                    DATA_PATH, True, dataset, ncells
+                                )
+                            )
+                        elif tool == "BAMixChecker" and rd != 1:
+                            print(
+                                f"Skipping BAMixChecker for read depth {rd} since it does not vary with read depth. "
+                            )
+                            continue
+                        elif tool == "CrosscheckFingerprints":
+                            inferred_matches = (
+                                parse_sample_matching_results_crosscheckfingerprints(
+                                    DATA_PATH, True, dataset, ncells, rd
+                                )
+                            )
+                        elif tool == "HYSYS":
+                            inferred_matches = parse_sample_matching_results_hysys(
+                                DATA_PATH, True, dataset, ncells, rd
+                            )
+                        elif tool == "NGSCheckmate":
+                            inferred_matches = (
+                                parse_sample_matching_results_ngscheckmate(
+                                    DATA_PATH, True, dataset, ncells, rd
+                                )
+                            )
+                        elif tool == "Vireo":
+                            matrix = parse_heatmap_matrix_vireo(
+                                DATA_PATH, True, dataset, ncells, rd
+                            )
+                            inferred_matches = create_pseudobulk_submatrix_vireo(matrix)
+                        else:
+                            print(f"Error! Do not recognize tool {tool}")
+                            continue
+                    except FileNotFoundError:
+                        print(
+                            f"Could not find data for {tool}, pseudobulk dataset {dataset}, ncells {ncells}, read depth {rd}. "
+                        )
+                        continue
+
+                    inferred_matches_filtered = inferred_matches.loc[
+                        [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                        [col for col in inferred_matches.columns if col.endswith("_2")],
+                    ]
+
+                    (
+                        fraction_inconclusive,
+                        accuracy,
+                        balanced_accuracy,
+                        precision,
+                        recall,
+                        f1,
+                    ) = calculate_accuracy_metrics_pseudobulk(inferred_matches_filtered)
+
+                    result = {
+                        "tool": tool,
+                        "pseudobulk": True,
+                        "dataset": dataset,
+                        "ncells": ncells,
+                        "read depth": rd,
+                        "fraction_inconclusive": fraction_inconclusive,
+                        "accuracy": accuracy,
+                        "balanced_accuracy": balanced_accuracy,
+                        "precision": precision,
+                        "recall": recall,
+                        "f1": f1,
+                    }
+                    results.append(result)
+
+    return pd.DataFrame(results)
