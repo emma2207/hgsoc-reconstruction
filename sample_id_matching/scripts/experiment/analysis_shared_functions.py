@@ -200,7 +200,10 @@ def parse_heatmap_matrix_crosscheckfingerprints(
         )
     df = df[["LEFT_SAMPLE", "RIGHT_SAMPLE", "LOD_SCORE", "RESULT"]]
 
-    regex_exp = dataset_regex_dict.get(dataset, "")
+    if pseudobulk:
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
 
     rename_dict = {
         x: re.sub(regex_exp, "", x.replace(".bam", "").replace("ds.", ""))
