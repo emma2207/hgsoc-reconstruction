@@ -7,7 +7,8 @@ from analysis_shared_functions import (
     parse_heatmap_matrix_crosscheckfingerprints,
     parse_heatmap_matrix_hysys,
     parse_heatmap_matrix_ngscheckmate,
-    parse_heatmap_matrix_vireo
+    parse_heatmap_matrix_vireo,
+    load_expected_matches_real_data,
 )
 
 
@@ -69,8 +70,8 @@ def bulk_vs_singlecell_matrix_viz(
     ax.set_yticklabels(sub_matrix.index)
     ax.xaxis.set_label_position("top")
     ax.set_xlabel(f"{sc} samples")
-    ax.set_ylabel("Bulk samples")
-    ax.set_title(f"{tool} Bulk vs {sc} Similarity Matrix", pad=20)
+    ax.set_ylabel("bulk samples")
+    ax.set_title(f"{tool} bulk vs {sc} similarity matrix", pad=20)
 
     fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
 
@@ -138,7 +139,7 @@ def all_samples_matrix_viz(
     )
     ax.set_yticklabels(matrix_df.index, fontdict={"fontsize": 10})
     ax.xaxis.set_label_position("top")
-    ax.set_title(f"{tool} Similarity Matrix", pad=20)
+    ax.set_title(f"{tool} similarity matrix", pad=20)
 
     fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
 
@@ -164,7 +165,9 @@ def all_samples_matrix_viz(
     return
 
 
-def loop_heatmap_plots_pseudobulks(DATA_PATH, FIGURES_PATH, tools, datasets, ncells_list, read_depths):
+def loop_heatmap_plots_pseudobulks(
+    DATA_PATH, FIGURES_PATH, tools, datasets, ncells_list, read_depths
+):
 
     for tool in tools:
         for dataset in datasets:
@@ -173,97 +176,219 @@ def loop_heatmap_plots_pseudobulks(DATA_PATH, FIGURES_PATH, tools, datasets, nce
                     try:
                         # Create heatmap matrix
                         if tool == "BAMixChecker":
-                            _, matrix = parse_heatmap_matrix_bamixchecker(DATA_PATH, True, dataset, ncells)
+                            _, matrix = parse_heatmap_matrix_bamixchecker(
+                                DATA_PATH, True, dataset, ncells
+                            )
                         elif tool == "CrosscheckFingerprints":
-                            _, matrix = parse_heatmap_matrix_crosscheckfingerprints(DATA_PATH, True, dataset, ncells, rd)
+                            _, matrix = parse_heatmap_matrix_crosscheckfingerprints(
+                                DATA_PATH, True, dataset, ncells, rd
+                            )
                         elif tool == "HYSYS":
-                            _, matrix = parse_heatmap_matrix_hysys(DATA_PATH, True, dataset, ncells, rd)
+                            _, matrix = parse_heatmap_matrix_hysys(
+                                DATA_PATH, True, dataset, ncells, rd
+                            )
                         elif tool == "NGSCheckmate":
-                            _, matrix = parse_heatmap_matrix_ngscheckmate(DATA_PATH, True, dataset, ncells, rd)
+                            _, matrix = parse_heatmap_matrix_ngscheckmate(
+                                DATA_PATH, True, dataset, ncells, rd
+                            )
                         elif tool == "Vireo":
-                            matrix = parse_heatmap_matrix_vireo(DATA_PATH, True, dataset, ncells, rd)
+                            matrix = parse_heatmap_matrix_vireo(
+                                DATA_PATH, True, dataset, ncells, rd
+                            )
                         else:
-                            print(f"Error! Do not recognize tool {tool}")
+                            print(f"Error! Do not recognize tool {tool}.")
+                            print(
+                                "Choice of tool must be one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                            )
                             continue
                     except FileNotFoundError:
-                        print(f"Could not find data for {tool}, pseudobulk dataset {dataset}, ncells {ncells}, read depth {rd}. ")
+                        print(
+                            f"Could not find data for {tool}, pseudobulk dataset {dataset}, ncells {ncells}, read depth {rd}. "
+                        )
                         continue
 
                     pseudobulk_1 = "_1"
                     pseudobulk_2 = "_2"
                     matrix_filtered = matrix.loc[
                         [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
-                        [col for col in matrix.columns if col.endswith(pseudobulk_2)]
+                        [col for col in matrix.columns if col.endswith(pseudobulk_2)],
                     ]
 
                     # Create plots
                     all_samples_matrix_viz(
-                        matrix_filtered, 
-                        pseudobulk=True, 
-                        tool=tool, 
-                        dataset=dataset, 
-                        ncells=ncells, 
-                        rd=rd, 
+                        matrix_filtered,
+                        pseudobulk=True,
+                        tool=tool,
+                        dataset=dataset,
+                        ncells=ncells,
+                        rd=rd,
                         save_fig=True,
-                        FIGURES_PATH=FIGURES_PATH
+                        FIGURES_PATH=FIGURES_PATH,
                     )
 
 
-def heatmap_plot_accuracy_metrics_pseudobulk(df, dataset, metric, save_fig=False, FIGURES_PATH=""):
+def loop_heatmap_plots_real_data(
+    DATA_PATH, FIGURES_PATH, tools, datasets, read_depths, bulk="bulk"
+):
+    ncells = "null"
+
+    for tool in tools:
+        for dataset in datasets:
+            for rd in read_depths:
+                print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
+                try:
+                    # Create heatmap matrix
+                    if tool == "BAMixChecker":
+                        _, matrix = parse_heatmap_matrix_bamixchecker(
+                            DATA_PATH, False, dataset, ncells
+                        )
+                    elif tool == "CrosscheckFingerprints":
+                        _, matrix = parse_heatmap_matrix_crosscheckfingerprints(
+                            DATA_PATH, False, dataset, ncells, rd
+                        )
+                    elif tool == "HYSYS":
+                        _, matrix = parse_heatmap_matrix_hysys(
+                            DATA_PATH, False, dataset, ncells, rd
+                        )
+                    elif tool == "NGSCheckmate":
+                        _, matrix = parse_heatmap_matrix_ngscheckmate(
+                            DATA_PATH, False, dataset, ncells, rd
+                        )
+                    elif tool == "Vireo":
+                        matrix = parse_heatmap_matrix_vireo(
+                            DATA_PATH, False, dataset, ncells, rd
+                        )
+                    else:
+                        print(f"Error! Do not recognize tool {tool}")
+                        print(
+                            "Choice of tool must be one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                        )
+                        continue
+                except FileNotFoundError:
+                    print(
+                        f"Could not find data for {tool}, real dataset {dataset}, read depth {rd}. "
+                    )
+                    continue
+
+                # Load expected matches for real data
+                expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+
+                # Then use the ordering of the expected matches to order the matrix rows and columns before plotting,
+                # so that samples that are expected to match show up on the diagonal
+                # Samples with no expected match will be shown after the expected matches
+                bulk_col = [col for col in expected_matches.columns if bulk in col]
+                assert (
+                    len(bulk_col) == 1
+                ), "Expected exactly one bulk column in the matrix"
+                single_col = [
+                    col for col in expected_matches.columns if "single" in col
+                ]
+                assert (
+                    len(single_col) == 1
+                ), "Expected exactly one single-cell/single-nucleus column in the matrix"
+
+                bulk_samples = list(expected_matches[bulk_col[0]].dropna())
+                single_samples = list(expected_matches[single_col[0]].dropna())
+
+                # Filter matrix to only include samples matching expected samples
+                # Expected sample names should be prefixes of matrix sample names
+                all_expected_samples = bulk_samples + single_samples
+                matrix_samples = list(matrix.index)
+
+                # Find matching matrix samples for each expected sample
+                ordered_matrix_samples = []
+                for expected_sample in all_expected_samples:
+                    matching_samples = [
+                        s for s in matrix_samples if expected_sample in s
+                    ]
+                    if matching_samples:
+                        print(
+                            f"Found {len(matching_samples)} matches for {expected_sample}: {matching_samples}"
+                        )
+                        ordered_matrix_samples.extend(matching_samples)
+                    else:
+                        print(
+                            f"Warning: No match found in matrix for expected sample '{expected_sample}'"
+                        )
+
+                # Reorder matrix with matched samples
+                matrix = matrix.loc[ordered_matrix_samples, ordered_matrix_samples]
+
+                # Create plots
+                bulk_vs_singlecell_matrix_viz(
+                    matrix,
+                    pseudobulk=False,
+                    tool=tool,
+                    dataset=dataset,
+                    ncells=ncells,
+                    rd=rd,
+                    save_fig=True,
+                    FIGURES_PATH=FIGURES_PATH,
+                )
+
+
+def heatmap_plot_accuracy_metrics_pseudobulk(
+    df, dataset, metric, save_fig=False, FIGURES_PATH=""
+):
 
     fig_name = f"pseudobulk_{dataset}_{metric}_heatmap"
 
     fig, axes = plt.subplots(2, 2, figsize=(10, 10))
     fig.subplots_adjust(hspace=0.2)
-    fig.suptitle(f'{metric} Heatmaps - {dataset} pseudobulks', fontsize=14, y=0.94)
+    fig.suptitle(f"{metric} Heatmaps - {dataset} pseudobulks", fontsize=14, y=0.94)
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
     tools = ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]
     for i, tool in enumerate(tools):
         sub_matrix = df[(df["dataset"] == dataset) & (df["tool"] == tool)].pivot_table(
-            index=["read depth"],
-            columns="ncells",
-            values=metric
+            index=["read depth"], columns="ncells", values=metric
         )
 
         ax = axes[i // 2, i % 2]
-        
+
         cax = ax.imshow(sub_matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
-        
+
         # Add text annotations with F1 values
         for row in range(len(sub_matrix.index)):
             for col in range(len(sub_matrix.columns)):
                 value = sub_matrix.iloc[row, col]
                 if not np.isnan(value):
-                    text_color = 'white' if value > 0.5 else 'black'
-                    ax.text(col, row, f'{value:.2f}', ha='center', va='center', 
-                           color=text_color, fontsize=10)
-        
+                    text_color = "white" if value > 0.5 else "black"
+                    ax.text(
+                        col,
+                        row,
+                        f"{value:.2f}",
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=10,
+                    )
+
         ax.set_xticks(np.arange(len(sub_matrix.columns)))
         ax.set_yticks(np.arange(len(sub_matrix.index)))
-        
+
         # Format x-tick labels in scientific notation
         xticklabels = []
         for x in sub_matrix.columns:
             exponent = int(np.log10(x))
-            mantissa = x / (10 ** exponent)
+            mantissa = x / (10**exponent)
             if mantissa == 1.0:
                 xticklabels.append(f"$10^{{{exponent}}}$")
             else:
                 xticklabels.append(f"${int(mantissa)} \\times 10^{{{exponent}}}$")
-        
+
         ax.set_xticklabels(xticklabels, ha="center")
         ax.set_yticklabels(sub_matrix.index)
-        
+
         # Only show x-label on bottom row
         if i // 2 == 1:
             ax.set_xlabel("# of cells")
-        
+
         # Only show y-label on left column
         if i % 2 == 0:
             ax.set_ylabel("Read depth cut-off")
-        
+
         ax.set_title(f"{tool}", pad=10)
 
     if save_fig:

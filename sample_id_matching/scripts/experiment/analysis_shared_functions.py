@@ -236,7 +236,10 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
             header=None,
         )
 
-    regex_exp = dataset_regex_dict.get(dataset, "")
+    if pseudobulk:
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
 
     rename_dict = {
         x: re.sub(
@@ -279,7 +282,10 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
             header=None,
         )
 
-    regex_exp = dataset_regex_dict.get(dataset, "")
+    if pseudobulk:
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
 
     # Clean up sample names
     rename_dict = {
@@ -317,7 +323,10 @@ def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
             index_col=0,
         )
 
-    regex_exp = dataset_regex_dict.get(dataset, "")
+    if pseudobulk:
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
 
     matrix.columns = [
         re.sub(regex_exp, "", col.replace(".bam", "").replace("ds.", ""))
@@ -510,7 +519,10 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
             index_col=0,
         ).reset_index()
 
-    regex_exp = dataset_regex_dict.get(dataset, "")
+    if pseudobulk:
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
     for col in sample_matches.columns:
         sample_matches[col] = [
             re.sub(regex_exp, "", sample.replace(".bam", "").replace("ds.", ""))
@@ -632,7 +644,7 @@ def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_dep
             for ncells in ncells_list:
                 for rd in read_depths:
                     try:
-                        if (tool == "BAMixChecker" and rd == 1):
+                        if tool == "BAMixChecker" and rd == 1:
                             inferred_matches = (
                                 parse_sample_matching_results_bamixchecker(
                                     DATA_PATH, True, dataset, ncells
@@ -665,7 +677,9 @@ def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_dep
                             )
                             inferred_matches = create_pseudobulk_submatrix_vireo(matrix)
                         else:
-                            print(f"Error! Do not recognize tool {tool}")
+                            print(
+                                f"Error! Do not recognize tool {tool}. Choose one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                            )
                             continue
                     except FileNotFoundError:
                         print(
@@ -703,3 +717,29 @@ def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_dep
                     results.append(result)
 
     return pd.DataFrame(results)
+
+
+def load_expected_matches_real_data(DATA_PATH, dataset):
+    expected_matches = pd.read_csv(
+        os.path.join(
+            DATA_PATH, f"../metadata/sample_matches/sample_matches_{dataset}.csv"
+        )
+    )
+    expected_matches = expected_matches.dropna(axis=1, how="all").dropna(
+        axis=0, how="all"
+    )
+
+    # Find the columns that has "single"
+    expected_matches.columns = expected_matches.columns.str.lower()
+    single_cols = [col for col in expected_matches.columns if "single" in col]
+
+    # Sort the dataframe first by whether all rows have data in all columns
+    # and then by the single cell sample column (assuming there's only one)
+    expected_matches["not_all_cols_filled"] = expected_matches.isna().any(axis=1)
+    expected_matches = (
+        expected_matches.sort_values(by=["not_all_cols_filled", single_cols[0]])
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+
+    return expected_matches.drop(columns=["not_all_cols_filled"])
