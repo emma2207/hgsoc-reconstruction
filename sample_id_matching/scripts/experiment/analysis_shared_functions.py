@@ -15,6 +15,7 @@ from scipy.optimize import linear_sum_assignment
 
 dataset_regex_dict = {
     "hgsoc": r"[a-zA-Z0-9]{32}_",
+    "hgsoc-new": r"ds.[a-zA-Z0-9]{32}_",
     "low_grade_glioma": r"^GSM[0-9]{7}_",
 }
 
@@ -200,13 +201,13 @@ def parse_heatmap_matrix_crosscheckfingerprints(
         )
     df = df[["LEFT_SAMPLE", "RIGHT_SAMPLE", "LOD_SCORE", "RESULT"]]
 
-    if pseudobulk:
+    if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
     else:
         regex_exp = ""
 
     rename_dict = {
-        x: re.sub(regex_exp, "", x.replace(".bam", "").replace("ds.", ""))
+        x: re.sub(regex_exp, "", x.replace(".bam", ""))
         for x in list(set(df["LEFT_SAMPLE"]) | set(df["RIGHT_SAMPLE"]))
     }
     df["LEFT_SAMPLE"] = df["LEFT_SAMPLE"].map(rename_dict)
@@ -236,7 +237,7 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
             header=None,
         )
 
-    if pseudobulk:
+    if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
     else:
         regex_exp = ""
@@ -282,7 +283,7 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
             header=None,
         )
 
-    if pseudobulk:
+    if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
     else:
         regex_exp = ""
@@ -293,7 +294,6 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
             regex_exp,
             "",
             x.replace(".vcf", "")
-            .replace("ds.", "")
             .replace("_individual_variants", ""),
         )
         for x in list(set(df.index) | set(df[2]))
@@ -323,18 +323,18 @@ def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
             index_col=0,
         )
 
-    if pseudobulk:
+    if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
     else:
         regex_exp = ""
 
     matrix.columns = [
-        re.sub(regex_exp, "", col.replace(".bam", "").replace("ds.", ""))
+        re.sub(regex_exp, "", col.replace(".bam", ""))
         for col in matrix.columns
     ]
     matrix.index = pd.Index(
         [
-            re.sub(regex_exp, "", idx.replace(".bam", "").replace("ds.", ""))
+            re.sub(regex_exp, "", idx.replace(".bam", ""))
             for idx in matrix.index
         ]
     )
@@ -731,7 +731,10 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
 
     # Find the columns that has "single"
     expected_matches.columns = expected_matches.columns.str.lower()
-    single_cols = [col for col in expected_matches.columns if "single" in col]
+    if dataset != "hgsoc-new":
+        single_cols = [col for col in expected_matches.columns if "single" in col]
+    else:
+        single_cols = [col for col in expected_matches.columns if "diss" in col]
 
     # Sort the dataframe first by whether all rows have data in all columns
     # and then by the single cell sample column (assuming there's only one)
@@ -740,6 +743,9 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
         expected_matches.sort_values(by=["not_all_cols_filled", single_cols[0]])
         .drop_duplicates()
         .reset_index(drop=True)
+        .drop(columns=["not_all_cols_filled"])
     )
+    # Make sure all entries are strings
+    expected_matches = expected_matches.astype(str)
 
-    return expected_matches.drop(columns=["not_all_cols_filled"])
+    return expected_matches

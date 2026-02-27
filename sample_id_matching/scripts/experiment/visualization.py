@@ -47,10 +47,10 @@ def bulk_vs_singlecell_matrix_viz(
         [
             col
             for col in matrix_df.columns
-            if "single-cell" in col or "single-nucleus" in col
+            if sc in col
         ]
     ]
-    sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if "bulk" in idx]]
+    sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if "bulk" in idx and "diss" not in idx]]
 
     extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
 
@@ -271,48 +271,58 @@ def loop_heatmap_plots_real_data(
                     continue
 
                 # Load expected matches for real data
-                expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+                # expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
 
                 # Then use the ordering of the expected matches to order the matrix rows and columns before plotting,
                 # so that samples that are expected to match show up on the diagonal
                 # Samples with no expected match will be shown after the expected matches
-                bulk_col = [col for col in expected_matches.columns if bulk in col]
-                assert (
-                    len(bulk_col) == 1
-                ), "Expected exactly one bulk column in the matrix"
-                single_col = [
-                    col for col in expected_matches.columns if "single" in col
-                ]
-                assert (
-                    len(single_col) == 1
-                ), "Expected exactly one single-cell/single-nucleus column in the matrix"
+                # bulk_col = [col for col in expected_matches.columns if bulk in col and "diss" not in col]
+                # assert (
+                #     len(bulk_col) == 1
+                # ), "Expected exactly one bulk column in the matrix"
+                # single_col = [
+                #     col for col in expected_matches.columns if "single" in col or "diss" in col
+                # ]
+                # assert (
+                #     len(single_col) == 1
+                # ), "Expected exactly one single-cell/single-nucleus column in the matrix"
 
-                bulk_samples = list(expected_matches[bulk_col[0]].dropna())
-                single_samples = list(expected_matches[single_col[0]].dropna())
+                # bulk_samples = list(expected_matches[bulk_col[0]].dropna())
+                # single_samples = list(expected_matches[single_col[0]].dropna())
 
                 # Filter matrix to only include samples matching expected samples
                 # Expected sample names should be prefixes of matrix sample names
-                all_expected_samples = bulk_samples + single_samples
-                matrix_samples = list(matrix.index)
+                # all_expected_samples = bulk_samples + single_samples
+                # all_expected_samples = [str(sample) for sample in all_expected_samples]
+                # matrix_samples = list(matrix.index)
 
                 # Find matching matrix samples for each expected sample
-                ordered_matrix_samples = []
-                for expected_sample in all_expected_samples:
-                    matching_samples = [
-                        s for s in matrix_samples if expected_sample in s
-                    ]
-                    if matching_samples:
-                        print(
-                            f"Found {len(matching_samples)} matches for {expected_sample}: {matching_samples}"
-                        )
-                        ordered_matrix_samples.extend(matching_samples)
-                    else:
-                        print(
-                            f"Warning: No match found in matrix for expected sample '{expected_sample}'"
-                        )
+                # ordered_matrix_samples = []
+                # for expected_sample in all_expected_samples:
+                #     if dataset != "hgsoc-new":
+                #         matching_samples = [
+                #             s for s in matrix_samples if expected_sample in s
+                #         ]
+                #     else:
+                #         matching_bulk_samples = [
+                #             s for s in bulk_samples if expected_sample in s
+                #         ]
+                #         matching_diss_bulk_samples = [
+                #             s for s in single_samples if expected_sample in s
+                #         ]
+                #         matching_samples = matching_bulk_samples + matching_diss_bulk_samples
+                #     if matching_samples:
+                #         print(
+                #             f"Found {len(matching_samples)} matches for {expected_sample}: {matching_samples}"
+                #         )
+                #         ordered_matrix_samples.extend(matching_samples)
+                #     else:
+                #         print(
+                #             f"Warning: No match found in matrix for expected sample '{expected_sample}'"
+                #         )
 
                 # Reorder matrix with matched samples
-                matrix = matrix.loc[ordered_matrix_samples, ordered_matrix_samples]
+                # matrix = matrix.loc[ordered_matrix_samples, ordered_matrix_samples]
 
                 # Create plots
                 bulk_vs_singlecell_matrix_viz(
@@ -322,6 +332,7 @@ def loop_heatmap_plots_real_data(
                     dataset=dataset,
                     ncells=ncells,
                     rd=rd,
+                    sc="bulk_diss",
                     save_fig=True,
                     FIGURES_PATH=FIGURES_PATH,
                 )
