@@ -43,14 +43,10 @@ def bulk_vs_singlecell_matrix_viz(
         fig_name = f"{dataset}_{tool}_rd{rd}_bulk_vs_{sc}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
-    sub_matrix = matrix_df[
-        [
-            col
-            for col in matrix_df.columns
-            if sc in col
-        ]
+    sub_matrix = matrix_df[[col for col in matrix_df.columns if sc in col]]
+    sub_matrix = sub_matrix.loc[
+        [idx for idx in sub_matrix.index if "bulk" in idx and "diss" not in idx]
     ]
-    sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if "bulk" in idx and "diss" not in idx]]
 
     extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
 
@@ -227,13 +223,180 @@ def loop_heatmap_plots_pseudobulks(
                     )
 
 
+def super_plot_heatmaps_pseudobulk(
+    DATA_PATH, FIGURES_PATH, tool, dataset, ncells_list, read_depths, save_fig=False
+):
+
+    fig_name = f"superplot_pseudobulk_{dataset}_{tool}_all_samples_similarity_matrix"
+    super_extreme_point = 0
+    all_matrices = []
+
+    # Find all the data for the plots
+    for ncells in ncells_list:
+        for rd in read_depths:
+            try:
+                # Create heatmap matrix
+                if tool == "BAMixChecker":
+                    _, matrix = parse_heatmap_matrix_bamixchecker(
+                        DATA_PATH, True, dataset, ncells
+                    )
+                elif tool == "CrosscheckFingerprints":
+                    _, matrix = parse_heatmap_matrix_crosscheckfingerprints(
+                        DATA_PATH, True, dataset, ncells, rd
+                    )
+                elif tool == "HYSYS":
+                    _, matrix = parse_heatmap_matrix_hysys(
+                        DATA_PATH, True, dataset, ncells, rd
+                    )
+                elif tool == "NGSCheckmate":
+                    _, matrix = parse_heatmap_matrix_ngscheckmate(
+                        DATA_PATH, True, dataset, ncells, rd
+                    )
+                elif tool == "Vireo":
+                    matrix = parse_heatmap_matrix_vireo(
+                        DATA_PATH, True, dataset, ncells, rd
+                    )
+                else:
+                    print(f"Error! Do not recognize tool {tool}.")
+                    print(
+                        "Choice of tool must be one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                    )
+                    continue
+            except FileNotFoundError:
+                print(
+                    f"Could not find data for {tool}, pseudobulk dataset {dataset}, ncells {ncells}, read depth {rd}. "
+                )
+                matrix_filtered = None
+                continue
+
+            pseudobulk_1 = "_1"
+            pseudobulk_2 = "_2"
+            matrix_filtered = matrix.loc[
+                [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
+                [col for col in matrix.columns if col.endswith(pseudobulk_2)],
+            ]
+
+            # Store matrix for later use in super plot
+            all_matrices.append({"ncells": ncells, "rd": rd, "matrix": matrix_filtered})
+
+            # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
+            extreme_point = max(
+                abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
+            )
+            if extreme_point > super_extreme_point:
+                super_extreme_point = extreme_point
+
+    # Loop through the data again to create the super plot
+    fig, axes = plt.subplots(
+        len(read_depths),
+        len(ncells_list),
+        figsize=(5 * len(ncells_list), 4 * len(read_depths)),
+        sharex=True,
+        sharey=True,
+    )
+    fig.subplots_adjust(hspace=0.05, wspace=0.05, top=0.95)
+    fig.suptitle(
+        f"{tool} - {dataset} pseudobulks similarity matrices", fontsize=16, y=0.98
+    )
+
+    for ncells in ncells_list:
+        for rd in read_depths:
+            if len(read_depths) == 1:
+                ax = axes[ncells_list.index(ncells)]
+            else:
+                ax = axes[read_depths.index(rd), ncells_list.index(ncells)]
+            matrix_list = [
+                info["matrix"]
+                for info in all_matrices
+                if info["ncells"] == ncells and info["rd"] == rd
+            ]
+
+            if not matrix_list or matrix_list[0] is None:
+                # Skip this subplot if no data available
+                ax.axis("off")
+                ax.text(
+                    0.5,
+                    0.5,
+                    "No data",
+                    ha="center",
+                    va="center",
+                    transform=ax.transAxes,
+                    fontsize=12,
+                )
+                continue
+
+            matrix = matrix_list[0]
+
+            if tool == "CrosscheckFingerprints":
+                cmap = plt.get_cmap("RdBu")
+                cmap.set_bad(color="lightgrey")
+                cax = ax.imshow(
+                    matrix,
+                    cmap=cmap,
+                    vmin=-super_extreme_point,
+                    vmax=super_extreme_point,
+                )
+            else:
+                cmap = plt.get_cmap("Oranges")
+                cmap.set_bad(color="lightgrey")
+                cax = ax.imshow(matrix, cmap=cmap)
+            ax.set_xticks(np.arange(len(matrix.columns)))
+            ax.set_yticks(np.arange(len(matrix.index)))
+            ax.set_xticklabels([""] * len(matrix.columns))
+            ax.set_yticklabels([""] * len(matrix.index))
+            # Add title with ncells to the top row
+            if rd == read_depths[0]:
+                ax.set_title(f"{ncells} cells", pad=10, fontsize=12)
+            # Add text with read depth to the right column
+            if ncells == ncells_list[-1]:
+                ax.text(
+                    1.05,
+                    0.5,
+                    f"Read depth filter: {rd}",
+                    transform=ax.transAxes,
+                    fontsize=12,
+                    rotation=90,
+                    va="center",
+                )
+
+    # Add one common colorbar for all subplots
+    cbar = fig.colorbar(
+        cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5
+    )
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+
+    return
+
+
 def loop_heatmap_plots_real_data(
-    DATA_PATH, FIGURES_PATH, tools, datasets, read_depths, bulk="bulk"
+    DATA_PATH, FIGURES_PATH, tools, datasets, read_depths, mod1="bulk", mod2="single-cell"
 ):
     ncells = "null"
 
     for tool in tools:
         for dataset in datasets:
+            if dataset == "hgsoc-new":
+                mod1 = "bulk_chunk_ribo"
+                mod2 = "bulk_diss_polyA"
+            elif dataset == "wilms_tumor":
+                mod2 = "single-nucleus"
             for rd in read_depths:
                 print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
                 try:
@@ -271,7 +434,7 @@ def loop_heatmap_plots_real_data(
                     continue
 
                 # Load expected matches for real data
-                # expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+                expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
 
                 # Then use the ordering of the expected matches to order the matrix rows and columns before plotting,
                 # so that samples that are expected to match show up on the diagonal

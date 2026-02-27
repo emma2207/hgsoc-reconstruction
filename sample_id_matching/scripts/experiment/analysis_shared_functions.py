@@ -293,8 +293,7 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
         x: re.sub(
             regex_exp,
             "",
-            x.replace(".vcf", "")
-            .replace("_individual_variants", ""),
+            x.replace(".vcf", "").replace("_individual_variants", ""),
         )
         for x in list(set(df.index) | set(df[2]))
     }
@@ -329,14 +328,10 @@ def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
         regex_exp = ""
 
     matrix.columns = [
-        re.sub(regex_exp, "", col.replace(".bam", ""))
-        for col in matrix.columns
+        re.sub(regex_exp, "", col.replace(".bam", "")) for col in matrix.columns
     ]
     matrix.index = pd.Index(
-        [
-            re.sub(regex_exp, "", idx.replace(".bam", ""))
-            for idx in matrix.index
-        ]
+        [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
     )
 
     # Order rows and columns
