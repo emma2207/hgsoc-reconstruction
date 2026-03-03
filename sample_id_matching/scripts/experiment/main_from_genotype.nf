@@ -53,7 +53,7 @@ workflow {
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
     VIREO_MATCH(filtered_vcfs.modality_vcfs.collect())
-    NGSCHECKMATE(filtered_vcfs.individual_vcfs)
-    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
-    HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs.collect())
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs.collect())
+    HYSYS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
 }

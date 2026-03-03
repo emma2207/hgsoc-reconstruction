@@ -73,7 +73,7 @@ process CROSSCHECK_FINGERPRINTS {
 
             if ! [[ \$vcf_file == *"2507"* && \$vcf_file == *"bulk_diss_polyA"* ]]
             then
-                echo "\$sort_name\n" >> \${output_location}/vcf_list.txt
+                echo "\$sort_name" >> \${output_location}/vcf_list.txt
             fi
         done
         

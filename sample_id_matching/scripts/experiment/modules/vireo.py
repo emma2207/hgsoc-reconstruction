@@ -10,7 +10,9 @@ def match_sample_id(file1, file2, output_dir):
     Match sample IDs using vireoSNP.
 
     Args:
-        file_path (str): Path to the VCF file with all samples.
+        file1 (str): Path to the VCF file with one set of samples.
+        file2 (str): Path to the VCF file with another set of samples.
+        output_dir (str): Directory to save the output files.
     Returns:
         res (dict): Dictionary containing matched sample IDs and GT probabilities.
         df (DataFrame): DataFrame with matched sample IDs.

@@ -73,6 +73,7 @@ process FILTER_VCF {
             if [[ "\$mod" ==  "bulk_diss_polyA" ]]
             then
                 bcftools view \
+                    -Oz \
                     -s ^"\${skip_sample}" \
                     -o "\${output_location}/filtered_variants2_rd_${params.read_depth}_\${mod}.vcf.gz" \
                     \${all_variants_output}
