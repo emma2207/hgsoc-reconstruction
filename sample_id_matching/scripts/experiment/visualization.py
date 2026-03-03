@@ -19,7 +19,8 @@ def bulk_vs_singlecell_matrix_viz(
     dataset,
     ncells,
     rd,
-    sc="single-cell",
+    mod1="bulk",
+    mod2="single-cell",
     save_fig=False,
     FIGURES_PATH="",
 ):
@@ -32,20 +33,21 @@ def bulk_vs_singlecell_matrix_viz(
     :param dataset: dataset name
     :param ncells: number of cells in pseudobulk, "null" in real data
     :param rd: read depth filter cut-off
-    :param sc: single-cell / single-nucleus
+    :param mod1: first modality (e.g., "bulk")
+    :param mod2: second modality (e.g., "single-cell")
     :param save_fig: True / False
     :param FIGURES_PATH: path that figures get saved to
     """
 
     if pseudobulk:
-        fig_name = f"pseudobulk_{dataset}_{tool}_rd{rd}_ncells{ncells}_bulk_vs_{sc}_similarity_matrix"
+        fig_name = f"pseudobulk_{dataset}_{tool}_rd{rd}_ncells{ncells}_{mod1}_vs_{mod2}_similarity_matrix"
     else:
-        fig_name = f"{dataset}_{tool}_rd{rd}_bulk_vs_{sc}_similarity_matrix"
+        fig_name = f"{dataset}_{tool}_rd{rd}_{mod1}_vs_{mod2}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
-    sub_matrix = matrix_df[[col for col in matrix_df.columns if sc in col]]
+    sub_matrix = matrix_df[[col for col in matrix_df.columns if mod2 in col]]
     sub_matrix = sub_matrix.loc[
-        [idx for idx in sub_matrix.index if "bulk" in idx and "diss" not in idx]
+        [idx for idx in sub_matrix.index if mod1 in idx]
     ]
 
     extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
@@ -65,9 +67,9 @@ def bulk_vs_singlecell_matrix_viz(
     ax.set_xticklabels(sub_matrix.columns, rotation=45, ha="left")
     ax.set_yticklabels(sub_matrix.index)
     ax.xaxis.set_label_position("top")
-    ax.set_xlabel(f"{sc} samples")
-    ax.set_ylabel("bulk samples")
-    ax.set_title(f"{tool} bulk vs {sc} similarity matrix", pad=20)
+    ax.set_xlabel(f"{mod2} samples")
+    ax.set_ylabel(f"{mod1} samples")
+    ax.set_title(f"{tool} {mod1} vs {mod2} similarity matrix", pad=20)
 
     fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
 
@@ -295,8 +297,12 @@ def super_plot_heatmaps_pseudobulk(
         sharey=True,
     )
     fig.subplots_adjust(hspace=0.05, wspace=0.05, top=0.95)
+    if len(read_depths) == 1:
+        yval = 1.1
+    else:        
+        yval = 0.98
     fig.suptitle(
-        f"{tool} - {dataset} pseudobulks similarity matrices", fontsize=16, y=0.98
+        f"{tool} - {dataset} pseudobulks similarity matrices", fontsize=16, y=yval
     )
 
     for ncells in ncells_list:
@@ -436,57 +442,58 @@ def loop_heatmap_plots_real_data(
                 # Load expected matches for real data
                 expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
 
-                # Then use the ordering of the expected matches to order the matrix rows and columns before plotting,
+                # Use the ordering of the expected matches to order the matrix rows and columns before plotting,
                 # so that samples that are expected to match show up on the diagonal
                 # Samples with no expected match will be shown after the expected matches
-                # bulk_col = [col for col in expected_matches.columns if bulk in col and "diss" not in col]
-                # assert (
-                #     len(bulk_col) == 1
-                # ), "Expected exactly one bulk column in the matrix"
-                # single_col = [
-                #     col for col in expected_matches.columns if "single" in col or "diss" in col
-                # ]
-                # assert (
-                #     len(single_col) == 1
-                # ), "Expected exactly one single-cell/single-nucleus column in the matrix"
+                mod1_col = [col for col in expected_matches.columns if mod1 in col]
+                assert (
+                    len(mod1_col) == 1
+                ), f"Expected exactly one {mod1} column in the matrix"
+                mod2_col = [
+                    col for col in expected_matches.columns if mod2 in col
+                ]
+                assert (
+                    len(mod2_col) == 1
+                ), f"Expected exactly one {mod2} column in the matrix"
 
-                # bulk_samples = list(expected_matches[bulk_col[0]].dropna())
-                # single_samples = list(expected_matches[single_col[0]].dropna())
-
+                mod1_samples = list(expected_matches[mod1_col[0]].dropna())
+                mod2_samples = list(expected_matches[mod2_col[0]].dropna())
+                matrix_samples = set(list(matrix.index) + list(matrix.columns))
+                
                 # Filter matrix to only include samples matching expected samples
                 # Expected sample names should be prefixes of matrix sample names
-                # all_expected_samples = bulk_samples + single_samples
-                # all_expected_samples = [str(sample) for sample in all_expected_samples]
-                # matrix_samples = list(matrix.index)
+                all_expected_samples = mod1_samples + mod2_samples
+                all_expected_samples = [str(sample) for sample in all_expected_samples]
+                print("All expected samples: " + str(all_expected_samples))
 
                 # Find matching matrix samples for each expected sample
-                # ordered_matrix_samples = []
-                # for expected_sample in all_expected_samples:
-                #     if dataset != "hgsoc-new":
-                #         matching_samples = [
-                #             s for s in matrix_samples if expected_sample in s
-                #         ]
-                #     else:
-                #         matching_bulk_samples = [
-                #             s for s in bulk_samples if expected_sample in s
-                #         ]
-                #         matching_diss_bulk_samples = [
-                #             s for s in single_samples if expected_sample in s
-                #         ]
-                #         matching_samples = matching_bulk_samples + matching_diss_bulk_samples
-                #     if matching_samples:
-                #         print(
-                #             f"Found {len(matching_samples)} matches for {expected_sample}: {matching_samples}"
-                #         )
-                #         ordered_matrix_samples.extend(matching_samples)
-                #     else:
-                #         print(
-                #             f"Warning: No match found in matrix for expected sample '{expected_sample}'"
-                #         )
+                # Iterate through expected samples in order to preserve ordering
+                # Note: Not all expected samples may be present in the matrix
+                ordered_matrix_samples = []
+                for expected_sample in all_expected_samples:
+                    # Find matrix samples that contain this expected sample name as a substring
+                    matching_matrix_samples = [
+                        s for s in matrix_samples if str(expected_sample) in s
+                    ]
+                    if matching_matrix_samples:
+                        ordered_matrix_samples.extend(matching_matrix_samples)
+                    else:
+                        print(f"No matrix sample found for expected sample '{expected_sample}' (may not be in this batch)")
 
+                ordered_mod1_samples = [s for s in ordered_matrix_samples if any(str(mod1_sample) in s for mod1_sample in mod1_samples)]
+                ordered_mod2_samples = [s for s in ordered_matrix_samples if any(str(mod2_sample) in s for mod2_sample in mod2_samples)]
+                                
+                # Debug: show what's actually in the matrix
+                print(f"Ordered mod1 samples: {list(ordered_mod1_samples)[:5]}... (total: {len(ordered_mod1_samples)})")
+                print(f"Ordered mod2 samples: {list(ordered_mod2_samples)[:5]}... (total: {len(ordered_mod2_samples)})")
+
+                print(f"Ordered matrix samples: {ordered_matrix_samples[:5]}... (total: {len(ordered_matrix_samples)})")
                 # Reorder matrix with matched samples
-                # matrix = matrix.loc[ordered_matrix_samples, ordered_matrix_samples]
-
+                if tool != "Vireo":
+                    matrix = matrix.loc[ordered_matrix_samples, ordered_matrix_samples]
+                else:
+                    matrix = matrix.loc[ordered_mod1_samples, ordered_mod2_samples]
+                    
                 # Create plots
                 bulk_vs_singlecell_matrix_viz(
                     matrix,
@@ -495,7 +502,8 @@ def loop_heatmap_plots_real_data(
                     dataset=dataset,
                     ncells=ncells,
                     rd=rd,
-                    sc="bulk_diss",
+                    mod1=mod1,
+                    mod2=mod2,
                     save_fig=True,
                     FIGURES_PATH=FIGURES_PATH,
                 )
@@ -583,4 +591,87 @@ def heatmap_plot_accuracy_metrics_pseudobulk(
             dpi=300,
         )
     # fig.colorbar(cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5)
+    return
+
+
+def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
+    df, dataset, save_fig=False, FIGURES_PATH=""
+):
+    metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
+    fig_name = f"pseudobulk_{dataset}_accuracy_metrics_heatmap_rd0"
+
+    fig, ax = plt.subplots(2, 2, figsize=(10, 10))
+    cmap = plt.get_cmap("Blues")
+    cmap.set_bad(color="lightgrey")
+
+    for i, metric in enumerate(metrics):
+        matrix = df[df["dataset"] == dataset].pivot_table(
+            index=["tool"], columns="ncells", values=metric
+        )
+
+        ax[i // 2, i % 2].imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
+
+        # Add text annotations with F1 values
+        for row in range(len(matrix.index)):
+            for col in range(len(matrix.columns)):
+                value = matrix.iloc[row, col]
+                if not np.isnan(value):
+                    text_color = "white" if value > 0.5 else "black"
+                    ax[i // 2, i % 2].text(
+                        col,
+                        row,
+                        f"{value:.2f}",
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=10,
+                    )
+
+        ax[i // 2, i % 2].set_title(f"{metric}")
+
+        # Format x-tick labels in scientific notation
+        xticklabels = []
+        for x in matrix.columns:
+            exponent = int(np.log10(x))
+            mantissa = x / (10**exponent)
+            if mantissa == 1.0:
+                xticklabels.append(f"$10^{{{exponent}}}$")
+            else:
+                xticklabels.append(f"${int(mantissa)} \\times 10^{{{exponent}}}$")
+
+        ax[i // 2, i % 2].set_yticks(np.arange(len(matrix.index)))
+        ax[i // 2, i % 2].set_xticks(np.arange(len(matrix.columns)))
+
+        # Only show x-label on bottom row
+        if i // 2 == 1:
+            ax[i // 2, i % 2].set_xlabel("# of cells")
+            ax[i // 2, i % 2].set_xticklabels(xticklabels, ha="center")
+        else:
+            ax[i // 2, i % 2].tick_params(axis='x', labelbottom=False)
+       
+        # Only show y-label on left column
+        if i % 2 == 0:
+            ax[i // 2, i % 2].set_ylabel("Tool")
+            ax[i // 2, i % 2].set_yticklabels(matrix.index)
+        else:
+            ax[i // 2, i % 2].tick_params(axis='y', labelleft=False)
+    fig.suptitle(f"{dataset} pseudobulks")
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
     return
