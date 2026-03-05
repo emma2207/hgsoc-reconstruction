@@ -21,7 +21,6 @@ workflow {
     // Find all vcfs with the listed datatypes
     modalities = ["pseudobulk"]
     mod_channel = channel.fromList(modalities)
-    def seededRandom = new Random(params.repeat) // Seed with iteration number for reproducibility
     
     // Use all pseudobulk files ending in _1.vcf.gz and _2.vcf.gz
     vcf_files_1 = channel.fromPath(
@@ -38,6 +37,7 @@ workflow {
 
     // Remove random samples from vcf_files_2 to simulate missing data
     vcf_files_2 = vcf_files_2_all.map { files_2 ->
+        def seededRandom = new Random(params.repeat) // Seed inside closure for proper serialization
         def files_2_copy = files_2.collect()
         Collections.shuffle(files_2_copy, seededRandom)
         files_2_copy.take(files_2_copy.size() - params.n_samples_to_remove)
