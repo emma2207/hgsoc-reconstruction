@@ -19,48 +19,48 @@ include { VIREO_MATCH } from './modules/2a_vireo'
 // Main workflow
 workflow {
     // Find all vcfs with the listed datatypes
-    n_samples_to_remove = 1
-    repeats = 5
-    ch_repeats = channel.from(1..repeats)
     modalities = ["pseudobulk"]
     mod_channel = channel.fromList(modalities)
+    def seededRandom = new Random(params.repeat) // Seed with iteration number for reproducibility
     
     // Use all pseudobulk files ending in _1.vcf.gz and _2.vcf.gz
     vcf_files_1 = channel.fromPath(
-    "${params.outdir}/1a_individual_vcf/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_1.vcf.gz"
+    "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_1.vcf.gz"
     ).collect()
-    vcf_files_2 = channel.fromPath(
-    "${params.outdir}/1a_individual_vcf/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_2.vcf.gz"
+    vcf_files_2_all = channel.fromPath(
+    "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_2.vcf.gz"
     )
     .collect()
-    .view { n -> "Number of VCF Files 2 before removing a sample: ${n.size()}"}
+    .view { n -> "Number of VCF Files 2 before removing samples: ${n.size()}"}
     index_files = channel.fromPath(
-    "${params.outdir}/1a_individual_vcf/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz.csi"
+    "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz.csi"
     )
 
-    // Remove a random sample from vcf_files_2 to simulate missing data
-    vcf_files_2 = vcf_files_2.map { 
-        files -> 
-        files.shuffle()
-        files.take(files.size() - n_samples_to_remove)
+    // Remove random samples from vcf_files_2 to simulate missing data
+    vcf_files_2 = vcf_files_2_all.map { files_2 ->
+        def files_2_copy = files_2.collect()
+        Collections.shuffle(files_2_copy, seededRandom)
+        files_2_copy.take(files_2_copy.size() - params.n_samples_to_remove)
     }
-    .view { x -> "Number of VCF Files 2 after removing a sample: ${x.size()}"}
+    .view { x -> "Number of VCF Files 2 after removing samples: ${x.size()}"}
 
-    vcf_files = vcf_files_1.mix(vcf_files_2).collect()
-    .view { x -> "Total number of VCF Files: ${x.size()}"}
+    // Combine all VCF files
+    vcf_files = vcf_files_1.mix(vcf_files_2)
+        .collect()
+        .view { files -> "All VCF files (${files.size()} total): ${files.collect { it.name }.join(', ')}" }
     
     // 1a. Filter variant calls
-    // filtered_vcfs = MERGE_AND_FILTER_VCFS(
-    //     vcf_files.collect(), 
-    //     index_files.collect(),
-    //     mod_channel.collect()
-    // )
-    // filtered_vcfs.modality_vcfs.view { x -> "VCFs by modality: ${x}" }
-    // filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
+    filtered_vcfs = MERGE_AND_FILTER_VCFS(
+        vcf_files,
+        index_files.collect(),
+        mod_channel.collect()
+    )
+    filtered_vcfs.modality_vcfs.view { x -> "VCFs by modality: ${x}" }
+    filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
-    // // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    // VIREO_MATCH(filtered_vcfs.modality_vcfs.collect())
-    // NGSCHECKMATE(filtered_vcfs.individual_vcfs)
-    // CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
-    // HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    // 2a. Run similarity analysis tools in parallel on filtered VCFs
+    VIREO_MATCH(filtered_vcfs.modality_vcfs)
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs)
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
+    HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
 }
