@@ -291,7 +291,7 @@ def parse_heatmap_matrix_crosscheckfingerprints(
             + f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt"
         )
     df = pd.read_csv(
-        file_path
+        file_path,
         sep="\t",
         skiprows=6,
         header=0,
@@ -454,12 +454,12 @@ def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
     if pseudobulk:
         file_path = os.path.join(
             DATA_PATH
-            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
+            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
         )
     else:
         file_path = os.path.join(
             DATA_PATH
-            + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
+            + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
         )
     matrix = pd.read_csv(
         file_path,
@@ -976,6 +976,7 @@ def accuracy_metrics_averaged_over_iterations(
         dataset,
         ncells,
         rd,
+        n_samples_removed,
 ):  
     """
     Loop through all pseudobulk results for a given dataset, number of cells, and read depth, 
@@ -995,81 +996,83 @@ def accuracy_metrics_averaged_over_iterations(
     """
     final_df = pd.DataFrame()
 
-    for tool in ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]:
-        accuracy_df = pd.DataFrame()
-        
-        for i in range(1, n_iterations + 1):
+    for n in n_samples_removed:
+        for tool in ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]:
+            accuracy_df = pd.DataFrame()
             
-            if tool == "CrosscheckFingerprints":
-                inferred_matches = (
-                    parse_sample_matching_results_crosscheckfingerprints(
-                        DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
+            for i in range(1, n_iterations + 1):
+                
+                if tool == "CrosscheckFingerprints":
+                    inferred_matches = (
+                        parse_sample_matching_results_crosscheckfingerprints(
+                            DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
+                        )
                     )
-                )
-            elif tool == "HYSYS":
-                inferred_matches = parse_sample_matching_results_hysys(
-                    DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
-                )
-            elif tool == "NGSCheckmate":
-                inferred_matches = (
-                    parse_sample_matching_results_ngscheckmate(
-                        DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
+                elif tool == "HYSYS":
+                    inferred_matches = parse_sample_matching_results_hysys(
+                        DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
                     )
-                )
-            elif tool == "Vireo":
-                matrix = parse_heatmap_matrix_vireo(
-                    DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
-                )
-                inferred_matches = create_pseudobulk_submatrix_vireo(matrix)
-            else:
-                print(
-                    f"Error! Do not recognize tool {tool}. Choose one of CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
-                )
-                continue
+                elif tool == "NGSCheckmate":
+                    inferred_matches = (
+                        parse_sample_matching_results_ngscheckmate(
+                            DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
+                        )
+                    )
+                elif tool == "Vireo":
+                    matrix = parse_heatmap_matrix_vireo(
+                        DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
+                    )
+                    inferred_matches = create_pseudobulk_submatrix_vireo(matrix)
+                else:
+                    print(
+                        f"Error! Do not recognize tool {tool}. Choose one of CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                    )
+                    continue
 
-            inferred_matches_filtered = inferred_matches.loc[
-                [idx for idx in inferred_matches.index if idx.endswith("_1")],
-                [col for col in inferred_matches.columns if col.endswith("_2")],
-            ]
-            (
-                fraction_inconclusive,
-                accuracy,
-                balanced_accuracy,
-                precision,
-                recall,
-                f1,
-            ) = calculate_accuracy_metrics_pseudobulk(inferred_matches_filtered)
+                inferred_matches_filtered = inferred_matches.loc[
+                    [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                    [col for col in inferred_matches.columns if col.endswith("_2")],
+                ]
+                (
+                    fraction_inconclusive,
+                    accuracy,
+                    balanced_accuracy,
+                    precision,
+                    recall,
+                    f1,
+                ) = calculate_accuracy_metrics_pseudobulk(inferred_matches_filtered)
 
-            accuracy_df = pd.concat([accuracy_df,
-                pd.DataFrame({
-                    "iteration": [i],
-                    "fraction_inconclusive": [fraction_inconclusive],
-                    "accuracy": [accuracy],
-                    "balanced_accuracy": [balanced_accuracy],
-                    "precision": [precision],
-                    "recall": [recall],
-                    "f1": [f1],
-                })]
-            )
+                accuracy_df = pd.concat([accuracy_df,
+                    pd.DataFrame({
+                        "iteration": [i],
+                        "fraction_inconclusive": [fraction_inconclusive],
+                        "accuracy": [accuracy],
+                        "balanced_accuracy": [balanced_accuracy],
+                        "precision": [precision],
+                        "recall": [recall],
+                        "f1": [f1],
+                    })]
+                )
     
-        final_df = pd.concat([final_df, pd.DataFrame(
-            {
-                "tool": [tool],
-                "dataset": [dataset],
-                "ncells": [ncells],
-                "rd": [rd],
-                "av_fraction_inconclusive": accuracy_df["fraction_inconclusive"].mean(),
-                "av_accuracy": accuracy_df["accuracy"].mean(),
-                "av_balanced_accuracy": accuracy_df["balanced_accuracy"].mean(),
-                "av_precision": accuracy_df["precision"].mean(),
-                "av_recall": accuracy_df["recall"].mean(),
-                "av_f1": accuracy_df["f1"].mean(),
-                "sd_fraction_inconclusive": accuracy_df["fraction_inconclusive"].std(),
-                "sd_accuracy": accuracy_df["accuracy"].std(),
-                "sd_balanced_accuracy": accuracy_df["balanced_accuracy"].std(),
-                "sd_precision": accuracy_df["precision"].std(),
-                "sd_recall": accuracy_df["recall"].std(),
-                "sd_f1": accuracy_df["f1"].std(),
-            }
-        )])
-    return final_df
+            final_df = pd.concat([final_df, pd.DataFrame(
+                {
+                    "tool": [tool],
+                    "dataset": [dataset],
+                    "ncells": [ncells],
+                    "rd": [rd],
+                    "n_samples_removed": [n],
+                    "av_fraction_inconclusive": accuracy_df["fraction_inconclusive"].mean(),
+                    "av_accuracy": accuracy_df["accuracy"].mean(),
+                    "av_balanced_accuracy": accuracy_df["balanced_accuracy"].mean(),
+                    "av_precision": accuracy_df["precision"].mean(),
+                    "av_recall": accuracy_df["recall"].mean(),
+                    "av_f1": accuracy_df["f1"].mean(),
+                    "sd_fraction_inconclusive": accuracy_df["fraction_inconclusive"].std(),
+                    "sd_accuracy": accuracy_df["accuracy"].std(),
+                    "sd_balanced_accuracy": accuracy_df["balanced_accuracy"].std(),
+                    "sd_precision": accuracy_df["precision"].std(),
+                    "sd_recall": accuracy_df["recall"].std(),
+                    "sd_f1": accuracy_df["f1"].std(),
+                }
+            )])
+    return final_df.reset_index(drop=True)

@@ -9,6 +9,7 @@ from analysis_shared_functions import (
     parse_heatmap_matrix_ngscheckmate,
     parse_heatmap_matrix_vireo,
     load_expected_matches_real_data,
+    accuracy_metrics_averaged_over_iterations,
 )
 
 
@@ -770,6 +771,100 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
             dpi=300,
         )
         fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+    return
+
+
+def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, dataset, ncells, rd, n_samples_removed, n_iterations, FIGURES_PATH="", save_fig=False):
+    """
+    Create errorbar plot showing accuracy metrics (fraction inconclusive, F1, precision, recall) for each tool, 
+    with different colors for different numbers of samples removed. 
+    Error bars represent standard deviation across iterations. 
+    Separate subplots for each metric.
+
+    input:
+        - DATA_PATH: path to data
+        - dataset: name of dataset
+        - ncells: number of cells in pseudobulk
+        - rd: read depth filter cut-off
+        - n_samples_removed: list of numbers of samples removed (e.g. [1, 5, 10])
+        - n_iterations: number of iterations for each number of samples removed (e.g. 5)
+        - FIGURES_PATH: path to save figures
+        - save_fig: whether to save figure or just return it
+
+    output:
+        - errorbar plot is shown (or saved if save_fig=True)
+    """
+    fig_name = f"pseudobulk_{dataset}_accuracy_metrics_errorbar_plot_missing_samples_rd{rd}_ncells{ncells}"
+    df = accuracy_metrics_averaged_over_iterations(
+        DATA_PATH, n_iterations, dataset, ncells, rd, n_samples_removed
+    )
+    # Get unique tools and n_samples_removed values
+    tools = df["tool"].unique()
+    n_samples_vals = sorted(df["n_samples_removed"].unique())
+
+    # Create color map for different n_samples_removed values
+    colors = plt.cm.viridis(np.linspace(0, 1, len(n_samples_vals)))
+
+    # Set up plot
+    fig, axes = plt.subplots(2, 2, figsize=(10, 6), sharex=True, sharey=True)
+
+    # Width for offsetting points within each tool group
+    offset_width = 0.2
+    offsets = np.linspace(-offset_width, offset_width, len(n_samples_vals))
+
+    # Plot each n_samples_removed group
+    for i, n_samp in enumerate(n_samples_vals):
+        df_subset = df[df["n_samples_removed"] == n_samp]
+        
+        # Create x positions (tool indices + offset)
+        x_pos = np.arange(len(tools)) + offsets[i]
+        
+        # Get y values and errors in the same order as tools
+        for j, metric in enumerate(["fraction_inconclusive", "f1", "precision", "recall"]):
+            if j == 0:
+                ax = axes[0, 0]
+                ax.set_title("Fraction Inconclusive", fontsize=12)
+            elif j == 1:
+                ax = axes[0, 1]
+                ax.set_title("F1 Score", fontsize=12)
+            elif j == 2:
+                ax = axes[1, 0]
+                ax.set_title("Precision", fontsize=12)
+            elif j == 3:
+                ax = axes[1, 1]
+                ax.set_title("Recall", fontsize=12)
+            y = [df_subset[df_subset["tool"] == t][f"av_{metric}"].values[0] if len(df_subset[df_subset["tool"] == t]) > 0 else np.nan for t in tools]
+            y_error = [df_subset[df_subset["tool"] == t][f"sd_{metric}"].values[0] if len(df_subset[df_subset["tool"] == t]) > 0 else np.nan for t in tools]
+            # Plot with error bars
+            ax.errorbar(x_pos, y, yerr=y_error, fmt='o', color=colors[i], 
+                        ecolor=colors[i], elinewidth=2, capsize=4, alpha=0.7,
+                    label=f'{n_samp}')
+
+            # Customize plot
+            ax.set_xticks(np.arange(len(tools)))
+            ax.set_xticklabels(tools, rotation=0, ha='center')
+            ax.set_ylim(0, 1.05)
+            if j == 0:
+                ax.legend(title='# of samples removed', frameon=False)
+
+    plt.tight_layout()
+    if save_fig:
+        plt.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        plt.savefig(
             os.path.join(
                 FIGURES_PATH,
                 f"{fig_name}.pdf",
