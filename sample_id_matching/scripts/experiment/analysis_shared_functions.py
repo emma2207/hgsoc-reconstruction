@@ -143,6 +143,31 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     return matrix
 
 
+def true_matches_pseudobulk(matrix):
+
+    if len(matrix.index) == len(matrix.columns):
+        matrix = matrix.loc[sorted(matrix.index), sorted(matrix.columns)]
+
+        true_matches = pd.DataFrame(
+            np.identity(len(matrix)),
+            index=pd.Index(matrix.index),
+            columns=pd.Index(matrix.columns),
+        )
+    else:
+        # If the matrix is not square, we have to infer the true matches from the sample names
+        # We assume that samples with the same name except for the last character (e.g. _1 vs _2) are true matches
+        true_matches = pd.DataFrame(
+            0, index=matrix.index, columns=matrix.columns
+        )  # Initialize with 0s
+
+        for idx in matrix.index:
+            for col in matrix.columns:
+                if idx[:-2] == col[:-2]:  # Compare sample names without last 2 characters
+                    true_matches.at[idx, col] = 1  # Mark as a true match
+
+    return true_matches
+
+
 #####################################################
 ### Functions to parse tool outputs and create heatmap matrices
 #####################################################
@@ -573,31 +598,13 @@ def create_pseudobulk_submatrix_vireo(matrix):
     # The new order of samples in the index and columns reveals the matching of samples between the two pseudobulk sets.
     # Create a sample-matching matrix with 1 on the diagonal and 0 elsewhere, where the order of rows and columns is the same as in matrix_reordered.
     # This matrix has the inferred sample matches
-    inferred_matches = pd.DataFrame(
-        np.identity(len(matrix_reordered.index)),
-        index=pd.Index(matrix_reordered.index),
-        columns=pd.Index(matrix_reordered.columns),
-    )
+    inferred_matches = true_matches_pseudobulk(matrix_reordered)
     # Reorder to the original order of samples
     ordered_columns = sorted(inferred_matches.columns)
     ordered_index = sorted(inferred_matches.index)
     inferred_matches = inferred_matches.loc[ordered_index, ordered_columns]
 
     return inferred_matches
-
-
-def true_matches_pseudobulk(matrix):
-    # Make sure the columns are ordered
-    matrix = matrix.loc[sorted(matrix.index), sorted(matrix.columns)]
-
-    # Create matrix with true matches
-    true_matches = pd.DataFrame(
-        np.identity(len(matrix)),
-        index=pd.Index(matrix.index),
-        columns=pd.Index(matrix.columns),
-    )
-
-    return true_matches
 
 
 def calculate_accuracy_metrics_pseudobulk(inferred_matches):
@@ -744,3 +751,92 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
     expected_matches = expected_matches.astype(str)
 
     return expected_matches
+
+
+def accuracy_metrics_averaged_over_iterations(
+        DATA_PATH,
+        n_iterations,
+        dataset,
+        ncells,
+        rd,
+):
+    final_df = pd.DataFrame()
+
+    for tool in ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]:
+        accuracy_df = pd.DataFrame()
+        
+        for i in range(1, n_iterations + 1):
+            
+            if tool == "CrosscheckFingerprints":
+                inferred_matches = (
+                    parse_sample_matching_results_crosscheckfingerprints(
+                        DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
+                    )
+                )
+            elif tool == "HYSYS":
+                inferred_matches = parse_sample_matching_results_hysys(
+                    DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
+                )
+            elif tool == "NGSCheckmate":
+                inferred_matches = (
+                    parse_sample_matching_results_ngscheckmate(
+                        DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
+                    )
+                )
+            elif tool == "Vireo":
+                matrix = parse_heatmap_matrix_vireo(
+                    DATA_PATH + f"/it_{i}/", True, dataset, ncells, rd
+                )
+                inferred_matches = create_pseudobulk_submatrix_vireo(matrix)
+            else:
+                print(
+                    f"Error! Do not recognize tool {tool}. Choose one of CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                )
+                continue
+
+            inferred_matches_filtered = inferred_matches.loc[
+                [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                [col for col in inferred_matches.columns if col.endswith("_2")],
+            ]
+            (
+                fraction_inconclusive,
+                accuracy,
+                balanced_accuracy,
+                precision,
+                recall,
+                f1,
+            ) = calculate_accuracy_metrics_pseudobulk(inferred_matches_filtered)
+
+            accuracy_df = pd.concat([accuracy_df,
+                pd.DataFrame({
+                    "iteration": [i],
+                    "fraction_inconclusive": [fraction_inconclusive],
+                    "accuracy": [accuracy],
+                    "balanced_accuracy": [balanced_accuracy],
+                    "precision": [precision],
+                    "recall": [recall],
+                    "f1": [f1],
+                })]
+            )
+    
+        final_df = pd.concat([final_df, pd.DataFrame(
+            {
+                "tool": [tool],
+                "dataset": [dataset],
+                "ncells": [ncells],
+                "rd": [rd],
+                "av_fraction_inconclusive": accuracy_df["fraction_inconclusive"].mean(),
+                "av_accuracy": accuracy_df["accuracy"].mean(),
+                "av_balanced_accuracy": accuracy_df["balanced_accuracy"].mean(),
+                "av_precision": accuracy_df["precision"].mean(),
+                "av_recall": accuracy_df["recall"].mean(),
+                "av_f1": accuracy_df["f1"].mean(),
+                "sd_fraction_inconclusive": accuracy_df["fraction_inconclusive"].std(),
+                "sd_accuracy": accuracy_df["accuracy"].std(),
+                "sd_balanced_accuracy": accuracy_df["balanced_accuracy"].std(),
+                "sd_precision": accuracy_df["precision"].std(),
+                "sd_recall": accuracy_df["recall"].std(),
+                "sd_f1": accuracy_df["f1"].std(),
+            }
+        )])
+    return final_df
