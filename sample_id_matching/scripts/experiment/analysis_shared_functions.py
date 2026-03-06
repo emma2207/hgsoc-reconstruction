@@ -24,12 +24,22 @@ dataset_regex_dict = {
 ### Functions to convert long dataframes to matrices
 ####################################################
 def long_df_to_matrix_bamixchecker(df, metric="Concordance Rate"):
-    # Use pivot_table for much faster matrix creation
+    """
+    Convert long BAMixChecker dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [index (sample), Sample, Concordance Rate, Conclusion]
+        - metric: which column to use for the values in the matrix 
+            (default "Concordance Rate", can also be "Conclusion" for match/no match)
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the specified metric
+    """
     matrix = df.pivot_table(
         index=0,
         columns="Sample",
         values=metric,
-        aggfunc="first",  # Use first value if duplicates exist
+        aggfunc="first",
     )
 
     # Get all unique samples to create a square matrix
@@ -47,12 +57,22 @@ def long_df_to_matrix_bamixchecker(df, metric="Concordance Rate"):
 
 
 def long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE"):
-    # Use pivot_table for much faster matrix creation
+    """
+    Convert long CrosscheckFingerprints dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [LEFT_SAMPLE, RIGHT_SAMPLE, LOD_SCORE, RESULT]
+        - metric: which column to use for the values in the matrix 
+            (default "LOD_SCORE", can also be "RESULT" for match/no match)
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the specified metric
+    """
     matrix = df.pivot_table(
         index="LEFT_SAMPLE",
         columns="RIGHT_SAMPLE",
         values=metric,
-        aggfunc="first",  # Use first value if duplicates exist
+        aggfunc="first",
     )
 
     # Get all unique samples to create a square matrix
@@ -78,12 +98,20 @@ def long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE"):
 
 
 def long_df_to_matrix_hysys(df):
-    # Use pivot_table for much faster matrix creation
+    """
+    Convert long HYSYS dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [index (sample), Sample, Concordance]
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the concordance values
+    """
     matrix = df.pivot_table(
         index=0,
         columns="Sample",
         values="Concordance",
-        aggfunc="first",  # Use first value if duplicates exist
+        aggfunc="first",
     )
 
     # Get all unique samples to create a square matrix
@@ -109,12 +137,22 @@ def long_df_to_matrix_hysys(df):
 
 
 def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
-    # Use pivot_table for much faster matrix creation
+    """
+    Convert long NGSCheckMate dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [index (sample), Sample, Correlation, Matched]
+        - metric: which column to use for the values in the matrix 
+            (default "Correlation", can also be "Matched" for match/no match)
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the specified metric
+    """
     matrix = df.pivot_table(
         index=0,
         columns="Sample",
         values=metric,
-        aggfunc="first",  # Use first value if duplicates exist
+        aggfunc="first",
     )
 
     # Convert correlation values to percentage (divide by 100)
@@ -143,7 +181,20 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     return matrix
 
 
+######################################################
+### Function to create true matches matrix for pseudobulk datasets
+#######################################################
 def true_matches_pseudobulk(matrix):
+    """
+    Create a true matches (ground truth) matrix for pseudobulk datasets 
+    based on the sample names in the heatmap matrix.
+
+    input:
+        - matrix: square dataframe with samples as rows and columns
+
+    output:
+        - true_matches: square dataframe with 1 for true matches and 0 for non-matches
+    """
 
     if len(matrix.index) == len(matrix.columns):
         matrix = matrix.loc[sorted(matrix.index), sorted(matrix.columns)]
@@ -172,22 +223,30 @@ def true_matches_pseudobulk(matrix):
 ### Functions to parse tool outputs and create heatmap matrices
 #####################################################
 def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
+    """
+    Read BAMixChecker output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+
+    output:
+        - df: long format dataframe with columns [index (sample), Sample, Concordance Rate, Conclusion]
+        - matrix: square dataframe with samples as rows and columns, values are the concordance rates
+    """
     if pseudobulk:
-        df = pd.read_csv(
-            DATA_PATH
-            + f"2b_bamixchecker/{dataset}/pseudobulk/ncells_{ncells}/BAMixChecker/Total_result.txt",
-            sep="\t",
-            index_col=0,
-            header=None,
-        )
+        file_path = os.path.join(DATA_PATH + f"2b_bamixchecker/{dataset}/pseudobulk/ncells_{ncells}/BAMixChecker/Total_result.txt")
     else:
-        df = pd.read_csv(
-            DATA_PATH
-            + f"2b_bamixchecker/{dataset}/real_data/ncells_null/BAMixChecker/Total_result.txt",
-            sep="\t",
-            index_col=0,
-            header=None,
-        )
+        file_path = os.path.join(DATA_PATH + f"2b_bamixchecker/{dataset}/real_data/ncells_null/BAMixChecker/Total_result.txt")
+
+    df = pd.read_csv(
+        file_path,
+        sep="\t",
+        index_col=0,
+        header=None,
+    )
 
     df.columns = ["Sample", "Concordance Rate", "Conclusion"]
 
@@ -207,23 +266,37 @@ def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
 def parse_heatmap_matrix_crosscheckfingerprints(
     DATA_PATH, pseudobulk, dataset, ncells, rd
 ):
-    # Read CrosscheckFingerprints output
+    """
+    Read CrosscheckFingerprints output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+    
+    output:
+        - df: long format dataframe with columns [LEFT_SAMPLE, RIGHT_SAMPLE, LOD_SCORE, RESULT]
+        - matrix: square dataframe with samples as rows and columns, values are the LOD_SCOREs
+    """
     if pseudobulk:
-        df = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
-            + f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt",
-            sep="\t",
-            skiprows=6,
-            header=0,
+            + f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt"
         )
     else:
-        df = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
-            + f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt",
-            sep="\t",
-            skiprows=6,
-            header=0,
+            + f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt"
         )
+    df = pd.read_csv(
+        file_path
+        sep="\t",
+        skiprows=6,
+        header=0,
+    )
+
     df = df[["LEFT_SAMPLE", "RIGHT_SAMPLE", "LOD_SCORE", "RESULT"]]
 
     if pseudobulk or dataset == "hgsoc-new":
@@ -245,22 +318,37 @@ def parse_heatmap_matrix_crosscheckfingerprints(
 
 
 def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
+    """
+    Read HYSYS output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+    
+    output:
+        - df: long format dataframe with columns [Sample, Concordance, Size]
+        - matrix: square dataframe with samples as rows and columns, values are the Concordance values
+    """
     if pseudobulk:
-        df = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
-            + f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt",
-            sep="\t",
-            index_col=0,
-            header=None,
+            + f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt"
         )
     else:
-        df = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
-            + f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt",
-            sep="\t",
-            index_col=0,
-            header=None,
+            + f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt"
         )
+
+    df = pd.read_csv(
+        file_path,
+        sep="\t",
+        index_col=0,
+        header=None,
+    )
 
     if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
@@ -290,23 +378,37 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
 
 
 def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd):
-    # Read NGSCheckmate output
+    """
+    Read NGSCheckmate output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+    
+    output:
+        - df: long format dataframe with columns [Matched, Sample, Binary, Correlation]
+        - matrix: square dataframe with samples as rows and columns, values are the Correlation values
+    """
     if pseudobulk:
-        df = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
             + f"2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/output_all.txt",
-            sep="\t",
-            index_col=0,
-            header=None,
         )
     else:
-        df = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
             + f"2a_ngscheckmate/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/output_all.txt",
-            sep="\t",
-            index_col=0,
-            header=None,
         )
+
+    df = pd.read_csv(
+        file_path,
+        sep="\t",
+        index_col=0,
+        header=None,
+    )
 
     if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
@@ -334,18 +436,35 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
 
 
 def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
+    """
+    Read Vireo output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+    
+    output:
+        - df: long format dataframe with columns [sample_id_0, sample_id_1, match]
+        - matrix: dataframe with samples from one modality as rows and samples from another modality as columns, 
+            values are the similarity scores used by Vireo to match samples (lower values indicate more similar samples)
+    """
     if pseudobulk:
-        matrix = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
-            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
-            index_col=0,
+            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
         )
     else:
-        matrix = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
-            + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
-            index_col=0,
+            + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
         )
+    matrix = pd.read_csv(
+        file_path,
+        index_col=0,
+    )
 
     if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
@@ -371,8 +490,18 @@ def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
 ### Functions to parse tool outputs and create sample match dataframes
 #######################################################
 def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
+    """
+    Parse BAMixChecker Total_result.txt file to categorize sample relationships.
 
-    # Create a mapping for BAMixChecker results
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
     # 1 = match, 0 = no match
     # Note BAMixChecker does not distinguish between "no match" and "inconclusive"
     result_mapping = {
@@ -389,8 +518,18 @@ def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, n
 def parse_sample_matching_results_crosscheckfingerprints(
     DATA_PATH, pseudobulk, dataset, ncells, rd
 ):
+    """
+    Parse CrosscheckFingerprints results to categorize sample relationships.
 
-    # Create a mapping for CrosscheckFingerprints results
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
     # 1 = match, 0 = no match, nan = inconclusive
     result_mapping = {
         "EXPECTED_MATCH": 1,
@@ -412,13 +551,14 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
     """
     Parse HYSYS model_results.txt file to categorize sample relationships.
 
-    Args:
-        file_path (str): Path to the model_results.txt file
-        dataset (str): Name of the dataset
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
 
-    Returns:
-        pd.DataFrame: DataFrame with MultiIndex (sample1, sample2) and 'match' column
-                     Values: 1 (matching), 0 (not matching), NaN (inconclusive)
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
     if pseudobulk:
         file_path = os.path.join(
@@ -510,6 +650,18 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
 def parse_sample_matching_results_ngscheckmate(
     DATA_PATH, pseudobulk, dataset, ncells, rd
 ):
+    """
+    Parse NGSCheckMate results to categorize sample relationships.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
 
     result_mapping = {
         "unmatched": 0,
@@ -526,18 +678,32 @@ def parse_sample_matching_results_ngscheckmate(
 
 
 def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
+    """
+    Parse Vireo's matched_samples.csv to categorize sample relationships.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
     if pseudobulk:
-        sample_matches = pd.read_csv(
+        file_path = os.path.join(
             DATA_PATH
             + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
-            index_col=0,
-        ).reset_index()
-    else:
-        sample_matches = pd.read_csv(
-            DATA_PATH
+        )
+    else:        
+        file_path = os.path.join(
+            DATA_PATH            
             + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
-            index_col=0,
-        ).reset_index()
+        )
+    sample_matches = pd.read_csv(
+        file_path,
+        index_col=0,
+    ).reset_index()
 
     if pseudobulk:
         regex_exp = dataset_regex_dict.get(dataset, "")
@@ -579,7 +745,18 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
 ### Functions to calculate accuracy metrics
 ######################################################
 def create_pseudobulk_submatrix_vireo(matrix):
-    # Filter Vireo matrix to only samples ending in _1 in rows and samples ending in _2 in columns (or _2 vs _3 or _1 vs _3)
+    """
+    Filter Vireo's heatmap matrix to only include comparisons between pseudobulk samples ending in _1 
+    and samples ending in _2, then apply the same algorithm Vireo uses to infer sample matches 
+    (minimize diagonal of the matrix) to create a sample-matching matrix with 1 for inferred matches and 0 for non-matches.
+
+    input:
+        - matrix: square dataframe with samples as rows and columns, values are the similarity scores
+
+    output:
+        - inferred_matches: dataframe with 1 for inferred matches and 0 for non-matches
+    """
+    # Filter Vireo matrix to only samples ending in _1 in rows and samples ending in _2 in columns
     pseudobulk_1 = "_1"
     pseudobulk_2 = "_2"
     matrix_filtered = matrix.loc[
@@ -608,6 +785,21 @@ def create_pseudobulk_submatrix_vireo(matrix):
 
 
 def calculate_accuracy_metrics_pseudobulk(inferred_matches):
+    """
+    Calculate accuracy metrics (accuracy, balanced accuracy, precision, recall, F1 score) for the inferred sample matches 
+    compared to the true matches (ground truth) for pseudobulk datasets.
+
+    input:
+        - inferred_matches: dataframe with 1 for inferred matches and 0 for non-matches 
+
+    output:
+        - fraction_inconclusive: the fraction of comparisons that were inconclusive (NaN)
+        - accuracy: the overall accuracy of the inferred matches compared to the true matches
+        - balanced_accuracy: the balanced accuracy of the inferred matches compared to the true matches
+        - precision: the precision of the inferred matches compared to the true matches
+        - recall: the recall of the inferred matches compared to the true matches
+        - f1: the F1 score of the inferred matches compared to the true matches
+    """
 
     # Calculate fraction of inconclusive (NaN) matches
     total_comparisons = inferred_matches.size
@@ -639,6 +831,20 @@ def calculate_accuracy_metrics_pseudobulk(inferred_matches):
 
 
 def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_depths):
+    """
+    Loop through all combinations of tools, datasets, number of cells, and read depths to calculate 
+    accuracy metrics for pseudobulk sample matching.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - tools: list of tools ["BAMixChecker", "CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"] to evaluate
+        - datasets: list of datasets to evaluate
+        - ncells_list: list of number of cells to evaluate
+        - read_depths: list of read depths to evaluate
+
+    output:
+        - results_df: dataframe with accuracy metrics for each combination of tool, dataset, number of cells, and read depth
+    """
     results = []
 
     for tool in tools:
@@ -646,13 +852,13 @@ def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_dep
             for ncells in ncells_list:
                 for rd in read_depths:
                     try:
-                        if tool == "BAMixChecker" and rd == 1:
+                        if tool == "BAMixChecker" and rd == 0:
                             inferred_matches = (
                                 parse_sample_matching_results_bamixchecker(
                                     DATA_PATH, True, dataset, ncells
                                 )
                             )
-                        elif tool == "BAMixChecker" and rd != 1:
+                        elif tool == "BAMixChecker" and rd != 0:
                             print(
                                 f"Skipping BAMixChecker for read depth {rd} since it does not vary with read depth. "
                             )
@@ -722,6 +928,17 @@ def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_dep
 
 
 def load_expected_matches_real_data(DATA_PATH, dataset):
+    """
+    Load expected matches for real data from the sample_matches CSV file, clean up the sample names, 
+    and sort the dataframe by the single cell sample column and whether all rows have data in all columns.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - dataset: name of the dataset
+
+    output:
+        - expected_matches: cleaned and sorted dataframe of expected matches for the real data
+    """
     expected_matches = pd.read_csv(
         os.path.join(
             DATA_PATH, f"../metadata/sample_matches/sample_matches_{dataset}.csv"
@@ -759,7 +976,23 @@ def accuracy_metrics_averaged_over_iterations(
         dataset,
         ncells,
         rd,
-):
+):  
+    """
+    Loop through all pseudobulk results for a given dataset, number of cells, and read depth, 
+    and calculate the mean and standard deviation of accuracy metrics for each tool.
+    This is used in particular for experiments with missing samples or double samples.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - n_iterations: number of iterations to average over
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+
+    output:
+        - final_df: dataframe with mean and standard deviation of accuracy metrics for each tool, dataset, 
+            number of cells, and read depth.
+    """
     final_df = pd.DataFrame()
 
     for tool in ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]:
