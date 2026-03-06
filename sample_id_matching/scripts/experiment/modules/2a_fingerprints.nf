@@ -2,21 +2,25 @@
 
 process CROSSCHECK_FINGERPRINTS {
     conda "${params.conda}/fingerprints"
-    publishDir "${params.outdir}/fingerprints", mode: 'copy'
+    publishDir "${params.outdir}/2a_fingerprints", mode: 'copy'
     errorStrategy 'ignore'
     
     input:
         path(vcf)
     
     output:
-        path("${params.dataset}/vcf_list.txt")
-        path("${params.dataset}/crosscheck_metrics.txt")
-    
+        path("${params.dataset}/*/*/*/crosscheck_metrics.txt")
+
     script:
         """
         set -euo pipefail
 
-        output_location="${params.dataset}"
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
+        else
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
+        fi
         mkdir -p \$output_location
 
         # Sort variants in vcf files numerically
@@ -67,7 +71,10 @@ process CROSSCHECK_FINGERPRINTS {
             bcftools reheader -h new_header.txt \$vcf_file > \$rehead_name
             bcftools sort \$rehead_name > \$sort_name
 
-            echo "\$sort_name\n" >> \${output_location}/vcf_list.txt
+            if ! [[ \$vcf_file == *"2507"* && \$vcf_file == *"bulk_diss_polyA"* ]]
+            then
+                echo "\$sort_name" >> \${output_location}/vcf_list.txt
+            fi
         done
         
         # Run Picard CrosscheckFingerprints

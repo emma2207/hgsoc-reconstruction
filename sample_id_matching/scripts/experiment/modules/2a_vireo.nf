@@ -2,24 +2,37 @@
 
 process VIREO_MATCH {
     conda "${params.conda}/sample-matching"
-    publishDir "${params.outdir}/vireo", mode: 'copy'
+    publishDir "${params.outdir}/2a_vireo", mode: 'copy'
     errorStrategy 'ignore'
     
     input:
         path(vcf_files)
     
     output:
-        path("${params.dataset}/similarity_matrix.csv")
-        path("${params.dataset}/matched_samples.csv")
-    
+        path("${params.dataset}/*/*/*/similarity_matrix.csv")
+        path("${params.dataset}/*/*/*/matched_samples.csv")
+
     script:
         """
-        output_location="${params.dataset}"
-        mkdir -p \$output_location
+        set -euo pipefail
 
-        python ${params.projectDir}/modules/vireo.py \\
-            -v1 ${vcf_files[0]} \\
-            -v2 ${vcf_files[1]} \\
-            -d ${params.dataset}
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
+            mkdir -p \$output_location
+
+            python ${params.projectDir}/modules/vireo.py \\
+                -v1 ${vcf_files} \\
+                -v2 ${vcf_files} \\
+                -o \${output_location}
+        else
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}"
+            mkdir -p \$output_location
+
+            python ${params.projectDir}/modules/vireo.py \\
+                -v1 ${vcf_files[0]} \\
+                -v2 ${vcf_files[1]} \\
+                -o \${output_location}
+        fi
         """
 }
