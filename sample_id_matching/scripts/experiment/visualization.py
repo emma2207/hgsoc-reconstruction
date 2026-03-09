@@ -781,7 +781,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
     return
 
 
-def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, dataset, ncells, rd, n_samples_removed, n_iterations, FIGURES_PATH="", save_fig=False):
+def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, experiment, dataset, ncells, rd, n_samples_removed, n_iterations, FIGURES_PATH="", save_fig=False):
     """
     Create errorbar plot showing accuracy metrics (fraction inconclusive, F1, precision, recall) for each tool, 
     with different colors for different numbers of samples removed. 
@@ -790,6 +790,7 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, dataset, ncells, r
 
     input:
         - DATA_PATH: path to data
+        - experiment: type of experiment (missing_samples or double_samples)
         - dataset: name of dataset
         - ncells: number of cells in pseudobulk
         - rd: read depth filter cut-off
@@ -801,9 +802,9 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, dataset, ncells, r
     output:
         - errorbar plot is shown (or saved if save_fig=True)
     """
-    fig_name = f"pseudobulk_{dataset}_accuracy_metrics_errorbar_plot_missing_samples_rd{rd}_ncells{ncells}"
+    fig_name = f"pseudobulk_{dataset}_accuracy_metrics_errorbar_plot_{experiment}_rd{rd}_ncells{ncells}"
     df = accuracy_metrics_averaged_over_iterations(
-        DATA_PATH, n_iterations, dataset, ncells, rd, n_samples_removed
+        DATA_PATH, n_iterations, dataset, ncells, rd, n_samples_removed, experiment
     )
     # Get unique tools and n_samples_removed values
     tools = df["tool"].unique()
@@ -819,10 +820,9 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, dataset, ncells, r
     offset_width = 0.2
     offsets = np.linspace(-offset_width, offset_width, len(n_samples_vals))
 
-    # Plot each n_samples_removed group
+    # Plot each n_samples_removed (or added) group
     for i, n_samp in enumerate(n_samples_vals):
         df_subset = df[df["n_samples_removed"] == n_samp]
-        
         # Create x positions (tool indices + offset)
         x_pos = np.arange(len(tools)) + offsets[i]
         
@@ -852,7 +852,10 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, dataset, ncells, r
             ax.set_xticklabels(tools, rotation=0, ha='center')
             ax.set_ylim(0, 1.05)
             if j == 0:
-                ax.legend(title='# of samples removed', frameon=False)
+                if experiment == "missing_samples":
+                    ax.legend(title='# of samples removed', frameon=False)
+                elif experiment == "double_samples":
+                    ax.legend(title='# of double samples', frameon=False)
 
     plt.tight_layout()
     if save_fig:

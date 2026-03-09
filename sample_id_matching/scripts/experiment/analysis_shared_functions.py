@@ -184,37 +184,65 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
 ######################################################
 ### Function to create true matches matrix for pseudobulk datasets
 #######################################################
+def inferred_matches_pseudobulk_vireo(matrix):
+    """
+    Create a matrix of inferred matches for Vireo, pseudobulk datasets 
+    based on the ordering in the heatmap matrix.
+
+    If the number of rows and columns is equal it will simply be an identity matrix.
+    If the number of columns is greater than the number of rows, we will add columns of zeroes for the unmatched samples.
+    If the number of rows is greater than the number of columns, we will add rows of zeroes for the unmatched samples.
+
+    input:
+        - matrix: dataframe with samples as rows and columns
+
+    output:
+        - inferred_matches: dataframe with 1 for inferred matches and 0 for non-matches
+    """
+    min_matrix_size = min(len(matrix.index), len(matrix.columns))
+    # Start with a identity matrix 
+    inferred_matches = np.identity(min_matrix_size)
+    inferred_matches = pd.DataFrame(
+        inferred_matches,
+        index=matrix.index[:min_matrix_size],
+        columns=matrix.columns[:min_matrix_size],
+    )
+    if len(matrix.columns) > len(matrix.index):
+        # Add columns with 0s for any samples that don't have a match
+        for col in matrix.columns:
+            if col not in inferred_matches.columns:
+                inferred_matches[col] = 0
+    elif len(matrix.index) > len(matrix.columns):
+        # Add rows with 0s for any samples that don't have a match
+        for idx in matrix.index:
+            if idx not in inferred_matches.index:
+                inferred_matches.loc[idx] = 0
+
+    return inferred_matches
+
+
 def true_matches_pseudobulk(matrix):
     """
     Create a true matches (ground truth) matrix for pseudobulk datasets 
-    based on the sample names in the heatmap matrix.
+    based on the pseudobulk names.
+
+    If the samples have identical names apart from the last two characters, then they are a match.
 
     input:
-        - matrix: square dataframe with samples as rows and columns
+        - matrix: dataframe with samples as rows and columns
 
     output:
-        - true_matches: square dataframe with 1 for true matches and 0 for non-matches
+        - true_matches: dataframe with 1 for true matches and 0 for non-matches
     """
-
-    if len(matrix.index) == len(matrix.columns):
-        matrix = matrix.loc[sorted(matrix.index), sorted(matrix.columns)]
-
-        true_matches = pd.DataFrame(
-            np.identity(len(matrix)),
-            index=pd.Index(matrix.index),
-            columns=pd.Index(matrix.columns),
-        )
-    else:
-        # If the matrix is not square, we have to infer the true matches from the sample names
-        # We assume that samples with the same name except for the last character (e.g. _1 vs _2) are true matches
-        true_matches = pd.DataFrame(
-            0, index=matrix.index, columns=matrix.columns
-        )  # Initialize with 0s
-
-        for idx in matrix.index:
-            for col in matrix.columns:
-                if idx[:-2] == col[:-2]:  # Compare sample names without last 2 characters
-                    true_matches.at[idx, col] = 1  # Mark as a true match
+    true_matches = pd.DataFrame(
+        0,
+        index=matrix.index,
+        columns=matrix.columns,
+    )
+    for idx in matrix.index:
+        for col in matrix.columns:
+            if idx[:-2] == col[:-2]:
+                true_matches.loc[idx, col] = 1
 
     return true_matches
 
@@ -744,38 +772,64 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
 ######################################################
 ### Functions to calculate accuracy metrics
 ######################################################
-def create_pseudobulk_submatrix_vireo(matrix):
+def create_pseudobulk_submatrix_vireo(matrix, hysys_matrix, experiment, n_samples_double=0):
     """
     Filter Vireo's heatmap matrix to only include comparisons between pseudobulk samples ending in _1 
     and samples ending in _2, then apply the same algorithm Vireo uses to infer sample matches 
     (minimize diagonal of the matrix) to create a sample-matching matrix with 1 for inferred matches and 0 for non-matches.
 
     input:
-        - matrix: square dataframe with samples as rows and columns, values are the similarity scores
-
+        - matrix: dataframe with samples as rows and columns, values are the similarity scores
+        - hysys_matrix: dataframe with samples as rows and columns, values are the similarity scores from HYSYS
+        - experiment: the type of experiment (e.g., "double_samples")
+        - n_samples_double: the number of double samples in the experiment
     output:
         - inferred_matches: dataframe with 1 for inferred matches and 0 for non-matches
     """
     # Filter Vireo matrix to only samples ending in _1 in rows and samples ending in _2 in columns
-    pseudobulk_1 = "_1"
-    pseudobulk_2 = "_2"
-    matrix_filtered = matrix.loc[
-        [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
-        [col for col in matrix.columns if col.endswith(pseudobulk_2)],
-    ]
+    # For double samples experiments we want _1 in rows and _2 and _3 in columns.
+    if (experiment == "double_samples") and (n_samples_double > 0):
+        # For double_samples experiments we have to infer which _3 were included in the experiment, 
+        # since Vireo only outputs results for the samples it matched.
+        # We do this by looking at the samples included in another tool's results.
+        hysys_samples = list(set(hysys_matrix.index))
+        hysys_3_samples = [sample for sample in hysys_samples if sample.endswith("_3")]
+        matrix_filtered = matrix.loc[
+            [idx for idx in matrix.index if idx.endswith("_1")],
+            [col for col in matrix.columns if (col.endswith("_2") or col in hysys_3_samples)],
+        ]
+    else:
+        matrix_filtered = matrix.loc[
+            [idx for idx in matrix.index if idx.endswith("_1")],
+            [col for col in matrix.columns if col.endswith("_2")],
+        ]
 
     # Minimize diagonal of matrix_filtered by moving rows and columns around
     # This is the algorith Vireo uses to match samples
-    idx0, idx1 = linear_sum_assignment(matrix_filtered.values)
+    maximize = False
+    if matrix.equals(hysys_matrix):
+        maximize = True
+    print(f"Applying linear sum assignment to matrix of shape {matrix_filtered.shape} with maximize={maximize}")
+    idx0, idx1 = linear_sum_assignment(matrix_filtered.values, maximize)
     matrix_reordered = pd.DataFrame(
         matrix_filtered.iloc[idx0, idx1],
         index=matrix_filtered.index[idx0],
         columns=matrix_filtered.columns[idx1],
     )
+    # If there are more columsn than rows, we need to add back the unmatched columns (these will be inferred as non-matches)
+    if len(matrix_filtered.columns) > len(matrix_filtered.index):
+        # Add back the unmatched columns with NaNs
+        unmatched_cols = [col for col in matrix_filtered.columns if col not in matrix_reordered.columns]
+        for col in unmatched_cols:
+            matrix_reordered[col] = np.nan
+    elif len(matrix_filtered.index) > len(matrix_filtered.columns):
+        # Add back the unmatched rows with NaNs
+        unmatched_rows = [idx for idx in matrix_filtered.index if idx not in matrix_reordered.index]
+        for idx in unmatched_rows:
+            matrix_reordered.loc[idx] = np.nan
     # The new order of samples in the index and columns reveals the matching of samples between the two pseudobulk sets.
     # Create a sample-matching matrix with 1 on the diagonal and 0 elsewhere, where the order of rows and columns is the same as in matrix_reordered.
-    # This matrix has the inferred sample matches
-    inferred_matches = true_matches_pseudobulk(matrix_reordered)
+    inferred_matches = inferred_matches_pseudobulk_vireo(matrix_reordered)
     # Reorder to the original order of samples
     ordered_columns = sorted(inferred_matches.columns)
     ordered_index = sorted(inferred_matches.index)
@@ -830,13 +884,14 @@ def calculate_accuracy_metrics_pseudobulk(inferred_matches):
     return fraction_inconclusive, accuracy, balanced_accuracy, precision, recall, f1
 
 
-def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_depths):
+def loop_accuracy_calculations(DATA_PATH, experiment, tools, datasets, ncells_list, read_depths):
     """
     Loop through all combinations of tools, datasets, number of cells, and read depths to calculate 
     accuracy metrics for pseudobulk sample matching.
 
     input:
         - DATA_PATH: base path to the data directory
+        - experiment: the type of experiment (e.g., "missing_samples", "double_samples")
         - tools: list of tools ["BAMixChecker", "CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"] to evaluate
         - datasets: list of datasets to evaluate
         - ncells_list: list of number of cells to evaluate
@@ -883,7 +938,10 @@ def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_dep
                             matrix = parse_heatmap_matrix_vireo(
                                 DATA_PATH, True, dataset, ncells, rd
                             )
-                            inferred_matches = create_pseudobulk_submatrix_vireo(matrix)
+                            _, hysys_matrix = parse_heatmap_matrix_hysys(
+                                DATA_PATH, True, dataset, ncells, rd
+                            )
+                            inferred_matches = create_pseudobulk_submatrix_vireo(matrix, hysys_matrix, experiment)
                         else:
                             print(
                                 f"Error! Do not recognize tool {tool}. Choose one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
@@ -894,11 +952,17 @@ def loop_accuracy_calculations(DATA_PATH, tools, datasets, ncells_list, read_dep
                             f"Could not find data for {tool}, pseudobulk dataset {dataset}, ncells {ncells}, read depth {rd}. "
                         )
                         continue
-
-                    inferred_matches_filtered = inferred_matches.loc[
-                        [idx for idx in inferred_matches.index if idx.endswith("_1")],
-                        [col for col in inferred_matches.columns if col.endswith("_2")],
-                    ]
+                    
+                    if experiment == "double_samples":
+                        inferred_matches_filtered = inferred_matches.loc[
+                            [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                            [col for col in inferred_matches.columns if (col.endswith("_2") or col.endswith("_3"))],
+                        ]
+                    else:
+                        inferred_matches_filtered = inferred_matches.loc[
+                            [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                            [col for col in inferred_matches.columns if col.endswith("_2")],
+                        ]
 
                     (
                         fraction_inconclusive,
@@ -977,6 +1041,7 @@ def accuracy_metrics_averaged_over_iterations(
         ncells,
         rd,
         n_samples_removed,
+        experiment="missing_samples"
 ):  
     """
     Loop through all pseudobulk results for a given dataset, number of cells, and read depth, 
@@ -989,50 +1054,72 @@ def accuracy_metrics_averaged_over_iterations(
         - dataset: the dataset name
         - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
         - rd: the read depth filter cut-off used for the analysis
+        - n_samples_removed: list of number of samples removed (or double samples added) to evaluate
+        - experiment: string indicating the experiment type, either "missing_samples" or "double_samples", used for printing messages
 
     output:
         - final_df: dataframe with mean and standard deviation of accuracy metrics for each tool, dataset, 
             number of cells, and read depth.
     """
     final_df = pd.DataFrame()
-
+    if experiment == "missing_samples":
+        folder = "remove_samples_"
+    elif experiment == "double_samples":
+        folder = "double_samples_"
+    else:
+        print(f"Error! Experiment type {experiment} not recognized. Choose either 'missing_samples' or 'double_samples'.")
+        return final_df
     for n in n_samples_removed:
         for tool in ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]:
             accuracy_df = pd.DataFrame()
-            
             for i in range(1, n_iterations + 1):
-                
+                # Check if "remove_samples_{n}/it_1/" directory exists
+                if not os.path.exists(DATA_PATH + f"{folder}{n}/it_{i}/"):
+                    print(
+                        f"No results found for {n} samples removed and iteration {i}. Skipping accuracy calculations for this number of samples removed."
+                    )
+                    continue
                 if tool == "CrosscheckFingerprints":
                     inferred_matches = (
                         parse_sample_matching_results_crosscheckfingerprints(
-                            DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
+                            DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                         )
                     )
                 elif tool == "HYSYS":
                     inferred_matches = parse_sample_matching_results_hysys(
-                        DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
+                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                     )
                 elif tool == "NGSCheckmate":
                     inferred_matches = (
                         parse_sample_matching_results_ngscheckmate(
-                            DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
+                            DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                         )
                     )
                 elif tool == "Vireo":
                     matrix = parse_heatmap_matrix_vireo(
-                        DATA_PATH + f"remove_samples_{n}/it_{i}/", True, dataset, ncells, rd
+                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                     )
-                    inferred_matches = create_pseudobulk_submatrix_vireo(matrix)
+                    _, hysys_matrix = parse_heatmap_matrix_hysys(
+                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
+                    )
+                    n_samples_double = n if experiment == "double_samples" else 0
+                    inferred_matches = create_pseudobulk_submatrix_vireo(matrix, hysys_matrix, experiment, n_samples_double)
                 else:
                     print(
                         f"Error! Do not recognize tool {tool}. Choose one of CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
                     )
                     continue
-
-                inferred_matches_filtered = inferred_matches.loc[
-                    [idx for idx in inferred_matches.index if idx.endswith("_1")],
-                    [col for col in inferred_matches.columns if col.endswith("_2")],
-                ]
+                    
+                if experiment == "double_samples":
+                    inferred_matches_filtered = inferred_matches.loc[
+                        [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                        [col for col in inferred_matches.columns if (col.endswith("_2") or col.endswith("_3"))],
+                    ]
+                else:
+                    inferred_matches_filtered = inferred_matches.loc[
+                        [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                        [col for col in inferred_matches.columns if col.endswith("_2")],
+                    ]
                 (
                     fraction_inconclusive,
                     accuracy,
@@ -1076,3 +1163,51 @@ def accuracy_metrics_averaged_over_iterations(
                 }
             )])
     return final_df.reset_index(drop=True)
+
+
+def accuracy_metrics_hysys_heatmap_vireo_algorithm(
+        DATA_PATH,
+        dataset,
+        ncells,
+        rd,
+):
+    """
+    Calculate accuracy metrics for HYSYS's heatmap results using the same algorithm Vireo uses to infer sample matches 
+    (minimize diagonal of the matrix).
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+
+    """
+        
+    _, hysys_matrix = parse_heatmap_matrix_hysys(DATA_PATH, True, dataset, ncells, rd)
+    # Filter down to samples ending in _1 in rows and samples ending in _2 in columns
+    inferred_matches = create_pseudobulk_submatrix_vireo(hysys_matrix, hysys_matrix, "Basic")
+
+    (
+        fraction_inconclusive,
+        accuracy,
+        balanced_accuracy,
+        precision,
+        recall,
+        f1,
+    ) = calculate_accuracy_metrics_pseudobulk(inferred_matches)
+
+    result = {
+        "tool": "HYSYS matrix, Vireo algorithm",
+        "pseudobulk": True,
+        "dataset": dataset,
+        "ncells": ncells,
+        "read depth": rd,
+        "fraction_inconclusive": fraction_inconclusive,
+        "accuracy": accuracy,
+        "balanced_accuracy": balanced_accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+    }
+
+    return pd.DataFrame(result, index=[0])
