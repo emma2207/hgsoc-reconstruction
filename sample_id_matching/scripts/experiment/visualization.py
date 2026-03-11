@@ -841,7 +841,7 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, experiment, datase
                 ax = axes[1, 1]
                 ax.set_title("Recall", fontsize=12)
             y = [df_subset[df_subset["tool"] == t][f"av_{metric}"].values[0] if len(df_subset[df_subset["tool"] == t]) > 0 else np.nan for t in tools]
-            y_error = [df_subset[df_subset["tool"] == t][f"sd_{metric}"].values[0] if len(df_subset[df_subset["tool"] == t]) > 0 else np.nan for t in tools]
+            y_error = [df_subset[df_subset["tool"] == t][f"sd_{metric}"].values[0]/np.sqrt(n_iterations) if len(df_subset[df_subset["tool"] == t]) > 0 else np.nan for t in tools]
             # Plot with error bars
             ax.errorbar(x_pos, y, yerr=y_error, fmt='o', color=colors[i], 
                         ecolor=colors[i], elinewidth=2, capsize=4, alpha=0.7,

@@ -809,7 +809,6 @@ def create_pseudobulk_submatrix_vireo(matrix, hysys_matrix, experiment, n_sample
     maximize = False
     if matrix.equals(hysys_matrix):
         maximize = True
-    print(f"Applying linear sum assignment to matrix of shape {matrix_filtered.shape} with maximize={maximize}")
     idx0, idx1 = linear_sum_assignment(matrix_filtered.values, maximize)
     matrix_reordered = pd.DataFrame(
         matrix_filtered.iloc[idx0, idx1],
