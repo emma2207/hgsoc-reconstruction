@@ -2,8 +2,10 @@
 
 /*
  * Pipeline for sample matching analysis
- * This pipeline analyzes BAM files to determine if samples come from the same donor
- * using multiple tools: bcftools, Vireo, NGSCheckMate, and CrossCheckFingerprints
+ * This pipeline is a variantion on main_from_genotype.nf that can be used to assess
+ * the impact of missing samples on sample matching performance.
+ * This pipeline analyzes VCF files to determine if samples come from the same donor
+ * using multiple tools: HYSYS, Vireo, NGSCheckMate, and CrossCheckFingerprints
  */
 
 nextflow.enable.dsl = 2
