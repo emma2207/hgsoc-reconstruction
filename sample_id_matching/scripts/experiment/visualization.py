@@ -876,3 +876,88 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, experiment, datase
             dpi=300,
         )
     return
+
+
+def heatmap_plot_accuracy_metrics_uneven_pseudobulk(
+    df, dataset, metric, save_fig=False, FIGURES_PATH=""
+):
+
+    fig_name = f"pseudobulk_uneven_{dataset}_{metric}_heatmap"
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    fig.subplots_adjust(hspace=0.2)
+    fig.suptitle(f"{metric} heatmaps - {dataset} pseudobulks", fontsize=14, y=0.94)
+    cmap = plt.get_cmap("Blues")
+    cmap.set_bad(color="lightgrey")
+
+    tools = ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]
+    for i, tool in enumerate(tools):
+        sub_matrix = df[(df["dataset"] == dataset) & (df["tool"] == tool)].pivot_table(
+            index=["read depth"], columns="ncells_2", values=metric
+        )
+
+        ax = axes[i // 2, i % 2]
+
+        cax = ax.imshow(sub_matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
+
+        # Add text annotations with F1 values
+        for row in range(len(sub_matrix.index)):
+            for col in range(len(sub_matrix.columns)):
+                value = sub_matrix.iloc[row, col]
+                if not np.isnan(value):
+                    text_color = "white" if value > 0.5 else "black"
+                    ax.text(
+                        col,
+                        row,
+                        f"{value:.2f}",
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=10,
+                    )
+
+        ax.set_xticks(np.arange(len(sub_matrix.columns)))
+        ax.set_yticks(np.arange(len(sub_matrix.index)))
+
+        # Format x-tick labels in scientific notation
+        xticklabels = []
+        for x in sub_matrix.columns:
+            exponent = int(np.log10(x))
+            mantissa = x / (10**exponent)
+            if mantissa == 1.0:
+                xticklabels.append(f"$10^{{{exponent}}}$")
+            else:
+                xticklabels.append(f"${int(mantissa)} \\times 10^{{{exponent}}}$")
+
+        ax.set_xticklabels(xticklabels, ha="center")
+        ax.set_yticklabels(sub_matrix.index)
+
+        # Only show x-label on bottom row
+        if i // 2 == 1:
+            ax.set_xlabel("# of cells")
+
+        # Only show y-label on left column
+        if i % 2 == 0:
+            ax.set_ylabel("Read depth cut-off")
+
+        ax.set_title(f"{tool}", pad=10)
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+    # fig.colorbar(cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5)
+    return

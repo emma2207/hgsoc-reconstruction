@@ -241,7 +241,7 @@ def true_matches_pseudobulk(matrix):
     )
     for idx in matrix.index:
         for col in matrix.columns:
-            if idx[:-2] == col[:-2]:
+            if idx[:-12] == col[:-12]:
                 true_matches.loc[idx, col] = 1
 
     return true_matches
