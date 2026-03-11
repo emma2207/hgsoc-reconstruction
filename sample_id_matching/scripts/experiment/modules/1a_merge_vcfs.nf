@@ -9,7 +9,6 @@ process MERGE_AND_FILTER_VCFS {
         path index_files
         val modalities 
 
-    
     output:
         path("${params.dataset}/*/*/*/*_modality_variants.vcf.gz"), emit: modality_vcfs
         path("${params.dataset}/*/*/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
@@ -46,27 +45,56 @@ process MERGE_AND_FILTER_VCFS {
 
         echo "Filtered variants by read depth"
 
+        MODALITIES_RAW='${modalities}'
+        MODALITIES_CLEAN="\${MODALITIES_RAW#[}"
+        MODALITIES_CLEAN="\${MODALITIES_CLEAN%]}"
+        MODALITIES_CLEAN=\$(echo "\$MODALITIES_CLEAN" | tr ',' ' ' | xargs)
+
+        read -r -a MODS <<< "\$MODALITIES_CLEAN"
+
         # List samples by modality
-        for mod in ${modalities.join(' ')}
-        do  
-            echo "\$mod"
+        if [[ \${#MODS[@]} -gt 1 ]]
+        then
+            for mod in ${modalities.join(' ')}
+            do  
+                echo "\$mod"
+                for sample in `bcftools query -l \${rd_filtered_variants}`
+                do
+                    if [[ "\$sample" == *"\$mod"* ]]
+                    then
+                        echo "\$sample" >> "\${output_location}/\${mod}_files.txt"
+                    fi
+                done
+            done
+        else
+            echo "${modalities}"
             for sample in `bcftools query -l \${rd_filtered_variants}`
             do
-                if [[ "\$sample" == *"\$mod"* ]]
+                if [[ "\$sample" == *"${modalities}"* ]]
                 then
-                    echo "\$sample" >> "\${output_location}/\${mod}_files.txt"
+                    echo "\$sample" >> "\${output_location}/${modalities}_files.txt"
                 fi
             done
-        done
+        fi
+        
 
         # Save variants separately for different modalities
-        for mod in ${modalities.join(' ')}
-        do
-            bcftools view -S "\${output_location}/\${mod}_files.txt" \
-                -Oz -o "\${output_location}/\${mod}_modality_variants.vcf.gz" \
+        if [[ \${#MODS[@]} -gt 1 ]]
+        then
+            for mod in ${modalities.join(' ')}
+            do
+                bcftools view -S "\${output_location}/\${mod}_files.txt" \
+                    -Oz -o "\${output_location}/\${mod}_modality_variants.vcf.gz" \
+                    \${rd_filtered_variants}
+                bcftools index \${output_location}/\${mod}_modality_variants.vcf.gz
+            done
+        else
+            bcftools view -S "\${output_location}/${modalities}_files.txt" \
+                -Oz -o "\${output_location}/${modalities}_modality_variants.vcf.gz" \
                 \${rd_filtered_variants}
-            bcftools index \${output_location}/\${mod}_modality_variants.vcf.gz
-        done
+            bcftools index \${output_location}/${modalities}_modality_variants.vcf.gz
+        fi
+        
 
         echo "Saved variants per modality"
 
