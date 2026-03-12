@@ -18,6 +18,12 @@ include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 
 
+// Workflow specific parameters
+params.n_samples_to_remove = 1  // Number of samples to randomly remove from one set of VCF files to simulate missing data
+params.repeat = 5  // Number of iterations to repeat the random sample removal and analysis
+params.outdir = "results/remove_samples_${params.n_samples_to_remove}/it_${params.repeat}"
+
+
 // Main workflow
 workflow {
     // Find all vcfs with the listed datatypes

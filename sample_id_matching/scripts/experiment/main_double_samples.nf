@@ -19,6 +19,12 @@ include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 
 
+// Workflow specific parameters
+params.n_double_samples = 10  // Number of samples to randomly select and "duplicate" (different VCF files from the same donor)
+params.repeat = 5  // Number of iterations to repeat the random sample duplication and analysis
+params.outdir = "results/double_samples_${params.n_double_samples}/it_${params.repeat}"
+
+
 // Main workflow
 workflow {
     // Find all vcfs with the listed datatypes

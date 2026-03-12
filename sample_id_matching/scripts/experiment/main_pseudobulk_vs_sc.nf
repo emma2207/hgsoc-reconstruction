@@ -19,6 +19,10 @@ include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 
 
+// Workflow specific parameters
+params.outdir = "results/pseudobulk_vs_sc"
+
+
 // Main workflow
 workflow {
     sc_vcf_files = channel.fromPath(

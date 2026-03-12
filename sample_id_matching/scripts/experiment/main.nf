@@ -19,6 +19,11 @@ include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 
+
+// Workflow specific parameters
+params.outdir = "results"
+
+
 // Main workflow
 workflow {
     // Find all bams with the listed datatypes

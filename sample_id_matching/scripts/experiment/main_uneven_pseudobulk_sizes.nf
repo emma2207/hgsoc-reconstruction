@@ -18,6 +18,11 @@ include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 
 
+// Workflow specific parameters
+params.ncells_2 = 100000 // Number of cells included in second set of pseudobulk samples (for comparison with params.ncells)
+params.outdir = "results/uneven_pseudobulk_sizes/ncells_${params.ncells_2}"
+
+
 // Main workflow
 workflow {
     // Find all vcfs with the listed datatypes
