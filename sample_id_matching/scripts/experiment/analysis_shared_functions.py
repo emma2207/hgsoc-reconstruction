@@ -241,7 +241,11 @@ def true_matches_pseudobulk(matrix):
     )
     for idx in matrix.index:
         for col in matrix.columns:
-            if idx[:-12] == col[:-12]:
+            # Get the string before the first underscore in idx
+            idx_sample = idx.split("_")[0]
+            # Get the string before the first underscore in col
+            col_sample = col.split("_")[0]
+            if idx_sample == col_sample:
                 true_matches.loc[idx, col] = 1
 
     return true_matches
@@ -798,6 +802,12 @@ def create_pseudobulk_submatrix_vireo(matrix, hysys_matrix, experiment, n_sample
             [idx for idx in matrix.index if idx.endswith("_1")],
             [col for col in matrix.columns if (col.endswith("_2") or col in hysys_3_samples)],
         ]
+    elif (experiment == "pseudobulk_vs_sc"):
+        # For pseudobulk vs sc experiments we want _1 in rows and all samples in columns, since Vireo will match the pseudobulk samples to the single cell samples without changing their names.
+        matrix_filtered = matrix.loc[
+            [idx for idx in matrix.index if idx.endswith("_1")],
+            [col for col in matrix.columns if col.endswith("_single-cell")],
+        ]
     else:
         matrix_filtered = matrix.loc[
             [idx for idx in matrix.index if idx.endswith("_1")],
@@ -957,20 +967,26 @@ def loop_accuracy_calculations(DATA_PATH, experiment, tools, datasets, ncells_li
                             [idx for idx in inferred_matches.index if idx.endswith("_1")],
                             [col for col in inferred_matches.columns if (col.endswith("_2") or col.endswith("_3"))],
                         ]
+                    elif experiment == "pseudobulk_vs_sc":
+                        inferred_matches_filtered = inferred_matches.loc[
+                            [idx for idx in inferred_matches.index if idx.endswith("_1")],
+                            [col for col in inferred_matches.columns if col.endswith("_single-cell")],
+                        ]
                     else:
                         inferred_matches_filtered = inferred_matches.loc[
                             [idx for idx in inferred_matches.index if idx.endswith("_1")],
                             [col for col in inferred_matches.columns if col.endswith("_2")],
                         ]
 
-                    (
-                        fraction_inconclusive,
-                        accuracy,
-                        balanced_accuracy,
-                        precision,
-                        recall,
-                        f1,
-                    ) = calculate_accuracy_metrics_pseudobulk(inferred_matches_filtered)
+                    if inferred_matches_filtered.size > 0:
+                        (
+                            fraction_inconclusive,
+                            accuracy,
+                            balanced_accuracy,
+                            precision,
+                            recall,
+                            f1,
+                        ) = calculate_accuracy_metrics_pseudobulk(inferred_matches_filtered)
 
                     result = {
                         "tool": tool,

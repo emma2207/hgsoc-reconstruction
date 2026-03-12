@@ -224,7 +224,7 @@ def loop_heatmap_plots_pseudobulks(
 
                     if matrix is not None:
                         pseudobulk_1 = "_1"
-                        pseudobulk_2 = "_2"
+                        pseudobulk_2 = "_single-cell"
                         matrix_filtered = matrix.loc[
                             [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
                             [
@@ -262,7 +262,7 @@ def super_plot_heatmaps_pseudobulk(
 
             if matrix is not None:
                 pseudobulk_1 = "_1"
-                pseudobulk_2 = "_2"
+                pseudobulk_2 = "_single-cell"
                 matrix_filtered = matrix.loc[
                     [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
                     [col for col in matrix.columns if col.endswith(pseudobulk_2)],
@@ -301,6 +301,8 @@ def super_plot_heatmaps_pseudobulk(
         for rd in read_depths:
             if len(read_depths) == 1:
                 ax = axes[ncells_list.index(ncells)]
+            elif len(ncells_list) == 1:
+                ax = axes[read_depths.index(rd)]
             else:
                 ax = axes[read_depths.index(rd), ncells_list.index(ncells)]
             matrix_list = [
@@ -358,9 +360,9 @@ def super_plot_heatmaps_pseudobulk(
                 )
 
     # Add one common colorbar for all subplots
-    cbar = fig.colorbar(
-        cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5
-    )
+    # cbar = fig.colorbar(
+    #     cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5
+    # )
 
     if save_fig:
         fig.savefig(
@@ -941,6 +943,80 @@ def heatmap_plot_accuracy_metrics_uneven_pseudobulk(
             ax.set_ylabel("Read depth cut-off")
 
         ax.set_title(f"{tool}", pad=10)
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+    # fig.colorbar(cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5)
+    return
+
+
+def heatmap_plot_accuracy_metrics_pseudobulk_vs_sc(
+    df, dataset, metrics, save_fig=False, FIGURES_PATH=""
+):
+
+    fig_name = f"pseudobulk_vs_sc_{dataset}_accuracy_metrics_heatmap"
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 7), sharex=True, sharey=True)
+    fig.subplots_adjust(hspace=0.2)
+    fig.suptitle(f"Accuracy Metrics - {dataset} pseudobulk vs single-cell", fontsize=14, y=0.94)
+    cmap = plt.get_cmap("Blues")
+    cmap.set_bad(color="lightgrey")
+
+    tools = ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]
+    for i, metric in enumerate(metrics):
+        sub_matrix = df[df["dataset"] == dataset].pivot_table(
+            index=["tool"], columns="read depth", values=metric
+        )
+
+        ax = axes[i // 2, i % 2]
+
+        cax = ax.imshow(sub_matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
+
+        # Add text annotations with metric values
+        for row in range(len(sub_matrix.index)):
+            for col in range(len(sub_matrix.columns)):
+                value = sub_matrix.iloc[row, col]
+                if not np.isnan(value):
+                    text_color = "white" if value > 0.5 else "black"
+                    ax.text(
+                        col,
+                        row,
+                        f"{value:.2f}",
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=10,
+                    )
+
+        ax.set_xticks(np.arange(len(sub_matrix.columns)))
+        ax.set_yticks(np.arange(len(sub_matrix.index)))
+        ax.set_xticklabels(sub_matrix.columns, ha="center")
+        ax.set_yticklabels(sub_matrix.index)
+
+        # Only show x-label on bottom row
+        if i // 2 == 1:
+            ax.set_xlabel("Read depth cut-off")
+
+        # Only show y-label on left column
+        if i % 2 == 0:
+            ax.set_ylabel("Tools")
+
+        ax.set_title(f"{metric}", pad=10)
 
     if save_fig:
         fig.savefig(
