@@ -48,7 +48,7 @@ workflow {
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz.csi"
     )
 
-    // Remove random samples from vcf_files_2 to simulate missing data
+    // Select a random subset of vcf_files_3 to add as duplicate samples
     vcf_files_3 = vcf_files_3_all.map { files_3 ->
         def seededRandom = new Random(params.repeat + 100) // Seed inside closure for proper serialization
         def files_3_copy = files_3.collect()
