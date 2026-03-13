@@ -48,7 +48,8 @@ workflow {
     filtered_vcfs = MERGE_AND_FILTER_VCFS(
         vcf_files.collect(), 
         index_files.collect(),
-        mod_channel.collect()
+        mod_channel.collect(),
+        params.pseudobulk
     )
     filtered_vcfs.modality_vcfs.view { x -> "VCFs by modality: ${x}" }
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}

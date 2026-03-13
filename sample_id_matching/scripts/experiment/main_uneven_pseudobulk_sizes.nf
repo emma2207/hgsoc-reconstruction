@@ -2,7 +2,7 @@
 
 /*
  * Pipeline for sample matching analysis
- * This pipeline is a variantion on main_from_genotype.nf that can be used to assess
+ * This pipeline is a variation on main_from_genotype.nf that can be used to assess
  * the impact of comparing different size pseudobulks on sample matching performance.
  * This pipeline analyzes VCF files to determine if samples come from the same donor
  * using multiple tools: HYSYS, Vireo, NGSCheckMate, and CrossCheckFingerprints
@@ -31,11 +31,10 @@ workflow {
     
     vcf_files_1 = channel.fromPath(
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_1.vcf.gz"
-    ).collect()
+    )
     vcf_files_2 = channel.fromPath(
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells_2}/*_2.vcf.gz"
     )
-    .collect()
     // Combine all VCF files
     vcf_files = vcf_files_1.mix(vcf_files_2)
         .collect()
@@ -43,13 +42,14 @@ workflow {
 
     index_files = channel.fromPath(
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_*/*.vcf.gz.csi"
-    ).collect()
+    )
     
     // 1a. Filter variant calls
     filtered_vcfs = MERGE_AND_FILTER_VCFS(
         vcf_files,
         index_files.collect(),
-        mod_channel.collect()
+        mod_channel.collect(),
+        true
     )
     filtered_vcfs.modality_vcfs.view { x -> "VCFs by modality: ${x}" }
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}

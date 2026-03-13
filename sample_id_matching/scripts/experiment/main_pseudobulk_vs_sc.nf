@@ -2,7 +2,7 @@
 
 /*
  * Pipeline for sample matching analysis
- * This pipeline is a variantion on main_from_genotype.nf that can be used to assess
+ * This pipeline is a variation on main_from_genotype.nf that can be used to assess
  * the impact of comparing pseudobulks to single-cell data on sample matching performance.
  * This pipeline analyzes VCF files to determine if samples come from the same donor
  * using multiple tools: HYSYS, Vireo, NGSCheckMate, and CrossCheckFingerprints
@@ -48,6 +48,7 @@ workflow {
         pseudobulk_vcf_files, 
         pseudobulk_index_files,
         pseudobulk_channel,
+        true
     )
     filtered_pseudobulk_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
@@ -57,6 +58,7 @@ workflow {
         sc_vcf_files, 
         sc_index_files,
         sc_channel,
+        false
     )
     filtered_sc_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 

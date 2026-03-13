@@ -20,10 +20,6 @@ include { VIREO_MATCH } from './modules/2a_vireo'
 include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 
 
-// Workflow specific parameters
-params.outdir = "results"
-
-
 // Main workflow
 workflow {
     // Find all bams with the listed datatypes
@@ -67,7 +63,8 @@ workflow {
     filtered_vcfs = MERGE_AND_FILTER_VCFS(
         individual_vcfs.vcf.collect(), 
         individual_vcfs.index.collect(), 
-        mod_channel.collect()
+        mod_channel.collect(),
+        params.pseudobulk
     )
     filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}

@@ -23,7 +23,7 @@ include { VIREO_MATCH } from './modules/2a_vireo'
 params.n_double_samples = 10  // Number of samples to randomly select and "duplicate" (different VCF files from the same donor)
 params.repeat = 5  // Number of iterations to repeat the random sample duplication and analysis
 params.outdir = "results/double_samples_${params.n_double_samples}/it_${params.repeat}"
-
+  
 
 // Main workflow
 workflow {
@@ -34,15 +34,13 @@ workflow {
     // Use all pseudobulk files ending in _1.vcf.gz and _2.vcf.gz
     vcf_files_1 = channel.fromPath(
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_1.vcf.gz"
-    ).collect()
+    )
     vcf_files_2 = channel.fromPath(
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_2.vcf.gz"
     )
-    .collect()
     vcf_files_3_all = channel.fromPath(
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*_3.vcf.gz"
     )
-    .collect()
     .view { n -> "Number of VCF Files 3 before removing samples: ${n.size()}"}
     index_files = channel.fromPath(
     "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz.csi"
@@ -66,7 +64,8 @@ workflow {
     filtered_vcfs = MERGE_AND_FILTER_VCFS(
         vcf_files,
         index_files.collect(),
-        mod_channel.collect()
+        mod_channel.collect(),
+        true
     )
     filtered_vcfs.modality_vcfs.view { x -> "VCFs by modality: ${x}" }
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}

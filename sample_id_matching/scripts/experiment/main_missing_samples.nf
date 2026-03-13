@@ -54,14 +54,15 @@ workflow {
 
     // Combine all VCF files
     vcf_files = vcf_files_1.mix(vcf_files_2)
-        .collect()
+        .flatMap { it }
         .view { files -> "All VCF files (${files.size()} total): ${files.collect { it.name }.join(', ')}" }
     
     // 1a. Filter variant calls
     filtered_vcfs = MERGE_AND_FILTER_VCFS(
         vcf_files,
         index_files.collect(),
-        mod_channel.collect()
+        mod_channel.collect(),
+        true
     )
     filtered_vcfs.modality_vcfs.view { x -> "VCFs by modality: ${x}" }
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}

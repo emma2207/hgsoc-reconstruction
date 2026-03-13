@@ -70,9 +70,9 @@ echo "••• Launching Nextflow"
 NEXTFLOW_WORK_DIR="${PRJ_DIR}/nextflow"
 
 if [ "${RUN_MODE}" == "HPC" ]; then
-    nextflow run ${main} -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
+    nextflow run "${main}" -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 else
-    nextflow run ${main} -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
+    nextflow run "${main}" -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 fi
 
 echo "••• Pipeline finished 🎉"
