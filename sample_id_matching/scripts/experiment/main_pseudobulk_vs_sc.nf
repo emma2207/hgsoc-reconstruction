@@ -42,22 +42,24 @@ workflow {
     ).collect()
     
     // 1a. Filter variant calls
-    pseudobulk_channel = channel.from(["pseudobulk"])
+    pseudobulk_channel = channel.value(["pseudobulk"])
+    pseudobulk_modality_channel = pseudobulk_channel.map { x -> [x]}
     pseudobulk_channel.view { x -> "Pseudobulk channel: ${x}" }
     filtered_pseudobulk_vcfs = MERGE_PSEUDOBULK_VCFS(
         pseudobulk_vcf_files, 
         pseudobulk_index_files,
-        pseudobulk_channel,
+        pseudobulk_modality_channel,
         true
     )
     filtered_pseudobulk_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
-    sc_channel = channel.from(["single-cell"])
+    sc_channel = channel.value(["single-cell"])
+    sc_modality_channel = sc_channel.map { x -> [x]}
     sc_channel.view { x -> "Single-cell channel: ${x}" }
     filtered_sc_vcfs = MERGE_SC_VCFS(
         sc_vcf_files, 
         sc_index_files,
-        sc_channel,
+        sc_modality_channel,
         false
     )
     filtered_sc_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
@@ -67,7 +69,7 @@ workflow {
     modality_vcfs.view { x -> "VCFs by modality: ${x}" }
     individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
-    mod_channel = pseudobulk_channel.mix(sc_channel).collect()
+    mod_channel = pseudobulk_modality_channel.mix(sc_modality_channel).collect()
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
     VIREO_MATCH(modality_vcfs)
     NGSCHECKMATE(individual_vcfs)

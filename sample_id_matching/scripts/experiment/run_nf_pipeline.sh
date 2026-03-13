@@ -13,6 +13,18 @@
 
 set -eo pipefail
 
+ # --------------------------------------------------
+ # 0) Validate arguments
+ # --------------------------------------------------
+ if [ -z "$1" ]; then
+     echo "Usage: $0 <nextflow_main_script>"
+     exit 1
+ fi
+ if [ ! -r "$1" ]; then
+     echo "Error: Nextflow main script '$1' not found or not readable."
+     exit 1
+ fi
+ 
 main=$1
 
 # --------------------------------------------------

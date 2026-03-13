@@ -54,8 +54,9 @@ workflow {
 
     // Combine all VCF files
     vcf_files = vcf_files_1.mix(vcf_files_2)
-        .flatMap { it }
-        .view { files -> "All VCF files (${files.size()} total): ${files.collect { it.name }.join(', ')}" }
+        .flatMap { x -> x }
+        .collect()
+        .view { file -> "VCF file: ${file.name}" }
     
     // 1a. Filter variant calls
     filtered_vcfs = MERGE_AND_FILTER_VCFS(

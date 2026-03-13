@@ -2,7 +2,7 @@
 
 /*
  * Pipeline for sample matching analysis
- * This pipeline is a variation on main_from_genotype.nf that can be used to assess
+ * This pipeline is a variantion on main_from_genotype.nf that can be used to assess
  * the impact of comparing different size pseudobulks on sample matching performance.
  * This pipeline analyzes VCF files to determine if samples come from the same donor
  * using multiple tools: HYSYS, Vireo, NGSCheckMate, and CrossCheckFingerprints
