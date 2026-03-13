@@ -2,7 +2,7 @@
 
 /*
  * Pipeline for sample matching analysis
- * This pipeline is a variantion on main.nf that can be used if variant calling 
+ * This pipeline is a variation on main.nf that can be used if variant calling 
  * has already been performed.
  * It analyzes VCF files to determine if samples come from the same donor
  * using multiple tools: HYSYS, Vireo, NGSCheckMate, and CrossCheckFingerprints
