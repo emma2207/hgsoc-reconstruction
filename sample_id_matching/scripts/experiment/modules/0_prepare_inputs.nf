@@ -8,8 +8,7 @@ process PREPARE_INPUTS {
         tuple val(sample_id), val(nr), path(bam_files), val(datatype)
     
     output:
-        path("${params.dataset}/*/*/*.bam")
-        path("${params.dataset}/*/*/*.bam.bai")
+        tuple path("${params.dataset}/*/*/*.bam"), path("${params.dataset}/*/*/*.bam.bai")
 
     script:
         """

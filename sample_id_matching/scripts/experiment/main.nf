@@ -35,8 +35,8 @@ workflow {
                 // safe: get the last element of the parent Path as String
                 def parentName = f.parent ? f.parent.getFileName().toString() : ''
                 // datatype is in the path: .../${dataset}/${datatype}/${sample}/file.bam
-                def datatype = f.toString().contains('/bulk/') ? 'bulk' : 
-                              f.toString().contains('/single-nucleus/') ? 'single-nucleus' : 'unknown'
+                def datatype = f.toString().contains("/${modalities[0]}/") ? modalities[0] :
+                               f.toString().contains("/${modalities[1]}/") ? modalities[1] : 'unknown'
                 tuple(parentName, f.baseName, f, datatype)
             }
             .view { x -> "Found BAM files: ${x}" }

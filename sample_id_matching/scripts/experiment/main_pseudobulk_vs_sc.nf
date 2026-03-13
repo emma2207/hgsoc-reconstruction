@@ -42,7 +42,7 @@ workflow {
     ).collect()
     
     // 1a. Filter variant calls
-    pseudobulk_channel = channel.value(["pseudobulk"])
+    pseudobulk_channel = channel.value("pseudobulk")
     pseudobulk_modality_channel = pseudobulk_channel.map { x -> [x]}
     pseudobulk_channel.view { x -> "Pseudobulk channel: ${x}" }
     filtered_pseudobulk_vcfs = MERGE_PSEUDOBULK_VCFS(
@@ -53,7 +53,7 @@ workflow {
     )
     filtered_pseudobulk_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
-    sc_channel = channel.value(["single-cell"])
+    sc_channel = channel.value("single-cell")
     sc_modality_channel = sc_channel.map { x -> [x]}
     sc_channel.view { x -> "Single-cell channel: ${x}" }
     filtered_sc_vcfs = MERGE_SC_VCFS(
