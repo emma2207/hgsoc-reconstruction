@@ -133,7 +133,6 @@ def bulk_vs_singlecell_matrix_viz(
                 bbox_inches="tight",
                 dpi=300,
             )
-        plt.close()
 
     return
 
@@ -210,43 +209,6 @@ def all_samples_matrix_viz(
     return
 
 
-def loop_heatmap_plots_pseudobulks(
-    DATA_PATH, FIGURES_PATH, tools, datasets, ncells_list, read_depths
-):
-
-    for tool in tools:
-        for dataset in datasets:
-            for ncells in ncells_list:
-                for rd in read_depths:
-                    matrix = load_heatmap_data(
-                        DATA_PATH, True, tool, dataset, ncells, rd
-                    )
-
-                    if matrix is not None:
-                        pseudobulk_1 = "_1"
-                        pseudobulk_2 = "_single-cell"
-                        matrix_filtered = matrix.loc[
-                            [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
-                            [
-                                col
-                                for col in matrix.columns
-                                if col.endswith(pseudobulk_2)
-                            ],
-                        ]
-
-                        # Create plots
-                        all_samples_matrix_viz(
-                            matrix_filtered,
-                            pseudobulk=True,
-                            tool=tool,
-                            dataset=dataset,
-                            ncells=ncells,
-                            rd=rd,
-                            save_fig=True,
-                            FIGURES_PATH=FIGURES_PATH,
-                        )
-
-
 def super_plot_heatmaps_pseudobulk(
     DATA_PATH, FIGURES_PATH, tool, dataset, ncells_list, read_depths, save_fig=False
 ):
@@ -262,7 +224,7 @@ def super_plot_heatmaps_pseudobulk(
 
             if matrix is not None:
                 pseudobulk_1 = "_1"
-                pseudobulk_2 = "_single-cell"
+                pseudobulk_2 = "_2"
                 matrix_filtered = matrix.loc[
                     [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
                     [col for col in matrix.columns if col.endswith(pseudobulk_2)],
@@ -621,7 +583,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk(
 
     fig_name = f"pseudobulk_{dataset}_{metric}_heatmap"
 
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(8, 10))
     fig.subplots_adjust(hspace=0.2)
     fig.suptitle(f"{metric} Heatmaps - {dataset} pseudobulks", fontsize=14, y=0.94)
     cmap = plt.get_cmap("Blues")
@@ -706,12 +668,12 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
     metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
     fig_name = f"pseudobulk_{dataset}_accuracy_metrics_heatmap_rd0"
 
-    fig, ax = plt.subplots(2, 2, figsize=(10, 10))
+    fig, ax = plt.subplots(2, 2, figsize=(8, 10))
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
     for i, metric in enumerate(metrics):
-        matrix = df[df["dataset"] == dataset].pivot_table(
+        matrix = df[(df["dataset"] == dataset) & (df["read depth"] == 0)].pivot_table(
             index=["tool"], columns="ncells", values=metric
         )
 

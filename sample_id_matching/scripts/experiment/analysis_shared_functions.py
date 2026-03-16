@@ -269,9 +269,9 @@ def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
         - matrix: square dataframe with samples as rows and columns, values are the concordance rates
     """
     if pseudobulk:
-        file_path = os.path.join(DATA_PATH + f"2b_bamixchecker/{dataset}/pseudobulk/ncells_{ncells}/BAMixChecker/Total_result.txt")
+        file_path = os.path.join(DATA_PATH, f"2b_bamixchecker/{dataset}/pseudobulk/ncells_{ncells}/BAMixChecker/Total_result.txt")
     else:
-        file_path = os.path.join(DATA_PATH + f"2b_bamixchecker/{dataset}/real_data/ncells_null/BAMixChecker/Total_result.txt")
+        file_path = os.path.join(DATA_PATH, f"2b_bamixchecker/{dataset}/real_data/ncells_null/BAMixChecker/Total_result.txt")
 
     df = pd.read_csv(
         file_path,
@@ -1089,7 +1089,7 @@ def accuracy_metrics_averaged_over_iterations(
             accuracy_df = pd.DataFrame()
             for i in range(1, n_iterations + 1):
                 # Check if "remove_samples_{n}/it_1/" directory exists
-                if not os.path.exists(DATA_PATH + f"{folder}{n}/it_{i}/"):
+                if not os.path.exists(DATA_PATH, f"{folder}{n}/it_{i}/"):
                     print(
                         f"No results found for {n} samples removed and iteration {i}. Skipping accuracy calculations for this number of samples removed."
                     )
@@ -1097,25 +1097,25 @@ def accuracy_metrics_averaged_over_iterations(
                 if tool == "CrosscheckFingerprints":
                     inferred_matches = (
                         parse_sample_matching_results_crosscheckfingerprints(
-                            DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
+                            DATA_PATH, f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                         )
                     )
                 elif tool == "HYSYS":
                     inferred_matches = parse_sample_matching_results_hysys(
-                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
+                        DATA_PATH, f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                     )
                 elif tool == "NGSCheckmate":
                     inferred_matches = (
                         parse_sample_matching_results_ngscheckmate(
-                            DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
+                            DATA_PATH, f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                         )
                     )
                 elif tool == "Vireo":
                     matrix = parse_heatmap_matrix_vireo(
-                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
+                        DATA_PATH, f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                     )
                     _, hysys_matrix = parse_heatmap_matrix_hysys(
-                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
+                        DATA_PATH, f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
                     )
                     n_samples_double = n if experiment == "double_samples" else 0
                     inferred_matches = create_pseudobulk_submatrix_vireo(matrix, hysys_matrix, experiment, n_samples_double)
