@@ -8,6 +8,8 @@ from analysis_shared_functions import (
     parse_heatmap_matrix_hysys,
     parse_heatmap_matrix_ngscheckmate,
     parse_heatmap_matrix_vireo,
+)
+from accuracy_functions import (
     load_expected_matches_real_data,
     accuracy_metrics_averaged_over_iterations,
 )
@@ -210,7 +212,14 @@ def all_samples_matrix_viz(
 
 
 def super_plot_heatmaps_pseudobulk(
-    DATA_PATH, FIGURES_PATH, tool, dataset, ncells_list, read_depths, save_fig=False
+    DATA_PATH,
+    FIGURES_PATH,
+    tool,
+    dataset,
+    ncells_list,
+    read_depths,
+    experiment,
+    save_fig=False,
 ):
 
     fig_name = f"superplot_pseudobulk_{dataset}_{tool}_all_samples_similarity_matrix"
@@ -223,8 +232,12 @@ def super_plot_heatmaps_pseudobulk(
             matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd)
 
             if matrix is not None:
-                pseudobulk_1 = "_1"
-                pseudobulk_2 = "_2"
+                if experiment == "pseudobulk_vs_sc":
+                    pseudobulk_1 = "_1"
+                    pseudobulk_2 = "_single-cell"
+                else:
+                    pseudobulk_1 = "_1"
+                    pseudobulk_2 = "_2"
                 matrix_filtered = matrix.loc[
                     [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
                     [col for col in matrix.columns if col.endswith(pseudobulk_2)],
@@ -349,9 +362,9 @@ def super_plot_heatmaps_pseudobulk(
 
 def order_matrix_by_expected_matches(
     matrix, expected_matches, tool, mod1="bulk", mod2="single-cell"
-):  
+):
     """
-    Order the rows and columns of the matrix according to the expected matches between mod1 and mod2 samples, 
+    Order the rows and columns of the matrix according to the expected matches between mod1 and mod2 samples,
     so that samples that are expected to match show up on the diagonal of the heatmap.
     Samples with no expected match will be shown after the expected matches
 
@@ -483,7 +496,7 @@ def super_plot_heatmaps_real_data(
             )
             filtered_matrix = ordered_matrix.loc[
                 [idx for idx in ordered_matrix.index if mod1 in idx],
-                [col for col in ordered_matrix.columns if mod2 in col]
+                [col for col in ordered_matrix.columns if mod2 in col],
             ]
             # Store matrix for later use in super plot
             all_matrices.append({"rd": rd, "matrix": filtered_matrix})
@@ -745,11 +758,21 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
     return
 
 
-def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, experiment, dataset, ncells, rd, n_samples_removed, n_iterations, FIGURES_PATH="", save_fig=False):
+def accuracy_metrics_errorbar_plot_missing_samples(
+    DATA_PATH,
+    experiment,
+    dataset,
+    ncells,
+    rd,
+    n_samples_removed,
+    n_iterations,
+    FIGURES_PATH="",
+    save_fig=False,
+):
     """
-    Create errorbar plot showing accuracy metrics (fraction inconclusive, F1, precision, recall) for each tool, 
-    with different colors for different numbers of samples removed. 
-    Error bars represent standard deviation across iterations. 
+    Create errorbar plot showing accuracy metrics (fraction inconclusive, F1, precision, recall) for each tool,
+    with different colors for different numbers of samples removed.
+    Error bars represent standard deviation across iterations.
     Separate subplots for each metric.
 
     input:
@@ -789,9 +812,11 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, experiment, datase
         df_subset = df[df["n_samples_removed"] == n_samp]
         # Create x positions (tool indices + offset)
         x_pos = np.arange(len(tools)) + offsets[i]
-        
+
         # Get y values and errors in the same order as tools
-        for j, metric in enumerate(["fraction_inconclusive", "f1", "precision", "recall"]):
+        for j, metric in enumerate(
+            ["fraction_inconclusive", "f1", "precision", "recall"]
+        ):
             if j == 0:
                 ax = axes[0, 0]
                 ax.set_title("Fraction Inconclusive", fontsize=12)
@@ -804,22 +829,46 @@ def accuracy_metrics_errorbar_plot_missing_samples(DATA_PATH, experiment, datase
             elif j == 3:
                 ax = axes[1, 1]
                 ax.set_title("Recall", fontsize=12)
-            y = [df_subset[df_subset["tool"] == t][f"av_{metric}"].values[0] if len(df_subset[df_subset["tool"] == t]) > 0 else np.nan for t in tools]
-            y_error = [df_subset[df_subset["tool"] == t][f"sd_{metric}"].values[0]/np.sqrt(n_iterations) if len(df_subset[df_subset["tool"] == t]) > 0 else np.nan for t in tools]
+            y = [
+                (
+                    df_subset[df_subset["tool"] == t][f"av_{metric}"].values[0]
+                    if len(df_subset[df_subset["tool"] == t]) > 0
+                    else np.nan
+                )
+                for t in tools
+            ]
+            y_error = [
+                (
+                    df_subset[df_subset["tool"] == t][f"sd_{metric}"].values[0]
+                    / np.sqrt(n_iterations)
+                    if len(df_subset[df_subset["tool"] == t]) > 0
+                    else np.nan
+                )
+                for t in tools
+            ]
             # Plot with error bars
-            ax.errorbar(x_pos, y, yerr=y_error, fmt='o', color=colors[i], 
-                        ecolor=colors[i], elinewidth=2, capsize=4, alpha=0.7,
-                    label=f'{n_samp}')
+            ax.errorbar(
+                x_pos,
+                y,
+                yerr=y_error,
+                fmt="o",
+                color=colors[i],
+                ecolor=colors[i],
+                elinewidth=2,
+                capsize=4,
+                alpha=0.7,
+                label=f"{n_samp}",
+            )
 
             # Customize plot
             ax.set_xticks(np.arange(len(tools)))
-            ax.set_xticklabels(tools, rotation=0, ha='center')
+            ax.set_xticklabels(tools, rotation=0, ha="center")
             ax.set_ylim(0, 1.05)
             if j == 0:
                 if experiment == "missing_samples":
-                    ax.legend(title='# of samples removed', frameon=False)
+                    ax.legend(title="# of samples removed", frameon=False)
                 elif experiment == "double_samples":
-                    ax.legend(title='# of double samples', frameon=False)
+                    ax.legend(title="# of double samples", frameon=False)
 
     plt.tight_layout()
     if save_fig:
@@ -928,7 +977,14 @@ def heatmap_plot_accuracy_metrics_uneven_pseudobulk(
 
 
 def super_plot_heatmaps_uneven_pseudobulk(
-    DATA_PATH, FIGURES_PATH, tool, dataset, ncells_1, ncells_2_list, read_depths, save_fig=False
+    DATA_PATH,
+    FIGURES_PATH,
+    tool,
+    dataset,
+    ncells_1,
+    ncells_2_list,
+    read_depths,
+    save_fig=False,
 ):
 
     fig_name = f"superplot_pseudobulk_{dataset}_{tool}_all_samples_similarity_matrix"
@@ -938,7 +994,14 @@ def super_plot_heatmaps_uneven_pseudobulk(
     # Find all the data for the plots
     for ncells_2 in ncells_2_list:
         for rd in read_depths:
-            matrix = load_heatmap_data(DATA_PATH + f"uneven_pseudobulk_sizes/ncells_{ncells_2}/", True, tool, dataset, ncells_1, rd)
+            matrix = load_heatmap_data(
+                DATA_PATH + f"uneven_pseudobulk_sizes/ncells_{ncells_2}/",
+                True,
+                tool,
+                dataset,
+                ncells_1,
+                rd,
+            )
 
             if matrix is not None:
                 pseudobulk_1 = "_1"
@@ -950,7 +1013,7 @@ def super_plot_heatmaps_uneven_pseudobulk(
 
                 # Store matrix for later use in super plot
                 all_matrices.append(
-                    {"ncells": ncells_1, "rd": rd, "matrix": matrix_filtered}
+                    {"ncells": ncells_2, "rd": rd, "matrix": matrix_filtered}
                 )
 
                 # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
@@ -1073,11 +1136,12 @@ def heatmap_plot_accuracy_metrics_pseudobulk_vs_sc(
 
     fig, axes = plt.subplots(2, 2, figsize=(10, 7), sharex=True, sharey=True)
     fig.subplots_adjust(hspace=0.2)
-    fig.suptitle(f"Accuracy Metrics - {dataset} pseudobulk vs single-cell", fontsize=14, y=0.94)
+    fig.suptitle(
+        f"Accuracy Metrics - {dataset} pseudobulk vs single-cell", fontsize=14, y=0.94
+    )
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
-    tools = ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]
     for i, metric in enumerate(metrics):
         sub_matrix = df[df["dataset"] == dataset].pivot_table(
             index=["tool"], columns="read depth", values=metric
