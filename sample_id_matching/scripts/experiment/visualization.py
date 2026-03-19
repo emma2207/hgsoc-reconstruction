@@ -88,7 +88,19 @@ def bulk_vs_singlecell_matrix_viz(
         fig_name = f"{dataset}_{tool}_rd{rd}_{mod1}_vs_{mod2}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
-    matrix_df = load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd)
+    matrix_df = load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd)    
+    if not pseudobulk:
+        expected_matches = load_expected_matches_real_data(
+            DATA_PATH, 
+            dataset
+        )
+        matrix_df = order_matrix_by_expected_matches(
+            matrix_df,
+            expected_matches,
+            tool,
+            mod1,
+            mod2,
+        )
     if matrix_df is not None:
         sub_matrix = matrix_df[[col for col in matrix_df.columns if mod2 in col]]
         sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if mod1 in idx]]
