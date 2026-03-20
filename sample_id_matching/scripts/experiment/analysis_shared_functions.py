@@ -395,7 +395,7 @@ def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
 
 
 def parse_heatmap_matrix_crosscheckfingerprints(
-    DATA_PATH, pseudobulk, dataset, ncells, rd
+    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"
 ):
     """
     Read CrosscheckFingerprints output and create a matrix for heatmap visualization.
@@ -413,13 +413,18 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     """
     if pseudobulk:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt"
+            DATA_PATH,
+            f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt"
+        )
+    elif pseudobulk is False and dataset == "hgsoc":
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2a_fingerprints/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/crosscheck_metrics.txt",
         )
     else:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt"
+            DATA_PATH,
+            f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt"
         )
     df = pd.read_csv(
         file_path,
@@ -448,7 +453,7 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     return df, matrix
 
 
-def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
+def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
     """
     Read HYSYS output and create a matrix for heatmap visualization.
 
@@ -465,13 +470,18 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
     """
     if pseudobulk:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt"
+            DATA_PATH,
+            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt"
+        )
+    elif pseudobulk is False and dataset == "hgsoc":
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2a_hysys/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/concordance_output.txt",
         )
     else:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt"
+            DATA_PATH,
+            f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt"
         )
 
     df = pd.read_csv(
@@ -508,7 +518,7 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
     return df, matrix
 
 
-def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd):
+def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
     """
     Read NGSCheckmate output and create a matrix for heatmap visualization.
 
@@ -525,13 +535,18 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
     """
     if pseudobulk:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/output_all.txt",
+            DATA_PATH,
+            f"2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/output_all.txt",
+        )
+    elif pseudobulk is False and dataset == "hgsoc":
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2a_ngscheckmate/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/output_all.txt",
         )
     else:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_ngscheckmate/{dataset}/real_data/ncells_null/read_depth_{rd}/output_all.txt",
+            DATA_PATH,
+            f"2a_ngscheckmate/{dataset}/real_data/ncells_null/read_depth_{rd}/output_all.txt",
         )
 
     df = pd.read_csv(
@@ -566,7 +581,7 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
     return df, matrix
 
 
-def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
+def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
     """
     Read Vireo output and create a matrix for heatmap visualization.
 
@@ -584,13 +599,18 @@ def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
     """
     if pseudobulk:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
+            DATA_PATH,
+            f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
+        )
+    elif (pseudobulk is False) and (dataset == "hgsoc"):
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2a_vireo/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/similarity_matrix.csv",
         )
     else:
         file_path = os.path.join(
-            DATA_PATH
-            + f"2a_vireo/{dataset}/real_data/ncells_null/read_depth_{rd}/similarity_matrix.csv",
+            DATA_PATH,
+            f"2a_vireo/{dataset}/real_data/ncells_null/read_depth_{rd}/similarity_matrix.csv",
         )
     matrix = pd.read_csv(
         file_path,
@@ -647,7 +667,7 @@ def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, n
 
 
 def parse_sample_matching_results_crosscheckfingerprints(
-    DATA_PATH, pseudobulk, dataset, ncells, rd
+    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"
 ):
     """
     Parse CrosscheckFingerprints results to categorize sample relationships.
@@ -670,7 +690,7 @@ def parse_sample_matching_results_crosscheckfingerprints(
         "INCONCLUSIVE": np.nan,
     }
     df, _ = parse_heatmap_matrix_crosscheckfingerprints(
-        DATA_PATH, pseudobulk, dataset, ncells, rd
+        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
     )
     sample_matches = long_df_to_matrix_crosscheckfingerprints(df, metric="RESULT")
     sample_matches = sample_matches.replace(result_mapping)
@@ -779,7 +799,7 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
 
 
 def parse_sample_matching_results_ngscheckmate(
-    DATA_PATH, pseudobulk, dataset, ncells, rd
+    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"
 ):
     """
     Parse NGSCheckMate results to categorize sample relationships.
@@ -799,7 +819,7 @@ def parse_sample_matching_results_ngscheckmate(
         "matched": 1,
     }
     df, _ = parse_heatmap_matrix_ngscheckmate(
-        DATA_PATH, pseudobulk, dataset, ncells, rd
+        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
     )
     sample_matches = long_df_to_matrix_ngscheckmate(df, "Matched").replace(
         result_mapping
@@ -808,7 +828,7 @@ def parse_sample_matching_results_ngscheckmate(
     return sample_matches
 
 
-def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd):
+def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
     """
     Parse Vireo's matched_samples.csv to categorize sample relationships.
 
@@ -851,7 +871,7 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
 
     # Vireo will not include all samples in the results if we're comparing two sets of samples of unequal length
     # We have to get a list of all samples from another tool's results
-    hysys_df, _ = parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd)
+    hysys_df, _ = parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2)
     all_samples = sorted(set(hysys_df.index))
 
     # Create all possible pairs of samples
@@ -870,3 +890,111 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
     )
 
     return all_pairs_df.set_index(["sample_id_0", "sample_id_1"])
+
+
+def load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
+
+    print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
+    try:
+        # Create heatmap matrix
+        if tool == "BAMixChecker":
+            _, matrix = parse_heatmap_matrix_bamixchecker(
+                DATA_PATH, pseudobulk, dataset, ncells
+            )
+        elif tool == "CrosscheckFingerprints":
+            _, matrix = parse_heatmap_matrix_crosscheckfingerprints(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "HYSYS":
+            _, matrix = parse_heatmap_matrix_hysys(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "NGSCheckmate":
+            _, matrix = parse_heatmap_matrix_ngscheckmate(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "Vireo":
+            matrix = parse_heatmap_matrix_vireo(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        else:
+            print(f"Error! Do not recognize tool {tool}")
+            print(
+                "Choice of tool must be one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+            )
+            matrix = None
+    except FileNotFoundError:
+        print(
+            f"Could not find data for {tool}, real dataset {dataset}, read depth {rd}. "
+        )
+        matrix = None
+
+    return matrix
+
+
+def order_matrix_by_expected_matches(
+    matrix, expected_matches, tool, mod1="bulk", mod2="single-cell"
+):
+    """
+    Order the rows and columns of the matrix according to the expected matches between mod1 and mod2 samples,
+    so that samples that are expected to match show up on the diagonal of the heatmap.
+    Samples with no expected match will be shown after the expected matches
+
+    input:
+        - matrix: dataframe containing similarity measures of all samples against all samples
+        - expected_matches: dataframe containing expected matches between mod1 and mod2 samples, with one column for mod1 sample names and one column for mod2 sample names
+        - tool: name of tool (used to determine how to interpret expected matches, e.g. Vireo has different expected match format than other tools)
+        - mod1: name of first modality (e.g. "bulk")
+        - mod2: name of second modality (e.g. "single-cell")
+
+    output:
+        - matrix ordered according to expected matches
+    """
+    # Parse expected matches to get lists of expected mod1 and mod2 samples
+    mod1_col = [col for col in expected_matches.columns if mod1 in col]
+    assert len(mod1_col) == 1, f"Expected exactly one {mod1} column in the matrix"
+    mod2_col = [col for col in expected_matches.columns if mod2 in col]
+    assert len(mod2_col) == 1, f"Expected exactly one {mod2} column in the matrix"
+
+    mod1_samples = list(expected_matches[mod1_col[0]].dropna())
+    mod2_samples = list(expected_matches[mod2_col[0]].dropna())
+    matrix_samples = set(list(matrix.index) + list(matrix.columns))
+
+    # Expected sample names should be prefixes of matrix sample names
+    all_expected_samples = mod1_samples + mod2_samples
+    all_expected_samples = [str(sample) for sample in all_expected_samples]
+
+    # Find matching matrix samples for each expected sample
+    # Iterate through expected samples in order to preserve ordering
+    # Note: Not all expected samples may be present in the matrix
+    ordered_matrix_samples = []
+    for expected_sample in all_expected_samples:
+        # Find matrix samples that contain this expected sample name as a substring
+        matching_matrix_samples = [
+            s for s in matrix_samples if str(expected_sample) in s
+        ]
+        if matching_matrix_samples:
+            ordered_matrix_samples.extend(matching_matrix_samples)
+        else:
+            print(
+                f"No matrix sample found for expected sample '{expected_sample}' (may not be in this batch)"
+            )
+
+    ordered_mod1_samples = [
+        s
+        for s in ordered_matrix_samples
+        if any(str(mod1_sample) in s for mod1_sample in mod1_samples)
+    ]
+    ordered_mod2_samples = [
+        s
+        for s in ordered_matrix_samples
+        if any(str(mod2_sample) in s for mod2_sample in mod2_samples)
+    ]
+
+    # Reorder matrix with matched samples
+    if tool != "Vireo":
+        matrix = matrix.loc[ordered_matrix_samples, ordered_matrix_samples]
+    else:
+        matrix = matrix.loc[ordered_mod1_samples, ordered_mod2_samples]
+
+    return matrix
