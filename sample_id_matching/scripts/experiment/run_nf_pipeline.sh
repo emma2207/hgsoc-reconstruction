@@ -3,7 +3,7 @@
 #SBATCH --account=amc-general
 #SBATCH --output=experiment_nf_%J.log
 #SBATCH --error=experiment_nf_%J.err
-#SBATCH --time=5-00:00:00
+#SBATCH --time=08:00:00
 #SBATCH --partition=amilan
 #SBATCH --qos=long
 #SBATCH --mem=4G
@@ -12,6 +12,20 @@
 #SBATCH --mail-type=ALL
 
 set -eo pipefail
+
+ # --------------------------------------------------
+ # 0) Validate arguments
+ # --------------------------------------------------
+ if [ -z "$1" ]; then
+     echo "Usage: $0 <nextflow_main_script>"
+     exit 1
+ fi
+ if [ ! -r "$1" ]; then
+     echo "Error: Nextflow main script '$1' not found or not readable."
+     exit 1
+ fi
+ 
+main=$1
 
 # --------------------------------------------------
 # 0) Resolve project root (directory of this script)
@@ -68,9 +82,9 @@ echo "••• Launching Nextflow"
 NEXTFLOW_WORK_DIR="${PRJ_DIR}/nextflow"
 
 if [ "${RUN_MODE}" == "HPC" ]; then
-    nextflow run main.nf -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
+    nextflow run "${main}" -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 else
-    nextflow run main.nf -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
+    nextflow run "${main}" -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 fi
 
 echo "••• Pipeline finished 🎉"
