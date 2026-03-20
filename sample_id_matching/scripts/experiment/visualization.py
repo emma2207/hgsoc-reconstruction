@@ -49,64 +49,63 @@ def bulk_vs_singlecell_matrix_viz(
     if matrix_df is None:
         print(f"No matrix data available for {tool} on {dataset} with read depth {rd} and ncells {ncells}. Skipping plot.")
         return
+        
+    sub_matrix = matrix_df[[col for col in matrix_df.columns if mod2 in col]]
+    sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if mod1 in idx]]
     if not pseudobulk:
         expected_matches = load_expected_matches_real_data(
             DATA_PATH, 
             dataset
         )
-        matrix_df = order_matrix_by_expected_matches(
-            matrix_df,
+        sub_matrix = order_matrix_by_expected_matches(
+            sub_matrix,
             expected_matches,
-            tool,
             mod1,
             mod2,
         )
-    if matrix_df is not None:
-        sub_matrix = matrix_df[[col for col in matrix_df.columns if mod2 in col]]
-        sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if mod1 in idx]]
 
-        extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
+    extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
 
-        fig, ax = plt.subplots(figsize=(8, 8))
-        if tool == "CrosscheckFingerprints":
-            cmap = plt.get_cmap("RdBu")
-            cmap.set_bad(color="lightgrey")
-            cax = ax.matshow(
-                sub_matrix, cmap=cmap, vmin=-extreme_point, vmax=extreme_point
-            )
-        else:
-            cmap = plt.get_cmap("Oranges")
-            cmap.set_bad(color="lightgrey")
-            cax = ax.matshow(sub_matrix, cmap=cmap)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    if tool == "CrosscheckFingerprints":
+        cmap = plt.get_cmap("RdBu")
+        cmap.set_bad(color="lightgrey")
+        cax = ax.matshow(
+            sub_matrix, cmap=cmap, vmin=-extreme_point, vmax=extreme_point
+        )
+    else:
+        cmap = plt.get_cmap("Oranges")
+        cmap.set_bad(color="lightgrey")
+        cax = ax.matshow(sub_matrix, cmap=cmap)
 
-        ax.set_xticks(np.arange(len(sub_matrix.columns)))
-        ax.set_yticks(np.arange(len(sub_matrix.index)))
-        ax.set_xticklabels(sub_matrix.columns, rotation=45, ha="left")
-        ax.set_yticklabels(sub_matrix.index)
-        ax.xaxis.set_label_position("top")
-        ax.set_xlabel(f"{mod2} samples")
-        ax.set_ylabel(f"{mod1} samples")
-        ax.set_title(f"{tool} {mod1} vs {mod2} similarity matrix", pad=20)
+    ax.set_xticks(np.arange(len(sub_matrix.columns)))
+    ax.set_yticks(np.arange(len(sub_matrix.index)))
+    ax.set_xticklabels(sub_matrix.columns, rotation=45, ha="left")
+    ax.set_yticklabels(sub_matrix.index)
+    ax.xaxis.set_label_position("top")
+    ax.set_xlabel(f"{mod2} samples")
+    ax.set_ylabel(f"{mod1} samples")
+    ax.set_title(f"{tool} {mod1} vs {mod2} similarity matrix", pad=20)
 
-        fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
+    fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
 
-        if save_fig:
-            fig.savefig(
-                os.path.join(
-                    FIGURES_PATH,
-                    f"{fig_name}.png",
-                ),
-                bbox_inches="tight",
-                dpi=300,
-            )
-            fig.savefig(
-                os.path.join(
-                    FIGURES_PATH,
-                    f"{fig_name}.pdf",
-                ),
-                bbox_inches="tight",
-                dpi=300,
-            )
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
 
     return
 
@@ -368,7 +367,7 @@ def loop_heatmap_plots_real_data(
 def super_plot_heatmaps_real_data(
     DATA_PATH,
     FIGURES_PATH,
-    tool,
+    tools,
     dataset,
     read_depths,
     mod1="bulk",
@@ -376,91 +375,97 @@ def super_plot_heatmaps_real_data(
     save_fig=False,
 ):
 
-    fig_name = f"superplot_{dataset}_{tool}_{mod1}_vs_{mod2}_similarity_matrix"
+    fig_name = f"superplot_{dataset}_{mod1}_vs_{mod2}_similarity_matrix"
     super_extreme_point = 0
     all_matrices = []
 
     # Find all the data for the plots
-    for rd in read_depths:
-        matrix = load_heatmap_data(DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2)
-        expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
-        if matrix is not None:
-            ordered_matrix = order_matrix_by_expected_matches(
-                matrix, expected_matches, tool, mod1, mod2
-            )
-            filtered_matrix = ordered_matrix.loc[
-                [idx for idx in ordered_matrix.index if mod1 in idx],
-                [col for col in ordered_matrix.columns if mod2 in col],
-            ]
-            # Store matrix for later use in super plot
-            all_matrices.append({"rd": rd, "matrix": filtered_matrix})
+    for tool in tools:
+        for rd in read_depths:
+            matrix = load_heatmap_data(DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2)
+            expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+            if matrix is not None:
+                ordered_matrix = order_matrix_by_expected_matches(
+                    matrix, expected_matches, mod1, mod2
+                )
+                filtered_matrix = ordered_matrix.loc[
+                    [idx for idx in ordered_matrix.index if mod1 in idx],
+                    [col for col in ordered_matrix.columns if mod2 in col],
+                ]
+                # Store matrix for later use in super plot
+                all_matrices.append({"rd": rd, "tool": tool, "matrix": filtered_matrix})
 
-            # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
-            extreme_point = max(
-                abs(filtered_matrix.min().min()), abs(filtered_matrix.max().max())
-            )
-            if extreme_point > super_extreme_point:
-                super_extreme_point = extreme_point
+                # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
+                extreme_point = max(
+                    abs(filtered_matrix.min().min()), abs(filtered_matrix.max().max())
+                )
+                if extreme_point > super_extreme_point:
+                    super_extreme_point = extreme_point
 
     # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
-        1,
+        len(tools),
         len(read_depths),
-        figsize=(3 * len(read_depths), 5),
+        figsize=(3.5 * len(read_depths), 3.5 * len(tools)),
         sharex=True,
         sharey=True,
     )
-    fig.subplots_adjust(wspace=0.05, top=1)
-    fig.suptitle(f"{tool} - {dataset} similarity matrices", fontsize=16)
+    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=.93)
+    fig.suptitle(f"{dataset} real data similarity matrices", fontsize=16)
 
-    for rd in read_depths:
-        print(f"Processing read depth {rd} for plotting...")
-        if len(read_depths) == 1:
-            ax = axes
-        else:
-            ax = axes[read_depths.index(rd)]
-        matrix_list = [info["matrix"] for info in all_matrices if info["rd"] == rd]
+    for tool in tools:
+        for rd in read_depths:
+            print(f"Processing read depth {rd} and tool {tool} for plotting...")
+            if len(read_depths) == 1:
+                ax = axes
+            elif len(tools) == 1:
+                ax = axes[read_depths.index(rd)]
+            else:
+                ax = axes[tools.index(tool), read_depths.index(rd)]
+            matrix_list = [info["matrix"] for info in all_matrices if (info["rd"] == rd) and (info["tool"] == tool)]
 
-        if not matrix_list or matrix_list[0] is None:
-            # Skip this subplot if no data available
-            ax.axis("off")
-            ax.text(
-                0.5,
-                0.5,
-                "No data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-                fontsize=12,
-            )
-            print(f"No data for read depth {rd}, skipping plot.")
-            continue
+            if not matrix_list or matrix_list[0] is None:
+                # Skip this subplot if no data available
+                ax.axis("off")
+                ax.text(
+                    0.5,
+                    0.5,
+                    "No data",
+                    ha="center",
+                    va="center",
+                    transform=ax.transAxes,
+                    fontsize=12,
+                )
+                print(f"No data for read depth {rd} and tool {tool}, skipping plot.")
+                continue
 
-        matrix = matrix_list[0]
+            matrix = matrix_list[0]
 
-        if tool == "CrosscheckFingerprints":
-            cmap = plt.get_cmap("RdBu")
-            cmap.set_bad(color="lightgrey")
-            cax = ax.imshow(
-                matrix,
-                cmap=cmap,
-                vmin=-super_extreme_point,
-                vmax=super_extreme_point,
-            )
-        else:
-            cmap = plt.get_cmap("Oranges")
-            cmap.set_bad(color="lightgrey")
-            cax = ax.imshow(matrix, cmap=cmap)
-        ax.set_xticks(np.arange(len(matrix.columns)))
-        ax.set_yticks(np.arange(len(matrix.index)))
-        ax.set_xticklabels(matrix.columns, rotation=45, ha="right", fontsize=10)
-        ax.set_yticklabels(matrix.index, fontsize=10)
-        ax.set_title(f"read depth filter {rd}", pad=10, fontsize=12)
-
+            if tool == "CrosscheckFingerprints":
+                cmap = plt.get_cmap("RdBu")
+                cmap.set_bad(color="lightgrey")
+                cax = ax.imshow(
+                    matrix,
+                    cmap=cmap,
+                    vmin=-super_extreme_point,
+                    vmax=super_extreme_point,
+                )
+            else:
+                cmap = plt.get_cmap("Oranges")
+                cmap.set_bad(color="lightgrey")
+                cax = ax.imshow(matrix, cmap=cmap)
+            ax.set_xticks(np.arange(len(matrix.columns)))
+            ax.set_yticks(np.arange(len(matrix.index)))
+            ax.set_xticklabels(matrix.columns, rotation=45, ha="right", fontsize=8)
+            ax.set_yticklabels(matrix.index, fontsize=8)
+            if tool == tools[0]:
+                ax.set_title(f"read depth filter {rd}", pad=10, fontsize=12)
+            if rd == read_depths[0]:
+                ax.set_ylabel(f"{tool}", fontsize=12)
     # Shared colorbar for all subplots
-    cbar = fig.colorbar(
-        cax, ax=axes.ravel().tolist(), fraction=0.05, pad=0.04, shrink=0.7
-    )
+    # cbar = fig.colorbar(
+    #     cax, ax=axes.ravel().tolist(), fraction=0.05, pad=0.04, shrink=0.7
+    # )
 
     # Save figure after all subplots are complete
     if save_fig:

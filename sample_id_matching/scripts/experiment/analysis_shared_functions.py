@@ -395,7 +395,7 @@ def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
 
 
 def parse_heatmap_matrix_crosscheckfingerprints(
-    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"
+    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"
 ):
     """
     Read CrosscheckFingerprints output and create a matrix for heatmap visualization.
@@ -453,7 +453,7 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     return df, matrix
 
 
-def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
+def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
     """
     Read HYSYS output and create a matrix for heatmap visualization.
 
@@ -518,7 +518,7 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1=
     return df, matrix
 
 
-def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
+def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
     """
     Read NGSCheckmate output and create a matrix for heatmap visualization.
 
@@ -581,7 +581,7 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
     return df, matrix
 
 
-def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
+def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
     """
     Read Vireo output and create a matrix for heatmap visualization.
 
@@ -667,7 +667,7 @@ def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, n
 
 
 def parse_sample_matching_results_crosscheckfingerprints(
-    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"
+    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"
 ):
     """
     Parse CrosscheckFingerprints results to categorize sample relationships.
@@ -799,7 +799,7 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
 
 
 def parse_sample_matching_results_ngscheckmate(
-    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"
+    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"
 ):
     """
     Parse NGSCheckMate results to categorize sample relationships.
@@ -828,7 +828,7 @@ def parse_sample_matching_results_ngscheckmate(
     return sample_matches
 
 
-def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
+def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
     """
     Parse Vireo's matched_samples.csv to categorize sample relationships.
 
@@ -892,7 +892,7 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
     return all_pairs_df.set_index(["sample_id_0", "sample_id_1"])
 
 
-def load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_diss_polyA"):
+def load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
 
     print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
     try:
@@ -933,68 +933,102 @@ def load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bu
 
 
 def order_matrix_by_expected_matches(
-    matrix, expected_matches, tool, mod1="bulk", mod2="single-cell"
+    matrix, expected_matches, mod1="bulk", mod2="single-cell"
 ):
     """
-    Order the rows and columns of the matrix according to the expected matches between mod1 and mod2 samples,
+    Add any missing samples from mod1 and mod2 to the matrix as NaN rows/columns, then
+    order the rows and columns of the matrix according to the expected matches between mod1 and mod2 samples,
     so that samples that are expected to match show up on the diagonal of the heatmap.
     Samples with no expected match will be shown after the expected matches
 
     input:
-        - matrix: dataframe containing similarity measures of all samples against all samples
+        - matrix: dataframe containing similarity measures of mod1 samples (rows) against mod2 samples (columns)
         - expected_matches: dataframe containing expected matches between mod1 and mod2 samples, with one column for mod1 sample names and one column for mod2 sample names
-        - tool: name of tool (used to determine how to interpret expected matches, e.g. Vireo has different expected match format than other tools)
         - mod1: name of first modality (e.g. "bulk")
         - mod2: name of second modality (e.g. "single-cell")
 
     output:
         - matrix ordered according to expected matches
     """
-    # Parse expected matches to get lists of expected mod1 and mod2 samples
-    mod1_col = [col for col in expected_matches.columns if mod1 in col]
-    assert len(mod1_col) == 1, f"Expected exactly one {mod1} column in the matrix"
-    mod2_col = [col for col in expected_matches.columns if mod2 in col]
-    assert len(mod2_col) == 1, f"Expected exactly one {mod2} column in the matrix"
+    mod1_col = [col for col in expected_matches.columns if mod1.lower() in col.lower()]
+    mod2_col = [col for col in expected_matches.columns if mod2.lower() in col.lower()]
+    assert len(mod1_col) == 1, f"Expected exactly one {mod1} column in expected_matches"
+    assert len(mod2_col) == 1, f"Expected exactly one {mod2} column in expected_matches"
 
-    mod1_samples = list(expected_matches[mod1_col[0]].dropna())
-    mod2_samples = list(expected_matches[mod2_col[0]].dropna())
-    matrix_samples = set(list(matrix.index) + list(matrix.columns))
+    mod1_series = expected_matches[mod1_col[0]]
+    mod2_series = expected_matches[mod2_col[0]]
 
-    # Expected sample names should be prefixes of matrix sample names
-    all_expected_samples = mod1_samples + mod2_samples
-    all_expected_samples = [str(sample) for sample in all_expected_samples]
+    # Keep exact expected ordering; make NaN positions explicit and unique instead of collapsing to "X".
+    mod1_samples = [
+        str(value) if pd.notna(value) else f"__{mod1}_missing_expected_{i}"
+        for i, value in enumerate(mod1_series)
+    ]
+    mod2_samples = [
+        str(value) if pd.notna(value) else f"__{mod2}_missing_expected_{i}"
+        for i, value in enumerate(mod2_series)
+    ]
 
-    # Find matching matrix samples for each expected sample
-    # Iterate through expected samples in order to preserve ordering
-    # Note: Not all expected samples may be present in the matrix
-    ordered_matrix_samples = []
-    for expected_sample in all_expected_samples:
-        # Find matrix samples that contain this expected sample name as a substring
-        matching_matrix_samples = [
-            s for s in matrix_samples if str(expected_sample) in s
-        ]
-        if matching_matrix_samples:
-            ordered_matrix_samples.extend(matching_matrix_samples)
+    def sample_matches_label(sample, label):
+        sample_str = re.escape(str(sample))
+        return bool(re.search(rf"(^|[_/\\-]){sample_str}($|[_/\\-])", str(label)))
+
+    # Match expected rows/cols to source matrix labels one-by-one, consuming each source label at most once.
+    # Restrict matches to the correct modality to avoid cross-modality mismatches.
+    available_rows = [label for label in matrix.index if mod1 in str(label)]
+    matched_rows = []
+    for sample in mod1_samples:
+        row_match = None
+        for idx, label in enumerate(available_rows):
+            if sample_matches_label(sample, label):
+                row_match = label
+                del available_rows[idx]
+                break
+        matched_rows.append(row_match)
+
+    available_cols = [label for label in matrix.columns if mod2 in str(label)]
+    matched_cols = []
+    for sample in mod2_samples:
+        col_match = None
+        for idx, label in enumerate(available_cols):
+            if sample_matches_label(sample, label):
+                col_match = label
+                del available_cols[idx]
+                break
+        matched_cols.append(col_match)
+
+    # Build output axis labels in expected order.
+    # - matched entries: keep their source matrix label
+    # - missing entries: "{sample}_missing" for known samples, "missing_{i}" for NaN entries
+    output_row_labels = []
+    for i, (sample, source_row) in enumerate(zip(mod1_samples, matched_rows)):
+        if source_row is not None:
+            label = source_row
+        elif sample.startswith("__"):   # was NaN in expected_matches
+            label = f"missing_{i}"
         else:
-            print(
-                f"No matrix sample found for expected sample '{expected_sample}' (may not be in this batch)"
-            )
+            label = f"{sample}_missing"
+        output_row_labels.append(label)
 
-    ordered_mod1_samples = [
-        s
-        for s in ordered_matrix_samples
-        if any(str(mod1_sample) in s for mod1_sample in mod1_samples)
-    ]
-    ordered_mod2_samples = [
-        s
-        for s in ordered_matrix_samples
-        if any(str(mod2_sample) in s for mod2_sample in mod2_samples)
-    ]
+    output_col_labels = []
+    for i, (sample, source_col) in enumerate(zip(mod2_samples, matched_cols)):
+        if source_col is not None:
+            label = source_col
+        elif sample.startswith("__"):   # was NaN in expected_matches
+            label = f"missing_{i}"
+        else:
+            label = f"{sample}_missing"
+        output_col_labels.append(label)
 
-    # Reorder matrix with matched samples
-    if tool != "Vireo":
-        matrix = matrix.loc[ordered_matrix_samples, ordered_matrix_samples]
-    else:
-        matrix = matrix.loc[ordered_mod1_samples, ordered_mod2_samples]
+    # Start from an empty matrix with the exact expected ordering.
+    ordered_matrix = pd.DataFrame(np.nan, index=output_row_labels, columns=output_col_labels)
 
-    return matrix
+    # Fill values where both expected row and expected column were found in the source matrix.
+    for row_pos, source_row in enumerate(matched_rows):
+        if source_row is None:
+            continue
+        for col_pos, source_col in enumerate(matched_cols):
+            if source_col is None:
+                continue
+            ordered_matrix.iat[row_pos, col_pos] = matrix.loc[source_row, source_col]
+
+    return ordered_matrix
