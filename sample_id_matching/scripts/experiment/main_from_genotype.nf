@@ -2,8 +2,10 @@
 
 /*
  * Pipeline for sample matching analysis
- * This pipeline analyzes BAM files to determine if samples come from the same donor
- * using multiple tools: bcftools, Vireo, NGSCheckMate, and CrossCheckFingerprints
+ * This pipeline is a variation on main.nf that can be used if variant calling 
+ * has already been performed.
+ * It analyzes VCF files to determine if samples come from the same donor
+ * using multiple tools: HYSYS, Vireo, NGSCheckMate, and CrossCheckFingerprints
  */
 
 nextflow.enable.dsl = 2
@@ -46,7 +48,8 @@ workflow {
     filtered_vcfs = MERGE_AND_FILTER_VCFS(
         vcf_files.collect(), 
         index_files.collect(),
-        mod_channel.collect()
+        mod_channel.collect(),
+        params.pseudobulk
     )
     filtered_vcfs.modality_vcfs.view { x -> "VCFs by modality: ${x}" }
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}

@@ -19,6 +19,7 @@ include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 
+
 // Main workflow
 workflow {
     // Find all bams with the listed datatypes
@@ -34,8 +35,8 @@ workflow {
                 // safe: get the last element of the parent Path as String
                 def parentName = f.parent ? f.parent.getFileName().toString() : ''
                 // datatype is in the path: .../${dataset}/${datatype}/${sample}/file.bam
-                def datatype = f.toString().contains('/bulk/') ? 'bulk' : 
-                              f.toString().contains('/single-nucleus/') ? 'single-nucleus' : 'unknown'
+                def datatype = f.toString().contains("/${modalities[0]}/") ? modalities[0] :
+                               f.toString().contains("/${modalities[1]}/") ? modalities[1] : 'unknown'
                 tuple(parentName, f.baseName, f, datatype)
             }
             .view { x -> "Found BAM files: ${x}" }
@@ -62,7 +63,8 @@ workflow {
     filtered_vcfs = MERGE_AND_FILTER_VCFS(
         individual_vcfs.vcf.collect(), 
         individual_vcfs.index.collect(), 
-        mod_channel.collect()
+        mod_channel.collect(),
+        params.pseudobulk
     )
     filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}

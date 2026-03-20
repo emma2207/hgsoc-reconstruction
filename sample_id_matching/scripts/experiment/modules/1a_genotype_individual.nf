@@ -5,7 +5,7 @@ process GENOTYPE_INDIVIDUAL {
     publishDir "${params.outdir}/1a_individual_vcf", mode: 'copy'
     
     input:
-        path bam_file
+        tuple path(bam_file), path(bai_file)
 
     output:
         path("${params.dataset}/*/*/*.vcf.gz"), emit: vcf
