@@ -11,6 +11,41 @@ dataset_regex_dict = {
 }
 
 
+def matches_matrix_to_pair_df(matrix):
+    """
+    Convert a 0/1 sample-by-sample match matrix into a long dataframe of matched sample pairs.
+
+    input:
+        - matrix: dataframe where rows/columns are sample IDs and values are 0/1
+
+    output:
+        - matches_df: dataframe with one row per inferred match
+            If matrix index/columns share names, those are used as output column names.
+            Otherwise defaults to ["sample_id_0", "sample_id_1"].
+    """
+    matrix_df = matrix.copy()
+
+    matrix_df = matrix_df.apply(pd.to_numeric, errors="coerce").fillna(0).astype(int)
+
+    row_name = matrix_df.index.name or "sample_id_0"
+    col_name = matrix_df.columns.name or "sample_id_1"
+
+    matches_df = (
+        matrix_df.eq(1)
+        .stack()
+        .loc[lambda s: s]
+        .index.to_frame(index=False)
+    )
+    matches_df.columns = [row_name, col_name]
+
+    if matrix_df.index.equals(matrix_df.columns):
+        matches_df = matches_df[
+            matches_df[row_name] < matches_df[col_name]
+        ].reset_index(drop=True)
+
+    return matches_df
+
+
 ####################################################
 ### Functions to convert long dataframes to matrices
 ####################################################
@@ -872,10 +907,11 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
     # Vireo will not include all samples in the results if we're comparing two sets of samples of unequal length
     # We have to get a list of all samples from another tool's results
     hysys_df, _ = parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2)
-    all_samples = sorted(set(hysys_df.index))
+    all_mod1_samples = sorted(set([s for s in hysys_df.index if mod1 in s]))
+    all_mod2_samples = sorted(set([s for s in hysys_df["Sample"] if mod2 in s]))
 
     # Create all possible pairs of samples
-    all_pairs = [(s1, s2) for s1 in all_samples for s2 in all_samples]
+    all_pairs = [(s1, s2) for s1 in all_mod1_samples for s2 in all_mod2_samples]
     all_pairs_df = pd.DataFrame(all_pairs, columns=["sample_id_0", "sample_id_1"])
 
     # Add a "match" column: 1 if pair is in sample_matches, 0 otherwise
@@ -884,12 +920,65 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
     )
     all_pairs_df["match"] = all_pairs_df.apply(
         lambda row: (
-            1 if (row["sample_id_0"], row["sample_id_1"]) in sample_matches_set else 0
+            1 if (row["sample_id_1"], row["sample_id_0"]) in sample_matches_set else 0
         ),
         axis=1,
     )
+    # Turn long data into matrix
+    sample_matches = all_pairs_df.pivot_table(
+        index="sample_id_0",
+        columns="sample_id_1",
+        values="match",
+        aggfunc="first",
+    )
 
-    return all_pairs_df.set_index(["sample_id_0", "sample_id_1"])
+    return sample_matches
+
+
+def load_sample_matching_results(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
+
+    print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
+    try:
+        if tool == "BAMixChecker":
+            sample_matches = parse_sample_matching_results_bamixchecker(
+                DATA_PATH, pseudobulk, dataset, ncells
+            )
+        elif tool == "CrosscheckFingerprints":
+            sample_matches = parse_sample_matching_results_crosscheckfingerprints(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "HYSYS":
+            sample_matches = parse_sample_matching_results_hysys(
+                DATA_PATH, pseudobulk, dataset, ncells, rd
+            )
+        elif tool == "NGSCheckmate":
+            sample_matches = parse_sample_matching_results_ngscheckmate(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "Vireo":
+            sample_matches = parse_sample_matching_results_vireo(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        else:
+            print(f"Error! Do not recognize tool {tool}")
+            print(
+                "Choice of tool must be one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+            )
+            sample_matches = None
+    except FileNotFoundError:
+        print(
+            f"Could not find data for {tool}, real dataset {dataset}, read depth {rd}. "
+        )
+        sample_matches = None
+
+    if tool != "Vireo" and sample_matches is not None:
+        # Filter sample_matches to only include mod1 samples in the first column and mod2 samples in the second column
+        sample_matches = sample_matches.loc[
+            [idx for idx in sample_matches.index if mod1 in str(idx)],
+            [col for col in sample_matches.columns if mod2 in str(col)],
+        ]
+
+    return sample_matches
 
 
 def load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):

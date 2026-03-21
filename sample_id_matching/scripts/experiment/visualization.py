@@ -9,6 +9,7 @@ from analysis_shared_functions import (
 from accuracy_functions import (
     load_expected_matches_real_data,
     accuracy_metrics_averaged_over_iterations,
+    count_matches_real_data,
 )
 
 
@@ -376,44 +377,46 @@ def super_plot_heatmaps_real_data(
 ):
 
     fig_name = f"superplot_{dataset}_{mod1}_vs_{mod2}_similarity_matrix"
-    super_extreme_point = 0
+    tool_extreme_points = np.empty(len(tools))
     all_matrices = []
 
     # Find all the data for the plots
-    for tool in tools:
+    for i, tool in enumerate(tools):
         for rd in read_depths:
             matrix = load_heatmap_data(DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2)
-            expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
             if matrix is not None:
+                filtered_matrix = matrix.loc[
+                        [idx for idx in matrix.index if mod1 in idx],
+                        [col for col in matrix.columns if mod2 in col],
+                    ]
+                expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+            
                 ordered_matrix = order_matrix_by_expected_matches(
-                    matrix, expected_matches, mod1, mod2
+                    filtered_matrix, expected_matches, mod1, mod2
                 )
-                filtered_matrix = ordered_matrix.loc[
-                    [idx for idx in ordered_matrix.index if mod1 in idx],
-                    [col for col in ordered_matrix.columns if mod2 in col],
-                ]
+                
                 # Store matrix for later use in super plot
-                all_matrices.append({"rd": rd, "tool": tool, "matrix": filtered_matrix})
+                all_matrices.append({"rd": rd, "tool": tool, "matrix": ordered_matrix})
 
                 # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
                 extreme_point = max(
-                    abs(filtered_matrix.min().min()), abs(filtered_matrix.max().max())
+                    abs(ordered_matrix.min().min()), abs(ordered_matrix.max().max())
                 )
-                if extreme_point > super_extreme_point:
-                    super_extreme_point = extreme_point
+                if extreme_point > tool_extreme_points[i]:
+                    tool_extreme_points[i] = extreme_point
 
     # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
         len(tools),
         len(read_depths),
         figsize=(3.5 * len(read_depths), 3.5 * len(tools)),
-        sharex=True,
-        sharey=True,
+        sharex="col",
+        sharey="row"
     )
     fig.subplots_adjust(wspace=0.05, hspace=0.05, top=.93)
     fig.suptitle(f"{dataset} real data similarity matrices", fontsize=16)
 
-    for tool in tools:
+    for i, tool in enumerate(tools):
         for rd in read_depths:
             print(f"Processing read depth {rd} and tool {tool} for plotting...")
             if len(read_depths) == 1:
@@ -447,8 +450,8 @@ def super_plot_heatmaps_real_data(
                 cax = ax.imshow(
                     matrix,
                     cmap=cmap,
-                    vmin=-super_extreme_point,
-                    vmax=super_extreme_point,
+                    vmin=-tool_extreme_points[i],
+                    vmax=tool_extreme_points[i],
                 )
             else:
                 cmap = plt.get_cmap("Oranges")
@@ -462,10 +465,10 @@ def super_plot_heatmaps_real_data(
                 ax.set_title(f"read depth filter {rd}", pad=10, fontsize=12)
             if rd == read_depths[0]:
                 ax.set_ylabel(f"{tool}", fontsize=12)
-    # Shared colorbar for all subplots
-    # cbar = fig.colorbar(
-    #     cax, ax=axes.ravel().tolist(), fraction=0.05, pad=0.04, shrink=0.7
-    # )
+        # Colorbar for each row of subplots
+        cbar = fig.colorbar(
+            cax, ax=axes[i], fraction=0.05, pad=0.04, shrink=0.7
+        )
 
     # Save figure after all subplots are complete
     if save_fig:
@@ -1099,4 +1102,80 @@ def heatmap_plot_accuracy_metrics_pseudobulk_vs_sc(
             dpi=300,
         )
     # fig.colorbar(cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5)
+    return
+
+
+def barplot_matches_nonmatches_na(DATA_PATH, tools, dataset, read_depths, mod1, mod2, save_fig=False, FIGURES_PATH=""):
+
+    fig_name = f"barplot_matches_{dataset}_{mod1}_vs_{mod2}"
+
+    results_df = count_matches_real_data(
+        DATA_PATH=DATA_PATH,
+        tools=tools,
+        dataset="high_grade_glioma",
+        read_depths=read_depths,
+        mod1=mod1,
+        mod2=mod2,
+    )
+    # Stacked barplot of matches, non-matches, and NA counts for each read depth
+    n_bars_expected = 1
+    n_bars_tool = len(read_depths)
+    width_ratios = [n_bars_expected] + [n_bars_tool] * len(tools)
+    total_width = (n_bars_expected + len(tools) * n_bars_tool) * 0.5
+
+    fig, axes = plt.subplots(
+        1, len(tools) + 1,
+        figsize=(total_width, 3.5),
+        sharey=True,
+        gridspec_kw={"width_ratios": width_ratios},
+    )
+
+    # Plot expected results in the first subfigure
+    expected_df = results_df[results_df["rd"] == "expected"].iloc[0]
+    axes[0].bar([0], expected_df["matches"], color="orangered", label="Matches")
+    axes[0].bar([0], expected_df["non_matches"], bottom=expected_df["matches"], color="lightsalmon", label="Non-matches")
+    axes[0].bar([0], expected_df["NA"], bottom=expected_df["matches"] + expected_df["non_matches"], color="gray", label="NA")
+    axes[0].set_xticks([0])
+    axes[0].set_xticklabels(["expected"])
+    axes[0].set_title("Expected")
+    axes[0].set_xlabel("Read depth")
+    axes[0].set_ylabel("Count")
+
+    for i, tool in enumerate(tools):
+        tool_df = results_df[results_df["tool"] == tool].copy()
+        tool_df.set_index("rd", inplace=True)
+        
+        x = np.arange(len(tool_df.index))
+        labels = tool_df.index.astype(str)
+
+        axes[i+1].bar(x, tool_df["matches"], color="orangered", label="Matches")
+        axes[i+1].bar(x, tool_df["non_matches"], bottom=tool_df["matches"], color="lightsalmon", label="Non-matches")
+        axes[i+1].bar(x, tool_df["NA"], bottom=tool_df["matches"] + tool_df["non_matches"], color="gray", label="NA")
+
+        axes[i+1].set_xticks(x)
+        axes[i+1].set_xticklabels(labels)
+        axes[i+1].set_title(tool)
+        axes[i+1].set_xlabel("Read depth")
+
+    fig.suptitle(f"Sample matching results for {dataset} dataset")
+    plt.tight_layout()
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+
     return
