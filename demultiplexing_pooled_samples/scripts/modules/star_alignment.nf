@@ -1,6 +1,7 @@
 #!/usr/bin/env nextflow
 
 process STAR_ALIGNMENT {
+	conda "${params.conda}"
 	label "STAR_${params.pool}"
 	publishDir 'demultiplexing/', mode: 'copy'
 
@@ -35,11 +36,22 @@ process STAR_ALIGNMENT {
 	echo "FASTQ R2: $fastq_r2"
 	echo "Reference Genome: ${params.refGenome}"
 
+	whitelist="${params.whitelist}"
+	if [ -f "\$whitelist" ]; then
+		echo "Using barcode whitelist: \$whitelist"
+	elif [ -f "${params.refGenome}/../\$whitelist" ]; then
+		whitelist="${params.refGenome}/../\$whitelist"
+		echo "Using barcode whitelist: \$whitelist"
+	else
+		echo "WARNING: barcode whitelist not found ('\$whitelist'); falling back to '--soloCBwhitelist None'"
+		whitelist="None"
+	fi
+
 	# Run STAR alignment
 	STAR \
 		--outSAMtype BAM SortedByCoordinate \
 		--soloType CB_UMI_Simple \
-		--soloCBwhitelist None \
+		--soloCBwhitelist \$whitelist \
 		--soloCBstart 1 \
 		--soloCBlen 16 \
 		--soloUMIstart 17 \

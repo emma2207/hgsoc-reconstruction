@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 process GENOTYPING {
-	conda "${params.conda}/cellsnp-lite_install"
+	conda "${params.conda}"
 	label "Genotyping_${params.pool}"
 	publishDir 'demultiplexing/', mode: 'copy'
 

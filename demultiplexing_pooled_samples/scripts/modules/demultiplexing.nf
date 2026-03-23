@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 process DEMULTIPLEXING {
-	conda "${params.conda}/vireo_install"
+	conda "${params.conda}"
 	label "Demultiplexing_${params.pool}"
 	publishDir 'demultiplexing/', mode: 'copy'
 
@@ -10,7 +10,7 @@ process DEMULTIPLEXING {
 	path ref_vcf_file
 
 	output:
-	path("vireo")
+	tuple val(pool), path("vireo/pool${pool}")
 
 	script:
 	"""
