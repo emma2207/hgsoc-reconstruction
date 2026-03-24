@@ -2,7 +2,7 @@
 
 process DEMULTIPLEXING {
 	conda "${params.conda}"
-	label "Demultiplexing_${params.pool}"
+	tag "pool${pool}"
 	publishDir 'demultiplexing/', mode: 'copy'
 
 	input:

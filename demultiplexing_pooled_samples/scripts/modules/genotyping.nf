@@ -2,7 +2,7 @@
 
 process GENOTYPING {
 	conda "${params.conda}"
-	label "Genotyping_${params.pool}"
+	tag "pool${pool}"
 	publishDir 'demultiplexing/', mode: 'copy'
 
 	input:

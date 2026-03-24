@@ -2,7 +2,7 @@
 
 process SPLIT_POOLED_BAM {
 	conda "${params.conda}"
-	label "SplitPooledBam_${params.pool}"
+	tag "pool${pool}"
 	publishDir 'demultiplexing/', mode: 'copy'
 
 	input:

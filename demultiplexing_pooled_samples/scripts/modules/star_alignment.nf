@@ -2,7 +2,7 @@
 
 process STAR_ALIGNMENT {
 	conda "${params.conda}"
-	label "STAR_${params.pool}"
+	tag "pool${pool}"
 	publishDir 'demultiplexing/', mode: 'copy'
 
 	input:
@@ -14,26 +14,28 @@ process STAR_ALIGNMENT {
 		path("star/${params.dataset}/pool${pool}/Aligned.sortedByCoord.out.bam.bai")
 
 	script:
+	def fastq_r1_arg = fastq_r1.collect { fastq -> fastq.toString() }.join(',')
+	def fastq_r2_arg = fastq_r2.collect { fastq -> fastq.toString() }.join(',')
 	"""
 	# Check if STAR index exists
-	if [ -f "${params.refGenome}/SAindex" ]
+	if [ -f "${params.refGenome}/star/SAindex" ]
 	then
 		echo "STAR index exists, skipping."
 	else
 		STAR \
 			--runMode genomeGenerate \
 			--runThreadN 6 \
-			--genomeDir ${params.refGenome} \
-			--genomeFastaFiles "${params.refGenome}/../fasta/genome.fa" \
-			--sjdbGTFfile "${params.refGenome}/../genes/genes.gtf"
+			--genomeDir "${params.refGenome}/star" \
+			--genomeFastaFiles "${params.refGenome}/fasta/genome.fa" \
+			--sjdbGTFfile "${params.refGenome}/genes/genes.gtf"
 	fi
 
 	# Create output directory
 	output_location="star/${params.dataset}/pool${pool}"
 	mkdir -p \$output_location
 
-	echo "FASTQ R1: $fastq_r1"
-	echo "FASTQ R2: $fastq_r2"
+	echo "FASTQ R1: ${fastq_r1_arg}"
+	echo "FASTQ R2: ${fastq_r2_arg}"
 	echo "Reference Genome: ${params.refGenome}"
 
 	whitelist="${params.whitelist}"
@@ -51,16 +53,16 @@ process STAR_ALIGNMENT {
 	STAR \
 		--outSAMtype BAM SortedByCoordinate \
 		--soloType CB_UMI_Simple \
-		--soloCBwhitelist \$whitelist \
+		--soloCBwhitelist None \
 		--soloCBstart 1 \
 		--soloCBlen 16 \
 		--soloUMIstart 17 \
 		--soloUMIlen 12 \
 		--soloBarcodeReadLength 0 \
 		--outSAMattributes NH HI AS nM CB UB \
-		--genomeDir ${params.refGenome} \
+		--genomeDir "${params.refGenome}/star" \
 		--runThreadN 6 \
-		--readFilesIn $fastq_r1 $fastq_r2 \
+		--readFilesIn ${fastq_r1_arg} ${fastq_r2_arg} \
 		--quantMode GeneCounts \
 		--readFilesCommand gunzip -c \
 		--outFileNamePrefix "\${output_location}/"
