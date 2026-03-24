@@ -241,20 +241,23 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
 
     expected_matches.columns = expected_matches.columns.str.lower()
 
-    # Sort by whichever modality column has the most non-NaN entries (i.e. most samples)
-    sort_col = str(expected_matches.count().idxmax())
+    if dataset == "low_grade_glioma":
+        expected_matches = expected_matches.drop_duplicates().reset_index(drop=True)
+    else:
+        # Sort by whichever modality column has the most non-NaN entries (i.e. most samples)
+        sort_col = str(expected_matches.count().idxmax())
 
-    # Sort alphabetically by the most-populated modality column,
-    # with NaN values appearing at the end.
-    expected_matches = (
-        expected_matches.sort_values(
-            by=sort_col,
-            na_position="last",
-            kind="mergesort",
+        # Sort alphabetically by the most-populated modality column,
+        # with NaN values appearing at the end.
+        expected_matches = (
+            expected_matches.sort_values(
+                by=sort_col,
+                na_position="last",
+                kind="mergesort",
+            )
+            .drop_duplicates()
+            .reset_index(drop=True)
         )
-        .drop_duplicates()
-        .reset_index(drop=True)
-    )
     # Make sure all entries are strings
     expected_matches = expected_matches.astype(str)
 

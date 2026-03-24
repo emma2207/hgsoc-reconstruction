@@ -373,6 +373,7 @@ def super_plot_heatmaps_real_data(
     read_depths,
     mod1="bulk",
     mod2="single-cell",
+    remove_missing_data=False,
     save_fig=False,
 ):
 
@@ -394,6 +395,8 @@ def super_plot_heatmaps_real_data(
                 ordered_matrix = order_matrix_by_expected_matches(
                     filtered_matrix, expected_matches, mod1, mod2
                 )
+                if remove_missing_data:
+                    ordered_matrix = ordered_matrix.dropna(axis=0, how="all")
                 
                 # Store matrix for later use in super plot
                 all_matrices.append({"rd": rd, "tool": tool, "matrix": ordered_matrix})
@@ -409,11 +412,11 @@ def super_plot_heatmaps_real_data(
     fig, axes = plt.subplots(
         len(tools),
         len(read_depths),
-        figsize=(3.5 * len(read_depths), 3.5 * len(tools)),
+        figsize=(4 * len(read_depths), 1.5 * len(tools)),
         sharex="col",
         sharey="row"
     )
-    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=.93)
+    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=.9)
     fig.suptitle(f"{dataset} real data similarity matrices", fontsize=16)
 
     for i, tool in enumerate(tools):
@@ -467,7 +470,7 @@ def super_plot_heatmaps_real_data(
                 ax.set_ylabel(f"{tool}", fontsize=12)
         # Colorbar for each row of subplots
         cbar = fig.colorbar(
-            cax, ax=axes[i], fraction=0.05, pad=0.04, shrink=0.7
+            cax, ax=axes[i], fraction=0.2, pad=0.02, shrink=0.7
         )
 
     # Save figure after all subplots are complete
