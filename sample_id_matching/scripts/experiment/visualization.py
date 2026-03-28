@@ -412,11 +412,11 @@ def super_plot_heatmaps_real_data(
     fig, axes = plt.subplots(
         len(tools),
         len(read_depths),
-        figsize=(4 * len(read_depths), 1.5 * len(tools)),
+        figsize=(3.5 * len(read_depths), 2.5 * len(tools)),
         sharex="col",
         sharey="row"
     )
-    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=.9)
+    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=.88)
     fig.suptitle(f"{dataset} real data similarity matrices", fontsize=16)
 
     for i, tool in enumerate(tools):
@@ -462,8 +462,14 @@ def super_plot_heatmaps_real_data(
                 cax = ax.imshow(matrix, cmap=cmap)
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
-            ax.set_xticklabels(matrix.columns, rotation=45, ha="right", fontsize=8)
-            ax.set_yticklabels(matrix.index, fontsize=8)
+            if dataset == "hgsoc":
+                xlabels = [x.replace(mod2, "") + f"{mod2}" for x in matrix.columns]
+                ylabels = [y.replace(mod1, "") + f"{mod1}" for y in matrix.index]
+            else:
+                xlabels = matrix.columns
+                ylabels = matrix.index
+            ax.set_xticklabels(xlabels, rotation=45, ha="right", fontsize=8)
+            ax.set_yticklabels(ylabels, fontsize=8)
             if tool == tools[0]:
                 ax.set_title(f"read depth filter {rd}", pad=10, fontsize=12)
             if rd == read_depths[0]:
