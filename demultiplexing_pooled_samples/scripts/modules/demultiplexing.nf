@@ -18,8 +18,7 @@ process DEMULTIPLEXING {
 	mkdir -p \$output_location
 
 	# Adjust the number of samples for pools 9 & 10
-	if ${params.dataset} == "hgsoc-new"
-	then
+	if [ "${params.dataset}" == "hgsoc-new" ]; then
 		if [ "$pool" -lt 9 ]; then
 			n_samples=4
 		elif [ "$pool" -lt 10 ]; then
