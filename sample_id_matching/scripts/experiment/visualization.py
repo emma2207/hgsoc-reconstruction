@@ -51,8 +51,7 @@ def bulk_vs_singlecell_matrix_viz(
         print(f"No matrix data available for {tool} on {dataset} with read depth {rd} and ncells {ncells}. Skipping plot.")
         return
         
-    sub_matrix = matrix_df[[col for col in matrix_df.columns if mod2 in col]]
-    sub_matrix = sub_matrix.loc[[idx for idx in sub_matrix.index if mod1 in idx]]
+    sub_matrix = matrix_df
     if not pseudobulk:
         expected_matches = load_expected_matches_real_data(
             DATA_PATH, 
@@ -386,14 +385,10 @@ def super_plot_heatmaps_real_data(
         for rd in read_depths:
             matrix = load_heatmap_data(DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2)
             if matrix is not None:
-                filtered_matrix = matrix.loc[
-                        [idx for idx in matrix.index if mod1 in idx],
-                        [col for col in matrix.columns if mod2 in col],
-                    ]
                 expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
             
                 ordered_matrix = order_matrix_by_expected_matches(
-                    filtered_matrix, expected_matches, mod1, mod2
+                    matrix, expected_matches, mod1, mod2
                 )
                 if remove_missing_data:
                     ordered_matrix = ordered_matrix.dropna(axis=0, how="all")

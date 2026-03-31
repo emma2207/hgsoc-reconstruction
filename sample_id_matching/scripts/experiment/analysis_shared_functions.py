@@ -1047,6 +1047,20 @@ def order_matrix_by_expected_matches(
     mod1_series = expected_matches[mod1_col[0]]
     mod2_series = expected_matches[mod2_col[0]]
 
+    def modality_in_label(modality, label):
+        modality_key = str(modality).lower().replace("-", "_")
+        label_key = str(label).lower().replace("-", "_")
+        return modality_key in label_key
+
+    # Some result files store matrix axes in the opposite orientation (mod2 rows, mod1 columns).
+    # Detect and correct this before attempting expected-match alignment.
+    row_has_mod1 = sum(modality_in_label(mod1, label) for label in matrix.index)
+    row_has_mod2 = sum(modality_in_label(mod2, label) for label in matrix.index)
+    col_has_mod1 = sum(modality_in_label(mod1, label) for label in matrix.columns)
+    col_has_mod2 = sum(modality_in_label(mod2, label) for label in matrix.columns)
+    if row_has_mod1 == 0 and col_has_mod2 == 0 and col_has_mod1 > 0 and row_has_mod2 > 0:
+        matrix = matrix.T
+
     # Keep exact expected ordering; make NaN positions explicit and unique instead of collapsing to "X".
     mod1_samples = [
         str(value) if pd.notna(value) else f"__{mod1}_missing_expected_{i}"
@@ -1059,11 +1073,17 @@ def order_matrix_by_expected_matches(
 
     def sample_matches_label(sample, label):
         sample_str = re.escape(str(sample))
-        return bool(re.search(rf"(^|[_/\\-]){sample_str}($|[_/\\-])", str(label)))
+        return bool(
+            re.search(
+                rf"(^|[_/\\-]){sample_str}($|[_/\\-])",
+                str(label),
+                flags=re.IGNORECASE,
+            )
+        )
 
     # Match expected rows/cols to source matrix labels one-by-one, consuming each source label at most once.
     # Restrict matches to the correct modality to avoid cross-modality mismatches.
-    available_rows = [label for label in matrix.index if mod1 in str(label)]
+    available_rows = [label for label in matrix.index if modality_in_label(mod1, label)]
     matched_rows = []
     for sample in mod1_samples:
         row_match = None
@@ -1074,7 +1094,7 @@ def order_matrix_by_expected_matches(
                 break
         matched_rows.append(row_match)
 
-    available_cols = [label for label in matrix.columns if mod2 in str(label)]
+    available_cols = [label for label in matrix.columns if modality_in_label(mod2, label)]
     matched_cols = []
     for sample in mod2_samples:
         col_match = None
