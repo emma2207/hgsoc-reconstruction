@@ -17,7 +17,7 @@ process GENOTYPING {
 	mkdir -p \$output_location
 
 	# Remove -1 suffix from barcodes if present (e.g. from 10x v3 chemistry)
-	if zcat $barcodes | head -n 1 | grep -qE '-1\$'; then
+	if zcat $barcodes | head -n 1 | grep -qE -- '-1\$'; then
 		echo "Removing -1 suffix from barcodes in $barcodes"
 		zcat $barcodes | sed 's/-1\$//' | gzip > \$output_location/barcodes.tsv.gz
 		stripped_barcodes="\$output_location/barcodes.tsv.gz"
