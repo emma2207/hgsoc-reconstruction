@@ -474,7 +474,9 @@ def accuracy_metrics_hysys_heatmap_vireo_algorithm(
     return pd.DataFrame(result, index=[0])
 
 
-def count_matches_real_data(DATA_PATH, tools, dataset, read_depths, mod1="bulk", mod2="single-cell"):
+def count_matches_real_data(
+    DATA_PATH, tools, dataset, read_depths, mod1="bulk", mod2="single-cell"
+):
     """
     Count the number of matches, non-matches, and NAs for real data sample matching results for each tool and read depth.
 
@@ -499,17 +501,19 @@ def count_matches_real_data(DATA_PATH, tools, dataset, read_depths, mod1="bulk",
     n_pairs = n_mod1_samples * n_mod2_samples
 
     # Start with expected matches
-    results = [{
-        "dataset": dataset,
-        "rd": "expected",
-        "matches": n_matches,
-        "non_matches": n_pairs - n_matches,
-        "NA": 0,
-    }]
+    results = [
+        {
+            "dataset": dataset,
+            "rd": "expected",
+            "matches": n_matches,
+            "non_matches": n_pairs - n_matches,
+            "NA": 0,
+        }
+    ]
     for tool in tools:
         for rd in read_depths:
             inferred_matches = load_sample_matching_results(
-                DATA_PATH=DATA_PATH, 
+                DATA_PATH=DATA_PATH,
                 pseudobulk=False,
                 tool=tool,
                 dataset=dataset,
@@ -536,18 +540,20 @@ def count_matches_real_data(DATA_PATH, tools, dataset, read_depths, mod1="bulk",
                 print(f"Warning: Counts do not sum up to total pairs for rd={rd}.")
             results.append(
                 {
-                "tool": tool,
-                "dataset": dataset,
-                "rd": rd,
-                "matches": match_counts,
-                "non_matches": nonmatch_counts,
-                "NA": na_counts,
+                    "tool": tool,
+                    "dataset": dataset,
+                    "rd": rd,
+                    "matches": match_counts,
+                    "non_matches": nonmatch_counts,
+                    "NA": na_counts,
                 }
             )
     return pd.DataFrame(results)
 
 
-def find_mismatches_real_data(DATA_PATH, tool, dataset, read_depth, mod1="bulk", mod2="single-cell"):
+def find_mismatches_real_data(
+    DATA_PATH, tool, dataset, read_depth, mod1="bulk", mod2="single-cell"
+):
     """
     Compare matching sample pairs between expected and inferred matches.
 
@@ -560,11 +566,11 @@ def find_mismatches_real_data(DATA_PATH, tool, dataset, read_depth, mod1="bulk",
         - mod2: string to identify the second modality in the sample names (default "single-cell")
 
     output:
-        - merged_df: dataframe that merges expected matches with inferred matches, 
-            with an additional column "match_status" indicating whether a pair of 
-            samples matches is found in the expected matches, inferred matches, or both.     
+        - merged_df: dataframe that merges expected matches with inferred matches,
+            with an additional column "match_status" indicating whether a pair of
+            samples matches is found in the expected matches, inferred matches, or both.
     """
-    
+
     # Load expected matches
     expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
     # Load inferred matches
@@ -579,15 +585,21 @@ def find_mismatches_real_data(DATA_PATH, tool, dataset, read_depth, mod1="bulk",
         mod2=mod2,
     )
     if inferred_matches is None:
-        print(f"No inferred matches found for {tool} on {dataset} at read depth {read_depth}.")
+        print(
+            f"No inferred matches found for {tool} on {dataset} at read depth {read_depth}."
+        )
         return None, None
 
     # Convert inferred matches matrix to pairwise dataframe
     matches_df = matches_matrix_to_pair_df(inferred_matches)
 
     # Split the sample IDs into their components (e.g., "sample1_bulk" -> "sample1", "bulk")
-    matches_df[["sample_id_0", "modality_0"]] = matches_df["sample_id_0"].str.rsplit("_", n=1, expand=True)
-    matches_df[["sample_id_1", "modality_1"]] = matches_df["sample_id_1"].str.rsplit("_", n=1, expand=True)
+    matches_df[["sample_id_0", "modality_0"]] = matches_df["sample_id_0"].str.rsplit(
+        "_", n=1, expand=True
+    )
+    matches_df[["sample_id_1", "modality_1"]] = matches_df["sample_id_1"].str.rsplit(
+        "_", n=1, expand=True
+    )
 
     # Merge with expected matches to determine which inferred matches are correct
     merged_df = expected_matches.merge(
@@ -595,7 +607,7 @@ def find_mismatches_real_data(DATA_PATH, tool, dataset, read_depth, mod1="bulk",
         right_on=["sample_id_0", "sample_id_1"],
         left_on=[mod1, mod2],
         how="outer",
-        indicator="match_status"
+        indicator="match_status",
     )
 
     return merged_df

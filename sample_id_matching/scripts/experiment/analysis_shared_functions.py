@@ -30,12 +30,7 @@ def matches_matrix_to_pair_df(matrix):
     row_name = matrix_df.index.name or "sample_id_0"
     col_name = matrix_df.columns.name or "sample_id_1"
 
-    matches_df = (
-        matrix_df.eq(1)
-        .stack()
-        .loc[lambda s: s]
-        .index.to_frame(index=False)
-    )
+    matches_df = matrix_df.eq(1).stack().loc[lambda s: s].index.to_frame(index=False)
     matches_df.columns = [row_name, col_name]
 
     if matrix_df.index.equals(matrix_df.columns):
@@ -430,7 +425,13 @@ def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
 
 
 def parse_heatmap_matrix_crosscheckfingerprints(
-    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
 ):
     """
     Read CrosscheckFingerprints output and create a matrix for heatmap visualization.
@@ -449,7 +450,7 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     if pseudobulk:
         file_path = os.path.join(
             DATA_PATH,
-            f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt"
+            f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt",
         )
     elif pseudobulk is False and dataset == "hgsoc":
         file_path = os.path.join(
@@ -459,7 +460,7 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     else:
         file_path = os.path.join(
             DATA_PATH,
-            f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt"
+            f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt",
         )
     df = pd.read_csv(
         file_path,
@@ -488,7 +489,15 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     return df, matrix
 
 
-def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
+def parse_heatmap_matrix_hysys(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
     """
     Read HYSYS output and create a matrix for heatmap visualization.
 
@@ -506,7 +515,7 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1=
     if pseudobulk:
         file_path = os.path.join(
             DATA_PATH,
-            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt"
+            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt",
         )
     elif pseudobulk is False and dataset == "hgsoc":
         file_path = os.path.join(
@@ -516,7 +525,7 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1=
     else:
         file_path = os.path.join(
             DATA_PATH,
-            f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt"
+            f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt",
         )
 
     df = pd.read_csv(
@@ -553,7 +562,15 @@ def parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1=
     return df, matrix
 
 
-def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
+def parse_heatmap_matrix_ngscheckmate(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
     """
     Read NGSCheckmate output and create a matrix for heatmap visualization.
 
@@ -616,7 +633,15 @@ def parse_heatmap_matrix_ngscheckmate(DATA_PATH, pseudobulk, dataset, ncells, rd
     return df, matrix
 
 
-def parse_heatmap_matrix_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
+def parse_heatmap_matrix_vireo(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
     """
     Read Vireo output and create a matrix for heatmap visualization.
 
@@ -702,7 +727,13 @@ def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, n
 
 
 def parse_sample_matching_results_crosscheckfingerprints(
-    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
 ):
     """
     Parse CrosscheckFingerprints results to categorize sample relationships.
@@ -834,7 +865,13 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
 
 
 def parse_sample_matching_results_ngscheckmate(
-    DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
 ):
     """
     Parse NGSCheckMate results to categorize sample relationships.
@@ -863,7 +900,15 @@ def parse_sample_matching_results_ngscheckmate(
     return sample_matches
 
 
-def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
+def parse_sample_matching_results_vireo(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
     """
     Parse Vireo's matched_samples.csv to categorize sample relationships.
 
@@ -906,7 +951,9 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
 
     # Vireo will not include all samples in the results if we're comparing two sets of samples of unequal length
     # We have to get a list of all samples from another tool's results
-    hysys_df, _ = parse_heatmap_matrix_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2)
+    hysys_df, _ = parse_heatmap_matrix_hysys(
+        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+    )
     all_mod1_samples = sorted(set([s for s in hysys_df.index if mod1 in s]))
     all_mod2_samples = sorted(set([s for s in hysys_df["Sample"] if mod2 in s]))
 
@@ -935,7 +982,16 @@ def parse_sample_matching_results_vireo(DATA_PATH, pseudobulk, dataset, ncells, 
     return sample_matches
 
 
-def load_sample_matching_results(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
+def load_sample_matching_results(
+    DATA_PATH,
+    pseudobulk,
+    tool,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
 
     print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
     try:
@@ -981,7 +1037,16 @@ def load_sample_matching_results(DATA_PATH, pseudobulk, tool, dataset, ncells, r
     return sample_matches
 
 
-def load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1="bulk_chunk_ribo", mod2="bulk_dissociated_polyA"):
+def load_heatmap_data(
+    DATA_PATH,
+    pseudobulk,
+    tool,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
 
     print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
     try:
@@ -1058,7 +1123,12 @@ def order_matrix_by_expected_matches(
     row_has_mod2 = sum(modality_in_label(mod2, label) for label in matrix.index)
     col_has_mod1 = sum(modality_in_label(mod1, label) for label in matrix.columns)
     col_has_mod2 = sum(modality_in_label(mod2, label) for label in matrix.columns)
-    if row_has_mod1 == 0 and col_has_mod2 == 0 and col_has_mod1 > 0 and row_has_mod2 > 0:
+    if (
+        row_has_mod1 == 0
+        and col_has_mod2 == 0
+        and col_has_mod1 > 0
+        and row_has_mod2 > 0
+    ):
         matrix = matrix.T
 
     # Keep exact expected ordering; make NaN positions explicit and unique instead of collapsing to "X".
@@ -1094,7 +1164,9 @@ def order_matrix_by_expected_matches(
                 break
         matched_rows.append(row_match)
 
-    available_cols = [label for label in matrix.columns if modality_in_label(mod2, label)]
+    available_cols = [
+        label for label in matrix.columns if modality_in_label(mod2, label)
+    ]
     matched_cols = []
     for sample in mod2_samples:
         col_match = None
@@ -1112,7 +1184,7 @@ def order_matrix_by_expected_matches(
     for i, (sample, source_row) in enumerate(zip(mod1_samples, matched_rows)):
         if source_row is not None:
             label = source_row
-        elif sample.startswith("__"):   # was NaN in expected_matches
+        elif sample.startswith("__"):  # was NaN in expected_matches
             label = f"missing_{i}"
         else:
             label = f"{sample}_missing"
@@ -1122,14 +1194,16 @@ def order_matrix_by_expected_matches(
     for i, (sample, source_col) in enumerate(zip(mod2_samples, matched_cols)):
         if source_col is not None:
             label = source_col
-        elif sample.startswith("__"):   # was NaN in expected_matches
+        elif sample.startswith("__"):  # was NaN in expected_matches
             label = f"missing_{i}"
         else:
             label = f"{sample}_missing"
         output_col_labels.append(label)
 
     # Start from an empty matrix with the exact expected ordering.
-    ordered_matrix = pd.DataFrame(np.nan, index=output_row_labels, columns=output_col_labels)
+    ordered_matrix = pd.DataFrame(
+        np.nan, index=output_row_labels, columns=output_col_labels
+    )
 
     # Fill values where both expected row and expected column were found in the source matrix.
     for row_pos, source_row in enumerate(matched_rows):

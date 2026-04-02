@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 
 from analysis_shared_functions import (
     load_heatmap_data,
@@ -46,17 +47,18 @@ def bulk_vs_singlecell_matrix_viz(
         fig_name = f"{dataset}_{tool}_rd{rd}_{mod1}_vs_{mod2}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
-    matrix_df = load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1, mod2)    
+    matrix_df = load_heatmap_data(
+        DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1, mod2
+    )
     if matrix_df is None:
-        print(f"No matrix data available for {tool} on {dataset} with read depth {rd} and ncells {ncells}. Skipping plot.")
+        print(
+            f"No matrix data available for {tool} on {dataset} with read depth {rd} and ncells {ncells}. Skipping plot."
+        )
         return
-        
+
     sub_matrix = matrix_df
     if not pseudobulk:
-        expected_matches = load_expected_matches_real_data(
-            DATA_PATH, 
-            dataset
-        )
+        expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
         sub_matrix = order_matrix_by_expected_matches(
             sub_matrix,
             expected_matches,
@@ -70,9 +72,7 @@ def bulk_vs_singlecell_matrix_viz(
     if tool == "CrosscheckFingerprints":
         cmap = plt.get_cmap("RdBu")
         cmap.set_bad(color="lightgrey")
-        cax = ax.matshow(
-            sub_matrix, cmap=cmap, vmin=-extreme_point, vmax=extreme_point
-        )
+        cax = ax.matshow(sub_matrix, cmap=cmap, vmin=-extreme_point, vmax=extreme_point)
     else:
         cmap = plt.get_cmap("Oranges")
         cmap.set_bad(color="lightgrey")
@@ -111,7 +111,16 @@ def bulk_vs_singlecell_matrix_viz(
 
 
 def all_samples_matrix_viz(
-    DATA_PATH, pseudobulk, tool, dataset, ncells, rd, save_fig=False, FIGURES_PATH="", mod1="bulk", mod2="single-cell"
+    DATA_PATH,
+    pseudobulk,
+    tool,
+    dataset,
+    ncells,
+    rd,
+    save_fig=False,
+    FIGURES_PATH="",
+    mod1="bulk",
+    mod2="single-cell",
 ):
     """
     Docstring for all_samples_matrix_viz
@@ -132,7 +141,9 @@ def all_samples_matrix_viz(
     else:
         fig_name = f"{dataset}_{tool}_rd{rd}_all_samples_similarity_matrix"
 
-    matrix_df = load_heatmap_data(DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1, mod2)
+    matrix_df = load_heatmap_data(
+        DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1, mod2
+    )
     if matrix_df is not None:
         # Visualize ALL samples against ALL samples
         extreme_point = max(abs(matrix_df.min().min()), abs(matrix_df.max().max()))
@@ -340,6 +351,8 @@ def loop_heatmap_plots_real_data(
     mod1="bulk",
     mod2="single-cell",
 ):
+    original_mod1 = mod1
+    original_mod2 = mod2
     for tool in tools:
         for dataset in datasets:
             if dataset == "hgsoc-new":
@@ -347,6 +360,9 @@ def loop_heatmap_plots_real_data(
                 mod2 = "bulk_diss_polyA"
             elif dataset == "wilms_tumor":
                 mod2 = "single-nucleus"
+            else:
+                mod1 = original_mod1
+                mod2 = original_mod2
             for rd in read_depths:
 
                 # Create plots
@@ -377,56 +393,78 @@ def super_plot_heatmaps_real_data(
 ):
 
     fig_name = f"superplot_{dataset}_{mod1}_vs_{mod2}_similarity_matrix"
-    tool_extreme_points = np.empty(len(tools))
+    tool_extreme_points = np.full(len(tools), -np.inf)
     all_matrices = []
 
     # Find all the data for the plots
     for i, tool in enumerate(tools):
         for rd in read_depths:
-            matrix = load_heatmap_data(DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2)
+            matrix = load_heatmap_data(
+                DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2
+            )
             if matrix is not None:
                 expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
-            
+
                 ordered_matrix = order_matrix_by_expected_matches(
                     matrix, expected_matches, mod1, mod2
                 )
                 if remove_missing_data:
                     ordered_matrix = ordered_matrix.dropna(axis=0, how="all")
-                
-                # Store matrix for later use in super plot
+
                 all_matrices.append({"rd": rd, "tool": tool, "matrix": ordered_matrix})
 
-                # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
                 extreme_point = max(
                     abs(ordered_matrix.min().min()), abs(ordered_matrix.max().max())
                 )
                 if extreme_point > tool_extreme_points[i]:
                     tool_extreme_points[i] = extreme_point
 
-    # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
         len(tools),
         len(read_depths),
         figsize=(3.5 * len(read_depths), 2.5 * len(tools)),
         sharex="col",
-        sharey="row"
+        sharey="row",
     )
-    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=.88)
+    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=0.88)
     fig.suptitle(f"{dataset} real data similarity matrices", fontsize=16)
 
     for i, tool in enumerate(tools):
+        row_has_data = False
+        row_mappable = None
+
+        if tool == "CrosscheckFingerprints":
+            cmap = plt.get_cmap("RdBu").copy()
+            norm = colors.Normalize(
+                vmin=-tool_extreme_points[i],
+                vmax=tool_extreme_points[i],
+            )
+        else:
+            cmap = plt.get_cmap("Oranges").copy()
+            norm = colors.Normalize(
+                vmin=0,
+                vmax=tool_extreme_points[i],
+            )
+        cmap.set_bad(color="lightgrey")
+
         for rd in read_depths:
             print(f"Processing read depth {rd} and tool {tool} for plotting...")
-            if len(read_depths) == 1:
+            if len(read_depths) == 1 and len(tools) == 1:
                 ax = axes
+            elif len(read_depths) == 1:
+                ax = axes[tools.index(tool)]
             elif len(tools) == 1:
                 ax = axes[read_depths.index(rd)]
             else:
                 ax = axes[tools.index(tool), read_depths.index(rd)]
-            matrix_list = [info["matrix"] for info in all_matrices if (info["rd"] == rd) and (info["tool"] == tool)]
+
+            matrix_list = [
+                info["matrix"]
+                for info in all_matrices
+                if info["rd"] == rd and info["tool"] == tool
+            ]
 
             if not matrix_list or matrix_list[0] is None:
-                # Skip this subplot if no data available
                 ax.axis("off")
                 ax.text(
                     0.5,
@@ -441,20 +479,12 @@ def super_plot_heatmaps_real_data(
                 continue
 
             matrix = matrix_list[0]
+            row_has_data = True
 
-            if tool == "CrosscheckFingerprints":
-                cmap = plt.get_cmap("RdBu")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(
-                    matrix,
-                    cmap=cmap,
-                    vmin=-tool_extreme_points[i],
-                    vmax=tool_extreme_points[i],
-                )
-            else:
-                cmap = plt.get_cmap("Oranges")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(matrix, cmap=cmap)
+            ax.imshow(matrix, cmap=cmap, norm=norm)
+            row_mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+            row_mappable.set_array([])
+
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
             if dataset == "hgsoc":
@@ -469,26 +499,34 @@ def super_plot_heatmaps_real_data(
                 ax.set_title(f"read depth filter {rd}", pad=10, fontsize=12)
             if rd == read_depths[0]:
                 ax.set_ylabel(f"{tool}", fontsize=12)
-        # Colorbar for each row of subplots
-        cbar = fig.colorbar(
-            cax, ax=axes[i], fraction=0.2, pad=0.02, shrink=0.7
-        )
 
-    # Save figure after all subplots are complete
+        if row_has_data:
+            if len(read_depths) == 1 and len(tools) == 1:
+                row_axes = [axes]
+            elif len(read_depths) == 1:
+                row_axes = [axes[i]]
+            elif len(tools) == 1:
+                row_axes = axes
+            else:
+                row_axes = axes[i, :]
+
+            if row_mappable is not None:
+                fig.colorbar(
+                    row_mappable,
+                    ax=row_axes,
+                    fraction=0.2,
+                    pad=0.02,
+                    shrink=0.7,
+                )
+
     if save_fig:
         fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.png",
-            ),
+            os.path.join(FIGURES_PATH, f"{fig_name}.png"),
             bbox_inches="tight",
             dpi=300,
         )
         fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.pdf",
-            ),
+            os.path.join(FIGURES_PATH, f"{fig_name}.pdf"),
             bbox_inches="tight",
             dpi=300,
         )
@@ -1109,14 +1147,16 @@ def heatmap_plot_accuracy_metrics_pseudobulk_vs_sc(
     return
 
 
-def barplot_matches_nonmatches_na(DATA_PATH, tools, dataset, read_depths, mod1, mod2, save_fig=False, FIGURES_PATH=""):
+def barplot_matches_nonmatches_na(
+    DATA_PATH, tools, dataset, read_depths, mod1, mod2, save_fig=False, FIGURES_PATH=""
+):
 
     fig_name = f"barplot_matches_{dataset}_{mod1}_vs_{mod2}"
 
     results_df = count_matches_real_data(
         DATA_PATH=DATA_PATH,
         tools=tools,
-        dataset="high_grade_glioma",
+        dataset=dataset,
         read_depths=read_depths,
         mod1=mod1,
         mod2=mod2,
@@ -1128,7 +1168,8 @@ def barplot_matches_nonmatches_na(DATA_PATH, tools, dataset, read_depths, mod1, 
     total_width = (n_bars_expected + len(tools) * n_bars_tool) * 0.5
 
     fig, axes = plt.subplots(
-        1, len(tools) + 1,
+        1,
+        len(tools) + 1,
         figsize=(total_width, 3.5),
         sharey=True,
         gridspec_kw={"width_ratios": width_ratios},
@@ -1137,8 +1178,20 @@ def barplot_matches_nonmatches_na(DATA_PATH, tools, dataset, read_depths, mod1, 
     # Plot expected results in the first subfigure
     expected_df = results_df[results_df["rd"] == "expected"].iloc[0]
     axes[0].bar([0], expected_df["matches"], color="orangered", label="Matches")
-    axes[0].bar([0], expected_df["non_matches"], bottom=expected_df["matches"], color="lightsalmon", label="Non-matches")
-    axes[0].bar([0], expected_df["NA"], bottom=expected_df["matches"] + expected_df["non_matches"], color="gray", label="NA")
+    axes[0].bar(
+        [0],
+        expected_df["non_matches"],
+        bottom=expected_df["matches"],
+        color="lightsalmon",
+        label="Non-matches",
+    )
+    axes[0].bar(
+        [0],
+        expected_df["NA"],
+        bottom=expected_df["matches"] + expected_df["non_matches"],
+        color="gray",
+        label="NA",
+    )
     axes[0].set_xticks([0])
     axes[0].set_xticklabels(["expected"])
     axes[0].set_title("Expected")
@@ -1148,18 +1201,30 @@ def barplot_matches_nonmatches_na(DATA_PATH, tools, dataset, read_depths, mod1, 
     for i, tool in enumerate(tools):
         tool_df = results_df[results_df["tool"] == tool].copy()
         tool_df.set_index("rd", inplace=True)
-        
+
         x = np.arange(len(tool_df.index))
         labels = tool_df.index.astype(str)
 
-        axes[i+1].bar(x, tool_df["matches"], color="orangered", label="Matches")
-        axes[i+1].bar(x, tool_df["non_matches"], bottom=tool_df["matches"], color="lightsalmon", label="Non-matches")
-        axes[i+1].bar(x, tool_df["NA"], bottom=tool_df["matches"] + tool_df["non_matches"], color="gray", label="NA")
+        axes[i + 1].bar(x, tool_df["matches"], color="orangered", label="Matches")
+        axes[i + 1].bar(
+            x,
+            tool_df["non_matches"],
+            bottom=tool_df["matches"],
+            color="lightsalmon",
+            label="Non-matches",
+        )
+        axes[i + 1].bar(
+            x,
+            tool_df["NA"],
+            bottom=tool_df["matches"] + tool_df["non_matches"],
+            color="gray",
+            label="NA",
+        )
 
-        axes[i+1].set_xticks(x)
-        axes[i+1].set_xticklabels(labels)
-        axes[i+1].set_title(tool)
-        axes[i+1].set_xlabel("Read depth")
+        axes[i + 1].set_xticks(x)
+        axes[i + 1].set_xticklabels(labels)
+        axes[i + 1].set_title(tool)
+        axes[i + 1].set_xlabel("Read depth")
 
     fig.suptitle(f"Sample matching results for {dataset} dataset")
     plt.tight_layout()
