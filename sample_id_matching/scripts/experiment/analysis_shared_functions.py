@@ -1041,8 +1041,10 @@ def order_matrix_by_expected_matches(
     """
     mod1_col = [col for col in expected_matches.columns if mod1.lower() in col.lower()]
     mod2_col = [col for col in expected_matches.columns if mod2.lower() in col.lower()]
-    assert len(mod1_col) == 1, f"Expected exactly one {mod1} column in expected_matches"
-    assert len(mod2_col) == 1, f"Expected exactly one {mod2} column in expected_matches"
+    if len(mod1_col) != 1:
+        raise ValueError(f"Expected exactly one {mod1} column in expected_matches")
+    if len(mod2_col) != 1:
+        raise ValueError(f"Expected exactly one {mod2} column in expected_matches")
 
     mod1_series = expected_matches[mod1_col[0]]
     mod2_series = expected_matches[mod2_col[0]]
