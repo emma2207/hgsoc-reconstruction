@@ -259,8 +259,8 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
             .drop_duplicates()
             .reset_index(drop=True)
         )
-    # Make sure all entries are strings
-    expected_matches = expected_matches.astype(str)
+    # Make sure all entries are strings while preserving missing values
+    expected_matches = expected_matches.astype("string")
 
     return expected_matches
 
