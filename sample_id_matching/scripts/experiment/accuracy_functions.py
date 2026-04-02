@@ -527,7 +527,6 @@ def count_matches_real_data(DATA_PATH, tools, dataset, read_depths, mod1="bulk",
                 [col for col in inferred_matches.columns if mod2 in col],
             ]
             # Count matches, non-matches, and NAs
-            inferred_matches.shape
             total_pairs = inferred_matches.shape[0] * inferred_matches.shape[1]
             match_counts = (inferred_matches == 1).sum().sum()
             nonmatch_counts = (inferred_matches == 0).sum().sum()
