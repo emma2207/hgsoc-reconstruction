@@ -113,7 +113,7 @@ This workflow is branched into two paths: one for .vcf files getting fed into to
 - **sample-matching.yml:** yml specifying software dependencies for everything but the individual tools.
 - **run_nf_pipeline.sh:** shell script to run the whole pipeline on the cluster
 - **nextflow.config:** specifies global parameters and profiles for different execution environments. Note that the params can easily be overwritten via a command line argument at the time of execution.
-- **main.nf:** main nextflow file. This is the file that needs to be execute to execute the whole workflow. This particular main.nf is the most basic one, starting from .bam files.
+- **main.nf:** main nextflow file. This is the file that needs to be executed to run the whole workflow. This particular main.nf is the most basic one, starting from .bam files.
     - **main_from_genotype.nf:** a variation on `main.nf` where the input is .vcf instead of .bam. I.e. the genotyping has already been performed.
     - **main_missing_samples.nf:** a variation on `main_from_genotype.nf` for pseudobulk experiments where the input data is manipulated to have missing samples.
     - **main_double_samples.nf:** a variation on `main_from_genotype.nf` for pseudobulk experiments where the input data is manipulated to have samples that are doubly represented (not literally identical samples, but drawn from the same underlying sample).
@@ -130,7 +130,7 @@ Each module specifies a nextflow process that is called in main:
 - **2a_hysys.nf:** applies the tool HaveYouSwappedYourSamples and needs the conda env specified in `hysys.yml`.
 - **2a_ngscheckmate.nf:** applies the tool NGSCheckmate and needs the conda env specified in `ngscheckmate.yml`.
 - **2a_vireo.nf:** applies the tool Vireo through a python script `vireo.py`.
-- **2b_bamixchecker.mf:** applies the tool BAMixChecker needs the conda env specifie din `bamixchecker.yml`.
+- **2b_bamixchecker.mf:** applies the tool BAMixChecker needs the conda env specified in `bamixchecker.yml`.
 
 ## Parameters
 Some notes on the parameter that need to be set in `nextflow.config`.

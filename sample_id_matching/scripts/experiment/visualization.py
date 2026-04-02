@@ -107,6 +107,7 @@ def bulk_vs_singlecell_matrix_viz(
             dpi=300,
         )
 
+    plt.close(fig)
     return
 
 

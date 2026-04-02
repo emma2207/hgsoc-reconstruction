@@ -259,8 +259,8 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
             .drop_duplicates()
             .reset_index(drop=True)
         )
-    # Make sure all entries are strings
-    expected_matches = expected_matches.astype(str)
+    # Make sure all entries are strings while preserving missing values
+    expected_matches = expected_matches.astype("string")
 
     return expected_matches
 
@@ -531,7 +531,6 @@ def count_matches_real_data(
                 [col for col in inferred_matches.columns if mod2 in col],
             ]
             # Count matches, non-matches, and NAs
-            inferred_matches.shape
             total_pairs = inferred_matches.shape[0] * inferred_matches.shape[1]
             match_counts = (inferred_matches == 1).sum().sum()
             nonmatch_counts = (inferred_matches == 0).sum().sum()
