@@ -130,7 +130,7 @@ Each module specifies a nextflow process that is called in main:
 - **2a_hysys.nf:** applies the tool HaveYouSwappedYourSamples and needs the conda env specified in `hysys.yml`.
 - **2a_ngscheckmate.nf:** applies the tool NGSCheckmate and needs the conda env specified in `ngscheckmate.yml`.
 - **2a_vireo.nf:** applies the tool Vireo through a python script `vireo.py`.
-- **2b_bamixchecker.mf:** applies the tool BAMixChecker needs the conda env specifie din `bamixchecker.yml`.
+- **2b_bamixchecker.mf:** applies the tool BAMixChecker needs the conda env specified in `bamixchecker.yml`.
 
 ## Parameters
 Some notes on the parameter that need to be set in `nextflow.config`.
