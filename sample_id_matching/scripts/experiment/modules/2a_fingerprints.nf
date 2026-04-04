@@ -17,9 +17,9 @@ process CROSSCHECK_FINGERPRINTS {
 
         if [ ${params.pseudobulk} == true ]
         then 
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_modality_specific"
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
+            output_location="${params.dataset}/real_data/ncells_null/read_depth_modality_specific" 
         fi
         mkdir -p \$output_location
 

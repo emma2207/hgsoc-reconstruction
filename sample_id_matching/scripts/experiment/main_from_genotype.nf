@@ -24,13 +24,11 @@ workflow {
     if (!params.pseudobulk) {
         modalities = ["bulk_dissociated_polyA", "single-cell"]
         vcf_files = channel.fromPath(
-        //"${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz"
-        "${params.projectDir}/intersection_results/*.vcf.gz"
+        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz"
         )
         .view { x -> "VCF Files: ${x}"}
         index_files = channel.fromPath(
-        //"${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
-        "${params.projectDir}/intersection_results/*.vcf.gz.csi"
+        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
         )
         .view { x -> "Index Files: ${x}"}
     } else {
