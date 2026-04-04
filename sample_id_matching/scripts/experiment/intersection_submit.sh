@@ -46,7 +46,7 @@ echo "Found ${#vcf_files[@]} VCF files."
 
 # # Intersect variant data with GnomAD variants of with $sample_id in their name
 for file in "${vcf_files[@]}"; do
-    python intersection_test.py "${data_location}/${file}"
+    python intersection_gnomad.py "${data_location}/${file}"
 done
 
 # Index the resulting .vcf.gz files
