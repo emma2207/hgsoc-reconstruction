@@ -1,0 +1,13 @@
+name: analysis
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python
+  - pandas
+  - numpy
+  - scipy
+  - matplotlib
+  - matplotlib-venn
+  - scikit-learn
