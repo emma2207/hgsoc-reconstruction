@@ -26,12 +26,12 @@ workflow {
         "${params.dataDir}/fastq/Pool*-GEX-*_R{1,2}_*.fastq.gz", 
         flat: true
         )
-    barcode_files = channel.fromPath(
-        "${params.dataDir}/Pool*-GEX-*/outs/filtered_feature_bc_matrix/barcodes.tsv.gz", 
-        ).map { barcode_file ->
-            def pool = extractPool(barcode_file, 'barcode path')
-            tuple(pool, barcode_file)
-        }
+    // barcode_files = channel.fromPath(
+    //     "${params.dataDir}/Pool*-GEX-*/outs/filtered_feature_bc_matrix/barcodes.tsv.gz", 
+    //     ).map { barcode_file ->
+    //         def pool = extractPool(barcode_file, 'barcode path')
+    //         tuple(pool, barcode_file)
+    //     }
     ref_vcf_file = channel.fromPath(
         "${params.refVcfDir}/${params.dataset}/real_data/ncells_null/read_depth_0/${params.ref_modality}_modality_variants.vcf.gz"
         )
@@ -53,7 +53,7 @@ workflow {
     aligned_reads = STAR_ALIGNMENT(star_input)
 
     // Run genotyping with cellSNP-lite
-    genotyping_input = aligned_reads.join(barcode_files)
+    genotyping_input = aligned_reads
         .map { pool, bam, bai, barcodes -> tuple(pool, bam, bai, barcodes) }
     genotyping_output = GENOTYPING(genotyping_input)
 

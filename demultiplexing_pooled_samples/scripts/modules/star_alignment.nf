@@ -11,7 +11,9 @@ process STAR_ALIGNMENT {
 	output:
 	tuple val(pool), 
 		path("star/${params.dataset}/pool${pool}/Aligned.sortedByCoord.out.bam"), 
-		path("star/${params.dataset}/pool${pool}/Aligned.sortedByCoord.out.bam.bai")
+		path("star/${params.dataset}/pool${pool}/Aligned.sortedByCoord.out.bam.bai"),
+		path("star/${params.dataset}/pool${pool}/Solo.out/Gene/filtered/barcodes.tsv")
+	
 
 	script:
 	def fastq_r1_arg = fastq_r1.collect { fastq -> fastq.toString() }.join(',')
@@ -38,17 +40,6 @@ process STAR_ALIGNMENT {
 	echo "FASTQ R2: ${fastq_r2_arg}"
 	echo "Reference Genome: ${params.refGenome}"
 
-	whitelist="${params.whitelist}"
-	if [ -f "\$whitelist" ]; then
-		echo "Using barcode whitelist: \$whitelist"
-	elif [ -f "${params.refGenome}/../\$whitelist" ]; then
-		whitelist="${params.refGenome}/../\$whitelist"
-		echo "Using barcode whitelist: \$whitelist"
-	else
-		echo "WARNING: barcode whitelist not found ('\$whitelist'); falling back to '--soloCBwhitelist None'"
-		whitelist="None"
-	fi
-
 	# Run STAR alignment
 	STAR \
 		--outSAMtype BAM SortedByCoordinate \
@@ -58,7 +49,7 @@ process STAR_ALIGNMENT {
 		--soloCBlen 16 \
 		--soloUMIstart 17 \
 		--soloUMIlen 12 \
-		--soloBarcodeReadLength 0 \
+		--soloBarcodeReadLength 1 \
 		--outSAMattributes NH HI AS nM CB UB \
 		--genomeDir "${params.refGenome}/star" \
 		--runThreadN 6 \

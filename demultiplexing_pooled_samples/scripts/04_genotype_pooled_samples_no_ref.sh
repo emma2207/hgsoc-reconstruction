@@ -49,3 +49,4 @@ cellsnp-lite \
 	--minMAF=0.1 \
 	--minCOUNT=20 \
 	--gzip
+
