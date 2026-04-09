@@ -24,12 +24,9 @@ datatype="pooled_sc"
 
 # Location is /scratch/alpine/$USER/hgsoc/demultiplexing
 
-
-
 cellranger count \
 	--id=pool$pool \
 	--transcriptome="/projects/$USER/hgsoc/refdata-gex-GRCh38-2024-A" \
 	--fastqs="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/$datatype/fastq" \
 	--sample=Pool$pool-GEX \
-	--nosecondary \
-	--output-dir="/projects/$USER/test"
+	--nosecondary
