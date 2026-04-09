@@ -6,6 +6,7 @@ hl.init()
 input_file = sys.argv[1]
 filename = input_file.split("/")[-1]
 sample_name = filename.split(".")[0]
+output_location = sys.argv[2]
 
 mt = hl.import_vcf(
     input_file,
@@ -22,5 +23,12 @@ sites = hl.read_table(
 # Keep only rows where (locus, alleles) exists in gnomAD sites
 mt = mt.filter_rows(hl.is_defined(sites[mt.row_key]))
 
-mt.write(f"intersection_{sample_name}.mt", overwrite=True)
+# Run variant QC to compute allele frequencies
+mt = hl.variant_qc(mt)
+
+# Filter rows based on MAF (e.g., > 1% / 0.01)
+mt_filtered = mt.filter_rows(mt.variant_qc.AF[0] > 0.01)
+
+hl.export_vcf(mt_filtered, f"{output_location}/{sample_name}.vcf.bgz")
+
 print("The end!")

@@ -1,11 +1,11 @@
 #!/bin/sh
 
-#SBATCH --array=1-8
+#SBATCH --array=1-9
 #SBATCH --nodes=1
 #SBATCH --qos=normal
 #SBATCH --partition=amilan
 #SBATCH --mem=8G
-#SBATCH --time=1:00:00
+#SBATCH --time=6:00:00
 #SBATCH --ntasks=1
 #SBATCH --account=amc-general
 #SBATCH --job-name=intersect
@@ -31,7 +31,7 @@ sample_ids=(
 
 original_location=$(pwd)
 data_location="${original_location}/results/1a_individual_vcf/hgsoc/real_data/bulk_dissociated_polyA_vs_single-cell/ncells_null"
-output_location="${original_location}/intersection_results"
+output_location="${original_location}/intersection_results_maf_001"
 
 mkdir -p $output_location
 
@@ -46,13 +46,14 @@ echo "Found ${#vcf_files[@]} VCF files."
 
 # # Intersect variant data with GnomAD variants of with $sample_id in their name
 for file in "${vcf_files[@]}"; do
-    python intersection_gnomad.py "${data_location}/${file}"
+    python intersection_gnomad.py "${data_location}/${file}" "${output_location}"
 done
 
-# Index the resulting .vcf.gz files
+# Index the resulting .vcf.bgz files
 for file in "${vcf_files[@]}"; do
-    zcat ${output_location}/${file} | bgzip -c > ${output_location}/${file}.tmp
-    mv ${output_location}/${file}.tmp ${output_location}/${file}
-    bcftools index ${output_location}/${file}
+    sample_base="${file%.vcf.gz}"
+    out_vcf="${output_location}/${sample_base}.vcf.bgz"
+    bcftools index -f -t "${out_vcf}"
 done
+
 
