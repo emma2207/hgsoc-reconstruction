@@ -29,4 +29,6 @@ cellranger count \
 	--transcriptome="/projects/$USER/hgsoc/refdata-gex-GRCh38-2024-A" \
 	--fastqs="/pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/$datatype/fastq" \
 	--sample=Pool$pool-GEX \
-	--nosecondary
+	--nosecondary \
+	--localcores=$SLURM_NTASKS \
+	--localmem=60
