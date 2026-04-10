@@ -24,11 +24,13 @@ workflow {
     if (!params.pseudobulk) {
         modalities = ["bulk_dissociated_polyA", "single-cell"]
         vcf_files = channel.fromPath(
-        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz"
+        // "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz"
+        "${params.outdir}/*.vcf.bgz"
         )
         .view { x -> "VCF Files: ${x}"}
         index_files = channel.fromPath(
-        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
+        // "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
+        "${params.outdir}/*.vcf.bgz.csi"
         )
         .view { x -> "Index Files: ${x}"}
     } else {
@@ -56,7 +58,7 @@ workflow {
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
     VIREO_MATCH(filtered_vcfs.modality_vcfs.collect())
-    NGSCHECKMATE(filtered_vcfs.individual_vcfs)
-    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
-    HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs.collect())
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs.collect())
+    HYSYS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
 }

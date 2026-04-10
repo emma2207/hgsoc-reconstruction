@@ -107,7 +107,10 @@ process MERGE_AND_FILTER_VCFS {
         # Filter individual VCF inputs by modality-specific read depth
         for vcf_file in ${individual_vcfs}
         do
-            sample_id=\$(basename "\$vcf_file" .vcf.gz)
+            sample_id=\$(basename "\$vcf_file")
+            sample_id=\${sample_id%.vcf.bgz}
+            sample_id=\${sample_id%.vcf.gz}
+            sample_id=\${sample_id%.vcf}
             sample_mod="default"
 
             for mod in "\${MODS[@]}"

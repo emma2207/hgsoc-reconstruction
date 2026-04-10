@@ -40,6 +40,7 @@ process HYSYS {
         do
             # get filename
             base_name=\$(basename "\$file")
+            base_name=\${base_name%.vcf.bgz}
             base_name=\${base_name%.vcf.gz}
             base_name=\${base_name%.vcf}
 
@@ -59,9 +60,9 @@ process HYSYS {
             # Add file-path to list
             for mod in ${modalities.join(' ')}
             do  
-                if [[ "\$base_name" == *"\$mod"* ]]
+                if [[ "\$base_name" == *"\$mod"* || ("\$mod" == "bulk_dissociated_polyA" && "\$base_name" == *"bulk_diss_polyA"*) ]]
                 then
-                    if ! [[ \$file == *"2507"* && \$file == *"bulk_diss_polyA"* ]]
+                    if ! [[ \$file == *"2507"* && (\$file == *"bulk_diss_polyA"* || \$file == *"bulk_dissociated_polyA"*) ]]
                     then
                         echo "\${output_location}/\${base_name}.snps" >> \\
                             \${output_location}/sample_list_\${mod}.txt
