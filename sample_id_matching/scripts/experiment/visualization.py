@@ -357,7 +357,11 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
 ):
 
     fig_name = f"superplot_pseudobulk_{dataset}_rd_{rd}_all_samples_similarity_matrix"
-    super_extreme_point = 0
+    fontsize = 16
+    super_extreme_point = -np.inf
+    tool_extreme_points = {t: 0 for t in tools}
+    row_has_data = {t: False for t in tools}
+    row_mappables = {t: None for t in tools}
     all_matrices = []
 
     # Find all the data for the plots
@@ -383,12 +387,12 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                     {"ncells": ncells, "tool": tool, "matrix": matrix_filtered}
                 )
 
-                # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
-                extreme_point = max(
-                    abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
-                )
+                # in the "Find all the data for the plots" loop, keep current logic and also update per-tool max
+                extreme_point = max(abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max()))
                 if extreme_point > super_extreme_point:
                     super_extreme_point = extreme_point
+                if extreme_point > tool_extreme_points[tool]:
+                    tool_extreme_points[tool] = extreme_point
 
     # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
@@ -402,9 +406,9 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
     if len(tools) == 1:
         yval = 1.1
     else:
-        yval = 0.98
+        yval = 1.0
     fig.suptitle(
-        f"{dataset} pseudobulks - sample similarity matrices", fontsize=16, y=yval
+        f"{dataset} pseudobulks - sample similarity matrices", fontsize=fontsize+4, y=yval
     )
 
     for ncells in ncells_list:
@@ -431,48 +435,73 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                     ha="center",
                     va="center",
                     transform=ax.transAxes,
-                    fontsize=12,
+                    fontsize=fontsize,
                 )
                 continue
 
             matrix = matrix_list[0]
 
+            # in plotting loop, replace imshow branch with row-normalized plotting
             if tool == "CrosscheckFingerprints":
-                cmap = plt.get_cmap("RdBu")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(
-                    matrix,
-                    cmap=cmap,
-                    vmin=-super_extreme_point,
-                    vmax=super_extreme_point,
+                cmap = plt.get_cmap("RdBu").copy()
+                norm = colors.Normalize(
+                    vmin=-tool_extreme_points[tool],
+                    vmax=tool_extreme_points[tool],
                 )
             else:
-                cmap = plt.get_cmap("Oranges")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(matrix, cmap=cmap)
+                cmap = plt.get_cmap("Oranges").copy()
+                norm = colors.Normalize(
+                    vmin=0,
+                    vmax=tool_extreme_points[tool],
+                )
+            cmap.set_bad(color="lightgrey")
+
+            ax.imshow(matrix, cmap=cmap, norm=norm)
+            row_has_data[tool] = True
+            row_mappables[tool] = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+            row_mappables[tool].set_array([])
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
             # Add title with ncells to the top row
             if tool == tools[0]:
-                ax.set_title(f"{ncells} cells", pad=10, fontsize=12)
-            # Add text with read depth to the right column
-            if ncells == ncells_list[-1]:
-                ax.text(
-                    1.05,
-                    0.5,
-                    f"Read depth filter: {rd}",
-                    transform=ax.transAxes,
-                    fontsize=12,
-                    rotation=90,
-                    va="center",
-                )
+                ax.set_title(f"{ncells} cells", pad=10, fontsize=fontsize)
+    # Add text with tool name to the left of each row
+    for itool, tool in enumerate(reversed(tools)):
+        fig.text(
+            -3.4,
+            0.5 + itool * 1.05,
+            f"{tool}",
+            transform=ax.transAxes,
+            fontsize=fontsize,
+            rotation=90,
+            va="center",
+        )
 
-    # Add one common colorbar for all subplots
-    # cbar = fig.colorbar(
-    #     cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5
-    # )
+    # one colorbar per row/tool
+    for i, tool in enumerate(tools):
+        if not row_has_data[tool] or row_mappables[tool] is None:
+            continue
+
+        if len(tools) == 1 and len(ncells_list) == 1:
+            row_axes = [axes]
+        elif len(tools) == 1:
+            row_axes = axes  # 1D over columns
+        elif len(ncells_list) == 1:
+            row_axes = [axes[i]]  # 1D over rows
+        else:
+            row_axes = axes[i, :]  # full row
+
+        cbar = fig.colorbar(
+            row_mappables[tool],
+            ax=row_axes,
+            fraction=0.08,
+            pad=0.03,
+            shrink=0.75,
+            aspect=18,
+        )
+        cbar.ax.tick_params(labelsize=fontsize)
 
     if save_fig:
         fig.savefig(
