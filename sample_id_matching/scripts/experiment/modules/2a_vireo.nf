@@ -13,12 +13,22 @@ process VIREO_MATCH {
         path("${params.dataset}/*/*/*/matched_samples.csv")
 
     script:
+        def resolvedReadDepth =
+            (params.read_depth instanceof Map)
+                ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
+                : ["default": params.read_depth]
+
+        def pseudobulkReadDepth =
+            (resolvedReadDepth instanceof Map)
+                ? (resolvedReadDepth.default ?: 0)
+                : resolvedReadDepth
+
         """
         set -euo pipefail
 
         if [ ${params.pseudobulk} == true ]
         then 
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_modality_specific"
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
             mkdir -p \$output_location
 
             python ${params.projectDir}/modules/vireo.py \

@@ -17,17 +17,33 @@ process MERGE_AND_FILTER_VCFS {
         path("${params.dataset}/*/*/*/filtered_variants_*_rd_*.vcf.gz")
 
     script:
-        def datasetReadDepth =
-            (params.read_depth instanceof Map)
-                ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
-                : ["default": params.read_depth]
+            def resolvedReadDepth =
+                (params.read_depth instanceof Map)
+                    ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
+                    : ["default": params.read_depth]
 
-        def readDepthPairs = datasetReadDepth.collect { k, v -> "${k}:${v}" }.join(',')
+            def resolvedDefault =
+                (resolvedReadDepth instanceof Map)
+                    ? (resolvedReadDepth.default ?: 0)
+                    : resolvedReadDepth
+
+            // For pseudobulk, force all modalities to use default read depth
+            def datasetReadDepth =
+                is_pseudobulk
+                    ? ["default": resolvedDefault]
+                    : resolvedReadDepth
+
+            def readDepthPairs = datasetReadDepth.collect { k, v -> "${k}:${v}" }.join(',')
+
+            def pseudobulkReadDepth =
+                (datasetReadDepth instanceof Map)
+                    ? (datasetReadDepth.default ?: 0)
+                    : datasetReadDepth
 
         """
         if [ ${is_pseudobulk} == true ]
         then
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_modality_specific"
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
         else
             output_location="${params.dataset}/real_data/ncells_null/read_depth_modality_specific"
         fi
