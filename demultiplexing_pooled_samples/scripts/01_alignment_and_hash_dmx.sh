@@ -16,12 +16,14 @@
 
 set -euo pipefail
 
+module purge
 module use --append /projects/$USER/lmod-files
 module load cellranger/9.0.1
 # module load cellranger/7.1.0
 
 # Work around a Cell Ranger 9 telemetry collector crash seen on some HPC runs.
 export TENX_DISABLE_TELEMETRY=true
+export MRO_DISK_SPACE_CHECK=disable
 
 export pool=$SLURM_ARRAY_TASK_ID
 SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"
@@ -30,6 +32,22 @@ CSV_PATH="${SUBMIT_DIR}/cellranger_input/cellranger_multi_input_pool${pool}.csv"
 if [[ ! -f "${CSV_PATH}" ]]; then
 	echo "ERROR: Missing Cell Ranger CSV: ${CSV_PATH}" >&2
 	exit 1
+fi
+
+echo "Cell Ranger executable: $(command -v cellranger)"
+echo "Cell Ranger version: $(cellranger --version)"
+
+REF_PATH=$(awk -F',' '$1=="reference" {print $2; exit}' "${CSV_PATH}" | tr -d '"')
+if [[ -n "${REF_PATH}" ]]; then
+	echo "Reference path from CSV: ${REF_PATH}"
+	if [[ -f "${REF_PATH}/star/genomeParameters.txt" ]]; then
+		echo "STAR genomeParameters metadata:"
+		grep -E '^(versionGenome|genomeType)' "${REF_PATH}/star/genomeParameters.txt" || true
+	else
+		echo "WARNING: Missing ${REF_PATH}/star/genomeParameters.txt"
+	fi
+else
+	echo "WARNING: Could not parse a reference path from ${CSV_PATH}"
 fi
 
 LOCALCORES="${SLURM_CPUS_PER_TASK:-16}"
