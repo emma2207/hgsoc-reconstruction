@@ -43,6 +43,18 @@ if [[ -n "${REF_PATH}" ]]; then
 	if [[ -f "${REF_PATH}/star/genomeParameters.txt" ]]; then
 		echo "STAR genomeParameters metadata:"
 		grep -E '^(versionGenome|genomeType)' "${REF_PATH}/star/genomeParameters.txt" || true
+		STAR_INDEX_VERSION=$(awk '$1=="versionGenome" {print $2; exit}' "${REF_PATH}/star/genomeParameters.txt")
+		# Cell Ranger 9 bundles STAR 2.7.11b, which removed the 'genomeType' parameter.
+		# Any index built by standalone STAR (including 2.7.10b) still writes 'genomeType',
+		# causing a fatal error. The fix is to build the reference with 'cellranger mkref'
+		# (which uses CR9's own bundled STAR). Run 00_mkref_for_cellranger.sh, then update
+		# the 'reference' field in your cellranger_multi input CSV to the new path.
+		if [[ "${STAR_INDEX_VERSION}" != "2.7.11b" ]]; then
+			echo "ERROR: STAR index at ${REF_PATH}/star was built with versionGenome=${STAR_INDEX_VERSION}." >&2
+			echo "Cell Ranger 9 requires an index built with its own bundled STAR 2.7.11b." >&2
+			echo "Run 00_mkref_for_cellranger.sh to build a compatible reference, then update your CSV." >&2
+			exit 1
+		fi
 	else
 		echo "WARNING: Missing ${REF_PATH}/star/genomeParameters.txt"
 	fi
