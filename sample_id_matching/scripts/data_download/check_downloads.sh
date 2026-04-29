@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# Check whether all files are present for each dataset and data type, and report any missing accessions.
+
 datasets=("central_nervous_system_tumor" "central_nervous_system_tumor" "hgsoc_ariel" "high_grade_glioma" "high_grade_glioma" "low_grade_glioma" "wilms_tumor" "wilms_tumor")
 data_types=("bulk" "single-nucleus" "all" "bulk" "single-cell" "all" "bulk" "single-nucleus")
 

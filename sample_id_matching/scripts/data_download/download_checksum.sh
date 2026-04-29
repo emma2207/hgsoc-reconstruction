@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Verify the integrity of downloaded files by comparing their MD5 checksums against expected values.
+
 set -u
 
 usage() {
