@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildReadDepthContext } from './helpers/read_depth_utils'
+
 process MERGE_AND_FILTER_VCFS {
     conda "${params.conda}/sample-matching"
     publishDir "${params.outdir}/1a_vcf", mode: 'copy'
@@ -11,41 +13,30 @@ process MERGE_AND_FILTER_VCFS {
         val is_pseudobulk
 
     output:
-        path("${params.dataset}/*/*/*/*_modality_variants.vcf.gz"), emit: modality_vcfs
-        path("${params.dataset}/*/*/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
-        path("${params.dataset}/*/*/*/all_variants.vcf.gz")
-        path("${params.dataset}/*/*/*/filtered_variants_*_rd_*.vcf.gz")
+        path("${params.dataset}/**/*_modality_variants.vcf.gz"), emit: modality_vcfs
+        path("${params.dataset}/**/*_individual_variants.vcf.gz"), emit: individual_vcfs
+        path("${params.dataset}/**/all_variants.vcf.gz")
+        path("${params.dataset}/**/filtered_variants_*_rd_*.vcf.gz")
 
     script:
-            def resolvedReadDepth =
-                (params.read_depth instanceof Map)
-                    ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
-                    : ["default": params.read_depth]
+            def readDepthContext = buildReadDepthContext(
+                params.read_depth,
+                params.dataset,
+                is_pseudobulk,
+                modalities
+            )
 
-            def resolvedDefault =
-                (resolvedReadDepth instanceof Map)
-                    ? (resolvedReadDepth.default ?: 0)
-                    : resolvedReadDepth
-
-            // For pseudobulk, force all modalities to use default read depth
-            def datasetReadDepth =
-                is_pseudobulk
-                    ? ["default": resolvedDefault]
-                    : resolvedReadDepth
-
-            def readDepthPairs = datasetReadDepth.collect { k, v -> "${k}:${v}" }.join(',')
-
-            def pseudobulkReadDepth =
-                (datasetReadDepth instanceof Map)
-                    ? (datasetReadDepth.default ?: 0)
-                    : datasetReadDepth
+            def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
+            def readDepthPairs = readDepthContext.readDepthPairs
+            def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
+            def realDataNcellsPath = readDepthContext.realDataNcellsPath
 
         """
         if [ ${is_pseudobulk} == true ]
         then
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_modality_specific"
+            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}"
         fi
 
         all_variants_output="\${output_location}/all_variants.vcf.gz"

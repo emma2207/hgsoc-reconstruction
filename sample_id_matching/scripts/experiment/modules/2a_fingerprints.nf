@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildReadDepthContext } from './helpers/read_depth_utils'
+
 process CROSSCHECK_FINGERPRINTS {
     conda "${params.conda}/fingerprints"
     publishDir "${params.outdir}/2a_fingerprints", mode: 'copy'
@@ -7,20 +9,22 @@ process CROSSCHECK_FINGERPRINTS {
     
     input:
         path(vcf)
+        val(modalities)
     
     output:
-        path("${params.dataset}/*/*/*/crosscheck_metrics.txt")
+        path("${params.dataset}/**/crosscheck_metrics.txt")
 
     script:
-        def resolvedReadDepth =
-            (params.read_depth instanceof Map)
-                ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
-                : ["default": params.read_depth]
+        def readDepthContext = buildReadDepthContext(
+            params.read_depth,
+            params.dataset,
+            params.pseudobulk,
+            modalities
+        )
 
-        def pseudobulkReadDepth =
-            (resolvedReadDepth instanceof Map)
-                ? (resolvedReadDepth.default ?: 0)
-                : resolvedReadDepth
+        def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
+        def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
+        def realDataNcellsPath = readDepthContext.realDataNcellsPath
 
         """
         set -euo pipefail
@@ -29,7 +33,7 @@ process CROSSCHECK_FINGERPRINTS {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_modality_specific" 
+            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}" 
         fi
         mkdir -p \$output_location
 

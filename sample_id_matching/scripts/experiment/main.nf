@@ -74,9 +74,9 @@ workflow {
     filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect())
-    NGSCHECKMATE(filtered_vcfs.individual_vcfs)
-    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs)
+    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, mod_channel.collect())
     HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs

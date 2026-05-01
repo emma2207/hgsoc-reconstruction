@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildReadDepthContext } from './helpers/read_depth_utils'
+
 process HYSYS {
     conda "${params.conda}/hysys"
     publishDir "${params.outdir}/2a_hysys", mode: 'copy'
@@ -10,19 +12,20 @@ process HYSYS {
         val(modalities)
     
     output:
-        path("${params.dataset}/*/*/*/concordance_output.txt")
-        path("${params.dataset}/*/*/*/model_results.txt")
+        path("${params.dataset}/**/concordance_output.txt")
+        path("${params.dataset}/**/model_results.txt")
     
     script:
-        def resolvedReadDepth =
-            (params.read_depth instanceof Map)
-                ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
-                : ["default": params.read_depth]
+        def readDepthContext = buildReadDepthContext(
+            params.read_depth,
+            params.dataset,
+            params.pseudobulk,
+            modalities
+        )
 
-        def pseudobulkReadDepth =
-            (resolvedReadDepth instanceof Map)
-                ? (resolvedReadDepth.default ?: 0)
-                : resolvedReadDepth
+        def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
+        def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
+        def realDataNcellsPath = readDepthContext.realDataNcellsPath
 
         """
         set -euo pipefail
@@ -31,7 +34,7 @@ process HYSYS {
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_modality_specific" 
+            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}" 
         fi
         mkdir -p \$output_location
 

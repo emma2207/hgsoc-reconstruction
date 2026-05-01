@@ -71,8 +71,8 @@ workflow {
 
     mod_channel = pseudobulk_modality_channel.mix(sc_modality_channel).collect()
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    VIREO_MATCH(modality_vcfs)
-    NGSCHECKMATE(individual_vcfs)
-    CROSSCHECK_FINGERPRINTS(individual_vcfs)
+    VIREO_MATCH(modality_vcfs, mod_channel)
+    NGSCHECKMATE(individual_vcfs, mod_channel)
+    CROSSCHECK_FINGERPRINTS(individual_vcfs, mod_channel)
     HYSYS(individual_vcfs, mod_channel)
 }

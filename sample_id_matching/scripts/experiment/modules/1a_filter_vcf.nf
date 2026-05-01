@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildReadDepthContext } from './helpers/read_depth_utils'
+
 process FILTER_VCF {
     conda "${params.conda}/sample-matching"
     publishDir "${params.outdir}/1a_vcf", mode: 'copy'
@@ -9,24 +11,29 @@ process FILTER_VCF {
         val(modalities)
 
     output:
-        path("${params.dataset}/*/*/*/*_individual_variants.vcf.gz"), emit: individual_vcfs
-        path("${params.dataset}/*/*/*/*_modality_variants.vcf.gz")
-        path("${params.dataset}/*/*/*/filtered_variants_*_rd_*.vcf.gz"), emit: modality_vcfs
+        path("${params.dataset}/**/*_individual_variants.vcf.gz"), emit: individual_vcfs
+        path("${params.dataset}/**/*_modality_variants.vcf.gz")
+        path("${params.dataset}/**/filtered_variants_*_rd_*.vcf.gz"), emit: modality_vcfs
 
     script:
-        def datasetReadDepth =
-            (params.read_depth instanceof Map)
-                ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
-                : ["default": params.read_depth]
+        def readDepthContext = buildReadDepthContext(
+            params.read_depth,
+            params.dataset,
+            params.pseudobulk,
+            modalities
+        )
 
-        def readDepthPairs = datasetReadDepth.collect { k, v -> "${k}:${v}" }.join(',')
+        def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
+        def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
+        def readDepthPairs = readDepthContext.readDepthPairs
+        def realDataNcellsPath = readDepthContext.realDataNcellsPath
 
         """
         if [ ${params.pseudobulk} == true ]
         then 
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_modality_specific"
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_modality_specific" 
+            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}" 
         fi
         mkdir -p \$output_location
 

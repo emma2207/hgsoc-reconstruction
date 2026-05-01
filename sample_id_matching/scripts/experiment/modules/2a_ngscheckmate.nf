@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildReadDepthContext } from './helpers/read_depth_utils'
+
 process NGSCHECKMATE {
     conda "${params.conda}/ngscheckmate"
     publishDir "${params.outdir}/2a_ngscheckmate", mode: 'copy'
@@ -7,22 +9,24 @@ process NGSCHECKMATE {
     
     input:
         path(vcf)
+        val(modalities)
     
     output:
-        path("${params.dataset}/*/*/*/output_all.txt")
-        path("${params.dataset}/*/*/*/output_matched.txt")
-        path("${params.dataset}/*/*/*/output_output_corr_matrix.txt")
+        path("${params.dataset}/**/output_all.txt")
+        path("${params.dataset}/**/output_matched.txt")
+        path("${params.dataset}/**/output_output_corr_matrix.txt")
 
     script:
-        def resolvedReadDepth =
-            (params.read_depth instanceof Map)
-                ? (params.read_depth[params.dataset] ?: params.read_depth.default ?: ["default": 0])
-                : ["default": params.read_depth]
+        def readDepthContext = buildReadDepthContext(
+            params.read_depth,
+            params.dataset,
+            params.pseudobulk,
+            modalities
+        )
 
-        def pseudobulkReadDepth =
-            (resolvedReadDepth instanceof Map)
-                ? (resolvedReadDepth.default ?: 0)
-                : resolvedReadDepth
+        def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
+        def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
+        def realDataNcellsPath = readDepthContext.realDataNcellsPath
 
         """
         set -euo pipefail
@@ -31,7 +35,7 @@ z
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_modality_specific" 
+            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}" 
         fi
         mkdir -p \$output_location
 
