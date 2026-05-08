@@ -22,15 +22,13 @@ include { VIREO_MATCH } from './modules/2a_vireo'
 workflow {
     // Find all bams with the listed datatypes
     if (!params.pseudobulk) {
-        modalities = ["bulk_dissociated_polyA", "single-cell"]
+        modalities = ["bulk", "single-cell"]
         vcf_files = channel.fromPath(
-        // "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz"
-        "${params.outdir}/*.vcf.bgz"
+        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz"
         )
         .view { x -> "VCF Files: ${x}"}
         index_files = channel.fromPath(
-        // "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
-        "${params.outdir}/*.vcf.bgz.csi"
+        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
         )
         .view { x -> "Index Files: ${x}"}
     } else {
