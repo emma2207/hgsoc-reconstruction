@@ -30,7 +30,7 @@ process NGSCHECKMATE {
 
         """
         set -euo pipefail
-z
+
         if [ ${params.pseudobulk} == true ]
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"

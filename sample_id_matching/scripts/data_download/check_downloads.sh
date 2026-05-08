@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Check whether all files are present for each dataset and data type, and report any missing accessions.
 
