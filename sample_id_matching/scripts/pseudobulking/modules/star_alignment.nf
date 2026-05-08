@@ -53,7 +53,7 @@ process ALIGNMENT_WITH_STAR {
 			--outSAMattributes NH HI AS nM CB UB \
 			--genomeDir ${params.refGenome} \
 			--runThreadN 6 \
-			--readFilesIn "$fastq_r2" "$fastq_r1" \
+			--readFilesIn $fastq_r2 $fastq_r1 \
 			--quantMode GeneCounts \
 			--readFilesCommand gunzip -c \
 			--outFileNamePrefix "\${output_location}/"
