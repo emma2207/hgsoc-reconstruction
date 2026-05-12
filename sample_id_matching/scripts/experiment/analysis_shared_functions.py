@@ -1,5 +1,6 @@
 import os
 import re
+import glob
 import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
@@ -9,6 +10,58 @@ dataset_regex_dict = {
     "hgsoc-new": r"ds.[a-zA-Z0-9]{32}_",
     "low_grade_glioma": r"^GSM[0-9]{7}_",
 }
+
+
+def _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2):
+    """Return the dataset-relative base folder used by analysis outputs."""
+    if pseudobulk:
+        return os.path.join(dataset, "pseudobulk", f"ncells_{ncells}")
+    if dataset == "hgsoc":
+        return os.path.join(dataset, "real_data", f"{mod1}_vs_{mod2}", "ncells_null")
+    return os.path.join(dataset, "real_data", "ncells_null")
+
+
+def _normalize_read_depth_tag(rd):
+    """Normalize read-depth value to a tag without the read_depth_ prefix."""
+    rd_tag = str(rd)
+    if rd_tag.startswith("read_depth_"):
+        rd_tag = rd_tag.replace("read_depth_", "", 1)
+    return rd_tag
+
+
+def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2):
+    """Resolve a read-depth directory for both legacy scalar and new modality-specific tags."""
+    base_path = os.path.join(DATA_PATH, tool, _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2))
+    rd_tag = _normalize_read_depth_tag(rd)
+
+    exact_path = os.path.join(base_path, f"read_depth_{rd_tag}")
+    if os.path.exists(exact_path):
+        return exact_path
+
+    prefixed_matches = sorted(glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*")))
+    if len(prefixed_matches) == 1:
+        return prefixed_matches[0]
+
+    all_matches = sorted(glob.glob(os.path.join(base_path, "read_depth_*")))
+
+    # Support modality-specific tags when rd is scalar, e.g.
+    # read_depth_bulk_dissociated_polyA_20_single-cell_20 for rd=20.
+    token_matches = []
+    for candidate in all_matches:
+        candidate_tag = os.path.basename(candidate).replace("read_depth_", "", 1)
+        tokens = re.split(r"[_-]", candidate_tag)
+        if rd_tag in tokens:
+            token_matches.append(candidate)
+    if len(token_matches) == 1:
+        return token_matches[0]
+
+    if len(all_matches) == 1:
+        return all_matches[0]
+
+    raise FileNotFoundError(
+        f"Could not resolve read depth path under {base_path} for rd={rd}. "
+        f"Found {len(all_matches)} candidate read_depth directories."
+    )
 
 
 def matches_matrix_to_pair_df(matrix):
@@ -447,21 +500,17 @@ def parse_heatmap_matrix_crosscheckfingerprints(
         - df: long format dataframe with columns [LEFT_SAMPLE, RIGHT_SAMPLE, LOD_SCORE, RESULT]
         - matrix: square dataframe with samples as rows and columns, values are the LOD_SCOREs
     """
-    if pseudobulk:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/crosscheck_metrics.txt",
-        )
-    elif pseudobulk is False and dataset == "hgsoc":
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_fingerprints/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/crosscheck_metrics.txt",
-        )
-    else:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{rd}/crosscheck_metrics.txt",
-        )
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_fingerprints",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "crosscheck_metrics.txt")
     df = pd.read_csv(
         file_path,
         sep="\t",
@@ -512,21 +561,17 @@ def parse_heatmap_matrix_hysys(
         - df: long format dataframe with columns [Sample, Concordance, Size]
         - matrix: square dataframe with samples as rows and columns, values are the Concordance values
     """
-    if pseudobulk:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/concordance_output.txt",
-        )
-    elif pseudobulk is False and dataset == "hgsoc":
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_hysys/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/concordance_output.txt",
-        )
-    else:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/concordance_output.txt",
-        )
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_hysys",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "concordance_output.txt")
 
     df = pd.read_csv(
         file_path,
@@ -540,6 +585,7 @@ def parse_heatmap_matrix_hysys(
     else:
         regex_exp = ""
 
+    rd_tag = os.path.basename(rd_path).replace("read_depth_", "", 1)
     rename_dict = {
         x: re.sub(
             regex_exp,
@@ -549,7 +595,7 @@ def parse_heatmap_matrix_hysys(
             .replace("pseudobulk/", "")
             .replace("real_data/", "")
             .replace(f"ncells_{ncells}/", "")
-            .replace(f"read_depth_{rd}/", ""),
+            .replace(f"read_depth_{rd_tag}/", ""),
         )
         for x in list(set(df.index) | set(df[1]))
     }
@@ -585,21 +631,17 @@ def parse_heatmap_matrix_ngscheckmate(
         - df: long format dataframe with columns [Matched, Sample, Binary, Correlation]
         - matrix: square dataframe with samples as rows and columns, values are the Correlation values
     """
-    if pseudobulk:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/output_all.txt",
-        )
-    elif pseudobulk is False and dataset == "hgsoc":
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_ngscheckmate/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/output_all.txt",
-        )
-    else:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_ngscheckmate/{dataset}/real_data/ncells_null/read_depth_{rd}/output_all.txt",
-        )
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_ngscheckmate",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "output_all.txt")
 
     df = pd.read_csv(
         file_path,
@@ -657,21 +699,17 @@ def parse_heatmap_matrix_vireo(
         - matrix: dataframe with samples from one modality as rows and samples from another modality as columns,
             values are the similarity scores used by Vireo to match samples (lower values indicate more similar samples)
     """
-    if pseudobulk:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/similarity_matrix.csv",
-        )
-    elif (pseudobulk is False) and (dataset == "hgsoc"):
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_vireo/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{rd}/similarity_matrix.csv",
-        )
-    else:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_vireo/{dataset}/real_data/ncells_null/read_depth_{rd}/similarity_matrix.csv",
-        )
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_vireo",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "similarity_matrix.csv")
     matrix = pd.read_csv(
         file_path,
         index_col=0,
@@ -764,7 +802,15 @@ def parse_sample_matching_results_crosscheckfingerprints(
     return sample_matches
 
 
-def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, rd):
+def parse_sample_matching_results_hysys(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
     """
     Parse HYSYS model_results.txt file to categorize sample relationships.
 
@@ -777,16 +823,17 @@ def parse_sample_matching_results_hysys(DATA_PATH, pseudobulk, dataset, ncells, 
     output:
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
-    if pseudobulk:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/model_results.txt",
-        )
-    else:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_hysys/{dataset}/real_data/ncells_null/read_depth_{rd}/model_results.txt",
-        )
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_hysys",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "model_results.txt")
 
     with open(file_path, "r") as file:
         content = file.read()
@@ -921,16 +968,17 @@ def parse_sample_matching_results_vireo(
     output:
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
-    if pseudobulk:
-        file_path = os.path.join(
-            DATA_PATH
-            + f"2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
-        )
-    else:
-        file_path = os.path.join(
-            DATA_PATH
-            + f"2a_vireo/{dataset}/real_data/ncells_{ncells}/read_depth_{rd}/matched_samples.csv",
-        )
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_vireo",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "matched_samples.csv")
     sample_matches = pd.read_csv(
         file_path,
         index_col=0,
@@ -1005,7 +1053,7 @@ def load_sample_matching_results(
             )
         elif tool == "HYSYS":
             sample_matches = parse_sample_matching_results_hysys(
-                DATA_PATH, pseudobulk, dataset, ncells, rd
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
             )
         elif tool == "NGSCheckmate":
             sample_matches = parse_sample_matching_results_ngscheckmate(

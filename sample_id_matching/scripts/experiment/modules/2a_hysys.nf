@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildReadDepthContext } from './helpers/read_depth_utils'
+
 process HYSYS {
     conda "${params.conda}/hysys"
     publishDir "${params.outdir}/2a_hysys", mode: 'copy'
@@ -10,18 +12,29 @@ process HYSYS {
         val(modalities)
     
     output:
-        path("${params.dataset}/*/*/*/concordance_output.txt")
-        path("${params.dataset}/*/*/*/model_results.txt")
+        path("${params.dataset}/**/concordance_output.txt")
+        path("${params.dataset}/**/model_results.txt")
     
     script:
+        def readDepthContext = buildReadDepthContext(
+            params.read_depth,
+            params.dataset,
+            params.pseudobulk,
+            modalities
+        )
+
+        def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
+        def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
+        def realDataNcellsPath = readDepthContext.realDataNcellsPath
+
         """
         set -euo pipefail
 
         if [ ${params.pseudobulk} == true ]
         then 
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${params.read_depth}"
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
         else
-            output_location="${params.dataset}/real_data/ncells_null/read_depth_${params.read_depth}" 
+            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}" 
         fi
         mkdir -p \$output_location
 
@@ -30,6 +43,7 @@ process HYSYS {
         do
             # get filename
             base_name=\$(basename "\$file")
+            base_name=\${base_name%.vcf.bgz}
             base_name=\${base_name%.vcf.gz}
             base_name=\${base_name%.vcf}
 
@@ -49,9 +63,9 @@ process HYSYS {
             # Add file-path to list
             for mod in ${modalities.join(' ')}
             do  
-                if [[ "\$base_name" == *"\$mod"* ]]
+                if [[ "\$base_name" == *"\$mod"* || ("\$mod" == "bulk_dissociated_polyA" && "\$base_name" == *"bulk_diss_polyA"*) ]]
                 then
-                    if ! [[ \$file == *"2507"* && \$file == *"bulk_diss_polyA"* ]]
+                    if ! [[ \$file == *"2507"* && (\$file == *"bulk_diss_polyA"* || \$file == *"bulk_dissociated_polyA"*) ]]
                     then
                         echo "\${output_location}/\${base_name}.snps" >> \\
                             \${output_location}/sample_list_\${mod}.txt
