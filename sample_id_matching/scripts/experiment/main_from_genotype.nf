@@ -24,21 +24,21 @@ workflow {
     if (!params.pseudobulk) {
         modalities = ["bulk", "single-cell"]
         vcf_files = channel.fromPath(
-        "${params.outdir}/1a_individual_vcf/${params.dataset}/real_data/ncells_null/*.vcf.gz"
+        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz"
         )
         .view { x -> "VCF Files: ${x}"}
         index_files = channel.fromPath(
-        "${params.outdir}/1a_individual_vcf/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
+        "${params.vcfsDir}/${params.dataset}/real_data/ncells_null/*.vcf.gz.csi"
         )
         .view { x -> "Index Files: ${x}"}
     } else {
         modalities = ["pseudobulk"]
         vcf_files = channel.fromPath(
-        "${params.outdir}/1a_individual_vcf/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz"
+        "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz"
         )
         .view { x -> "VCF Files: ${x}"}
         index_files = channel.fromPath(
-        "${params.outdir}/1a_individual_vcf/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz.csi"
+        "${params.vcfsDir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.vcf.gz.csi"
         )
         .view { x -> "Index Files: ${x}"}
     }
@@ -55,8 +55,8 @@ workflow {
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect())
-    NGSCHECKMATE(filtered_vcfs.individual_vcfs.collect())
-    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs.collect())
+    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
     HYSYS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
 }

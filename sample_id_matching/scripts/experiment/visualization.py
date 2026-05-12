@@ -14,13 +14,22 @@ from accuracy_functions import (
 )
 
 
+def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
+    """Build read-depth selector passed to data loaders for real-data runs."""
+    if rd_mod1 is not None and rd_mod2 is not None:
+        return f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}", f"{mod1}:{rd_mod1}, {mod2}:{rd_mod2}"
+    return rd, str(rd)
+
+
 def bulk_vs_singlecell_matrix_viz(
     DATA_PATH,
     pseudobulk,
     tool,
     dataset,
     ncells,
-    rd,
+    rd=None,
+    rd_mod1=None,
+    rd_mod2=None,
     mod1="bulk",
     mod2="single-cell",
     save_fig=False,
@@ -34,25 +43,29 @@ def bulk_vs_singlecell_matrix_viz(
     :param tool: BAMixChecker / CrosscheckFingerprints / HYSYS / NGSCheckmate / Vireo
     :param dataset: dataset name
     :param ncells: number of cells in pseudobulk, "null" in real data
-    :param rd: read depth filter cut-off
+    :param rd: read depth filter cut-off (legacy / shared for both modalities)
+    :param rd_mod1: read depth filter for first modality in real-data runs
+    :param rd_mod2: read depth filter for second modality in real-data runs
     :param mod1: first modality (e.g., "bulk")
     :param mod2: second modality (e.g., "single-cell")
     :param save_fig: True / False
     :param FIGURES_PATH: path that figures get saved to
     """
 
+    rd_to_load, rd_label = _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2)
+
     if pseudobulk:
         fig_name = f"pseudobulk_{dataset}_{tool}_rd{rd}_ncells{ncells}_{mod1}_vs_{mod2}_similarity_matrix"
     else:
-        fig_name = f"{dataset}_{tool}_rd{rd}_{mod1}_vs_{mod2}_similarity_matrix"
+        fig_name = f"{dataset}_{tool}_rd{rd_to_load}_{mod1}_vs_{mod2}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
     matrix_df = load_heatmap_data(
-        DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1, mod2
+        DATA_PATH, pseudobulk, tool, dataset, ncells, rd_to_load, mod1, mod2
     )
     if matrix_df is None:
         print(
-            f"No matrix data available for {tool} on {dataset} with read depth {rd} and ncells {ncells}. Skipping plot."
+            f"No matrix data available for {tool} on {dataset} with read depth {rd_label} and ncells {ncells}. Skipping plot."
         )
         return
 
@@ -348,10 +361,16 @@ def loop_heatmap_plots_real_data(
     FIGURES_PATH,
     tools,
     datasets,
-    read_depths,
+    read_depths_mod1,
+    read_depths_mod2,
     mod1="bulk",
     mod2="single-cell",
 ):
+    if len(read_depths_mod1) != len(read_depths_mod2):
+        raise ValueError(
+            "read_depths_mod1 and read_depths_mod2 must have the same length."
+        )
+
     original_mod1 = mod1
     original_mod2 = mod2
     for tool in tools:
@@ -364,7 +383,9 @@ def loop_heatmap_plots_real_data(
             else:
                 mod1 = original_mod1
                 mod2 = original_mod2
-            for rd in read_depths:
+            rd_pairs = list(zip(read_depths_mod1, read_depths_mod2))
+
+            for rd1, rd2 in rd_pairs:
 
                 # Create plots
                 bulk_vs_singlecell_matrix_viz(
@@ -373,7 +394,8 @@ def loop_heatmap_plots_real_data(
                     tool=tool,
                     dataset=dataset,
                     ncells="null",
-                    rd=rd,
+                    rd_mod1=rd1,
+                    rd_mod2=rd2,
                     mod1=mod1,
                     mod2=mod2,
                     save_fig=True,
@@ -386,22 +408,33 @@ def super_plot_heatmaps_real_data(
     FIGURES_PATH,
     tools,
     dataset,
-    read_depths,
+    read_depths_mod1,
+    read_depths_mod2,
     mod1="bulk",
     mod2="single-cell",
     remove_missing_data=False,
     save_fig=False,
 ):
+    if len(read_depths_mod1) != len(read_depths_mod2):
+        raise ValueError(
+            "read_depths_mod1 and read_depths_mod2 must have the same length."
+        )
+
 
     fig_name = f"superplot_{dataset}_{mod1}_vs_{mod2}_similarity_matrix"
     tool_extreme_points = np.full(len(tools), -np.inf)
     all_matrices = []
 
+    rd_pairs = [
+        (rd1, rd2, f"{mod1}_{rd1}_{mod2}_{rd2}")
+        for rd1, rd2 in zip(read_depths_mod1, read_depths_mod2)
+    ]
+
     # Find all the data for the plots
     for i, tool in enumerate(tools):
-        for rd in read_depths:
+        for rd1, rd2, rd_to_load in rd_pairs:
             matrix = load_heatmap_data(
-                DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2
+                DATA_PATH, False, tool, dataset, "null", rd_to_load, mod1, mod2
             )
             if matrix is not None:
                 expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
@@ -412,7 +445,15 @@ def super_plot_heatmaps_real_data(
                 if remove_missing_data:
                     ordered_matrix = ordered_matrix.dropna(axis=0, how="all")
 
-                all_matrices.append({"rd": rd, "tool": tool, "matrix": ordered_matrix})
+                all_matrices.append(
+                    {
+                        "rd_mod1": rd1,
+                        "rd_mod2": rd2,
+                        "rd": rd_to_load,
+                        "tool": tool,
+                        "matrix": ordered_matrix,
+                    }
+                )
 
                 extreme_point = max(
                     abs(ordered_matrix.min().min()), abs(ordered_matrix.max().max())
@@ -422,8 +463,8 @@ def super_plot_heatmaps_real_data(
 
     fig, axes = plt.subplots(
         len(tools),
-        len(read_depths),
-        figsize=(3.5 * len(read_depths), 2.5 * len(tools)),
+        len(rd_pairs),
+        figsize=(3.5 * len(rd_pairs), 2.5 * len(tools)),
         sharex="col",
         sharey="row",
     )
@@ -448,21 +489,25 @@ def super_plot_heatmaps_real_data(
             )
         cmap.set_bad(color="lightgrey")
 
-        for rd in read_depths:
-            print(f"Processing read depth {rd} and tool {tool} for plotting...")
-            if len(read_depths) == 1 and len(tools) == 1:
+        for rd1, rd2, rd_to_load in rd_pairs:
+            if rd1 is not None and rd2 is not None:
+                rd_label = f"{rd1}, {rd2}"
+            else:
+                rd_label = f"{rd_to_load}"
+            print(f"Processing read depth {rd_label} and tool {tool} for plotting...")
+            if len(rd_pairs) == 1 and len(tools) == 1:
                 ax = axes
-            elif len(read_depths) == 1:
+            elif len(rd_pairs) == 1:
                 ax = axes[tools.index(tool)]
             elif len(tools) == 1:
-                ax = axes[read_depths.index(rd)]
+                ax = axes[rd_pairs.index((rd1, rd2, rd_to_load))]
             else:
-                ax = axes[tools.index(tool), read_depths.index(rd)]
+                ax = axes[tools.index(tool), rd_pairs.index((rd1, rd2, rd_to_load))]
 
             matrix_list = [
                 info["matrix"]
                 for info in all_matrices
-                if info["rd"] == rd and info["tool"] == tool
+                if info["rd"] == rd_to_load and info["tool"] == tool
             ]
 
             if not matrix_list or matrix_list[0] is None:
@@ -476,7 +521,7 @@ def super_plot_heatmaps_real_data(
                     transform=ax.transAxes,
                     fontsize=12,
                 )
-                print(f"No data for read depth {rd} and tool {tool}, skipping plot.")
+                print(f"No data for read depth {rd_label} and tool {tool}, skipping plot.")
                 continue
 
             matrix = matrix_list[0]
@@ -497,14 +542,14 @@ def super_plot_heatmaps_real_data(
             ax.set_xticklabels(xlabels, rotation=45, ha="right", fontsize=8)
             ax.set_yticklabels(ylabels, fontsize=8)
             if tool == tools[0]:
-                ax.set_title(f"read depth filter {rd}", pad=10, fontsize=12)
-            if rd == read_depths[0]:
+                ax.set_title(f"read depth filter {rd_label}", pad=10, fontsize=12)
+            if (rd1, rd2, rd_to_load) == rd_pairs[0]:
                 ax.set_ylabel(f"{tool}", fontsize=12)
 
         if row_has_data:
-            if len(read_depths) == 1 and len(tools) == 1:
+            if len(rd_pairs) == 1 and len(tools) == 1:
                 row_axes = [axes]
-            elif len(read_depths) == 1:
+            elif len(rd_pairs) == 1:
                 row_axes = [axes[i]]
             elif len(tools) == 1:
                 row_axes = axes
