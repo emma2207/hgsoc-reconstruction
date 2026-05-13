@@ -29,6 +29,21 @@ def _normalize_read_depth_tag(rd):
     return rd_tag
 
 
+def _modality_in_label(modality, label):
+    """Return True when a sample label appears to belong to the requested modality."""
+    modality_key = str(modality).lower().replace("-", "_").replace(" ", "_")
+    label_key = str(label).lower().replace("-", "_").replace(" ", "_")
+
+    if modality_key in label_key:
+        return True
+
+    # Treat different single-* labels as compatible (e.g. single-cell vs single-nucleus).
+    if modality_key.startswith("single") and "single" in label_key:
+        return True
+
+    return False
+
+
 def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2):
     """Resolve a read-depth directory for both legacy scalar and new modality-specific tags."""
     base_path = os.path.join(DATA_PATH, tool, _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2))
@@ -54,6 +69,19 @@ def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, m
             token_matches.append(candidate)
     if len(token_matches) == 1:
         return token_matches[0]
+
+    # If modality labels differ from folder naming (e.g. single-cell vs single-nucleus),
+    # fall back to matching only by numeric depth tokens.
+    rd_numbers = re.findall(r"\d+", rd_tag)
+    if rd_numbers:
+        numeric_matches = []
+        for candidate in all_matches:
+            candidate_tag = os.path.basename(candidate).replace("read_depth_", "", 1)
+            candidate_numbers = re.findall(r"\d+", candidate_tag)
+            if candidate_numbers == rd_numbers:
+                numeric_matches.append(candidate)
+        if len(numeric_matches) == 1:
+            return numeric_matches[0]
 
     if len(all_matches) == 1:
         return all_matches[0]
@@ -849,8 +877,12 @@ def parse_sample_matching_results_hysys(
         sample_name = sample_path.split("/")[-1]
         # Remove file extension
         sample_name = sample_name.replace(".snps", "")
-        # Apply same regex cleanup as other tools
-        regex_exp = dataset_regex_dict.get(dataset, "")
+        # Match parse_heatmap_matrix_* behavior: only strip dataset prefixes
+        # for pseudobulk and hgsoc-new naming conventions.
+        if pseudobulk or dataset == "hgsoc-new":
+            regex_exp = dataset_regex_dict.get(dataset, "")
+        else:
+            regex_exp = ""
         sample_name = re.sub(regex_exp, "", sample_name)
         sample_name = sample_name.replace("_individual_variants", "").replace("ds.", "")
         return sample_name
@@ -1036,12 +1068,22 @@ def load_sample_matching_results(
     tool,
     dataset,
     ncells,
-    rd,
+    rd1,
+    rd2=None,
     mod1="bulk_chunk_ribo",
     mod2="bulk_dissociated_polyA",
 ):
 
-    print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
+    if rd2 is not None:
+        rd = f"{mod1}_{rd1}_{mod2}_{rd2}"
+        read_depth_label = f"{mod1}={rd1}, {mod2}={rd2}"
+    else:
+        rd = rd1
+        read_depth_label = str(rd1)
+
+    print(
+        f"Processing tool {tool}, dataset {dataset}, read depth {read_depth_label}..."
+    )
     try:
         if tool == "BAMixChecker":
             sample_matches = parse_sample_matching_results_bamixchecker(
@@ -1071,15 +1113,15 @@ def load_sample_matching_results(
             sample_matches = None
     except FileNotFoundError:
         print(
-            f"Could not find data for {tool}, real dataset {dataset}, read depth {rd}. "
+            f"Could not find data for {tool}, real dataset {dataset}, read depth {read_depth_label}. "
         )
         sample_matches = None
 
     if tool != "Vireo" and sample_matches is not None:
         # Filter sample_matches to only include mod1 samples in the first column and mod2 samples in the second column
         sample_matches = sample_matches.loc[
-            [idx for idx in sample_matches.index if mod1 in str(idx)],
-            [col for col in sample_matches.columns if mod2 in str(col)],
+            [idx for idx in sample_matches.index if _modality_in_label(mod1, idx)],
+            [col for col in sample_matches.columns if _modality_in_label(mod2, col)],
         ]
 
     return sample_matches

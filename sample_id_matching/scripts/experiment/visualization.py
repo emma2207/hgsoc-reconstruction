@@ -1450,7 +1450,15 @@ def heatmap_plot_accuracy_metrics_pseudobulk_vs_sc(
 
 
 def barplot_matches_nonmatches_na(
-    DATA_PATH, tools, dataset, read_depths, mod1, mod2, save_fig=False, FIGURES_PATH=""
+    DATA_PATH,
+    tools,
+    dataset,
+    read_depths_mod1,
+    read_depths_mod2=None,
+    mod1="bulk",
+    mod2="single-cell",
+    save_fig=False,
+    FIGURES_PATH="",
 ):
 
     fig_name = f"barplot_matches_{dataset}_{mod1}_vs_{mod2}"
@@ -1459,13 +1467,18 @@ def barplot_matches_nonmatches_na(
         DATA_PATH=DATA_PATH,
         tools=tools,
         dataset=dataset,
-        read_depths=read_depths,
+        read_depths_mod1=read_depths_mod1,
+        read_depths_mod2=read_depths_mod2,
         mod1=mod1,
         mod2=mod2,
     )
+
+    if read_depths_mod2 is None:
+        read_depths_mod2 = read_depths_mod1
+
     # Stacked barplot of matches, non-matches, and NA counts for each read depth
     n_bars_expected = 1
-    n_bars_tool = len(read_depths)
+    n_bars_tool = len(read_depths_mod1)
     width_ratios = [n_bars_expected] + [n_bars_tool] * len(tools)
     total_width = (n_bars_expected + len(tools) * n_bars_tool) * 0.5
 
@@ -1478,7 +1491,7 @@ def barplot_matches_nonmatches_na(
     )
 
     # Plot expected results in the first subfigure
-    expected_df = results_df[results_df["rd"] == "expected"].iloc[0]
+    expected_df = results_df[results_df["rd_mod1"] == "expected"].iloc[0]
     axes[0].bar([0], expected_df["matches"], color="orangered", label="Matches")
     axes[0].bar(
         [0],
@@ -1502,7 +1515,10 @@ def barplot_matches_nonmatches_na(
 
     for i, tool in enumerate(tools):
         tool_df = results_df[results_df["tool"] == tool].copy()
-        tool_df.set_index("rd", inplace=True)
+        tool_df["rd_label"] = tool_df.apply(
+            lambda row: f"{row['rd_mod1']}, {row['rd_mod2']}", axis=1
+        )
+        tool_df.set_index("rd_label", inplace=True)
 
         x = np.arange(len(tool_df.index))
         labels = tool_df.index.astype(str)

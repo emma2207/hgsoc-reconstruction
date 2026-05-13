@@ -265,6 +265,53 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
     return expected_matches
 
 
+def _resolve_expected_modality_columns(expected_matches, mod1, mod2):
+    """Resolve expected-match columns for requested modalities with graceful fallbacks."""
+
+    def _norm(text):
+        return str(text).lower().replace("-", " ").replace("_", " ").strip()
+
+    columns = list(expected_matches.columns)
+    norm_cols = {_norm(col): col for col in columns}
+    mod1_key = _norm(mod1)
+    mod2_key = _norm(mod2)
+
+    mod1_candidates = [orig for norm, orig in norm_cols.items() if mod1_key in norm]
+    mod2_candidates = [orig for norm, orig in norm_cols.items() if mod2_key in norm]
+
+    mod1_col = mod1_candidates[0] if len(mod1_candidates) >= 1 else None
+    mod2_col = mod2_candidates[0] if len(mod2_candidates) >= 1 else None
+
+    # Fallback: if one modality resolves and table has exactly two columns, pick the other column.
+    if mod1_col is not None and mod2_col is None and len(columns) == 2:
+        mod2_col = [col for col in columns if col != mod1_col][0]
+    if mod2_col is not None and mod1_col is None and len(columns) == 2:
+        mod1_col = [col for col in columns if col != mod2_col][0]
+
+    if mod1_col is None or mod2_col is None:
+        raise ValueError(
+            "Could not resolve expected match columns for requested modalities "
+            f"mod1={mod1}, mod2={mod2}. Available columns: {columns}"
+        )
+
+    return mod1_col, mod2_col
+
+
+def _modality_in_label(modality, label):
+    """Return True when a sample label appears to belong to the requested modality."""
+    modality_key = str(modality).lower().replace("-", "_").replace(" ", "_")
+    label_key = str(label).lower().replace("-", "_").replace(" ", "_")
+
+    if modality_key in label_key:
+        return True
+
+    # Treat different single-* labels as compatible (e.g. single-cell vs single-nucleus).
+    if modality_key.startswith("single") and "single" in label_key:
+        return True
+
+    return False
+
+
 def accuracy_metrics_averaged_over_iterations(
     DATA_PATH,
     n_iterations,
@@ -475,26 +522,37 @@ def accuracy_metrics_hysys_heatmap_vireo_algorithm(
 
 
 def count_matches_real_data(
-    DATA_PATH, tools, dataset, read_depths, mod1="bulk", mod2="single-cell"
+    DATA_PATH,
+    tools,
+    dataset,
+    read_depths_mod1,
+    read_depths_mod2=None,
+    mod1="bulk",
+    mod2="single-cell",
 ):
     """
-    Count the number of matches, non-matches, and NAs for real data sample matching results for each tool and read depth.
+    Count the number of matches, non-matches, and NAs for real data sample matching
+    results for each tool and read-depth pair.
 
     input:
         - DATA_PATH: base path to the data directory
         - tools: list of tools to evaluate (e.g., ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"])
         - dataset: the dataset name
-        - read_depths: list of read depths to evaluate
+        - read_depths_mod1: list of read depths for modality 1. If read_depths_mod2 is
+            None, these values are reused for modality 2 (backward compatible behavior).
+        - read_depths_mod2: optional list of read depths for modality 2.
         - mod1: string to identify the first modality in the sample names (default "bulk")
         - mod2: string to identify the second modality in the sample names (default "single-cell")
 
     output:
-        - results_df: dataframe with the number of matches, non-matches, and NAs for each tool, dataset, and read depth.
+        - results_df: dataframe with the number of matches, non-matches, and NAs for
+            each tool, dataset, and read-depth pair.
     """
 
     expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
-    mod1_col = [col for col in expected_matches.columns if mod1 in col][0]
-    mod2_col = [col for col in expected_matches.columns if mod2 in col][0]
+    mod1_col, mod2_col = _resolve_expected_modality_columns(
+        expected_matches, mod1, mod2
+    )
     n_mod1_samples = len(expected_matches[mod1_col].dropna())
     n_mod2_samples = len(expected_matches[mod2_col].dropna())
     n_matches = min(n_mod1_samples, n_mod2_samples)
@@ -504,31 +562,39 @@ def count_matches_real_data(
     results = [
         {
             "dataset": dataset,
-            "rd": "expected",
+            "rd_mod1": "expected",
+            "rd_mod2": "expected",
             "matches": n_matches,
             "non_matches": n_pairs - n_matches,
             "NA": 0,
         }
     ]
+
+    if read_depths_mod2 is None:
+        read_depths_mod2 = read_depths_mod1
+    if len(read_depths_mod1) != len(read_depths_mod2):
+        raise ValueError("read_depths_mod1 and read_depths_mod2 must have the same length.")
+
     for tool in tools:
-        for rd in read_depths:
+        for rd1, rd2 in zip(read_depths_mod1, read_depths_mod2):
             inferred_matches = load_sample_matching_results(
                 DATA_PATH=DATA_PATH,
                 pseudobulk=False,
                 tool=tool,
                 dataset=dataset,
                 ncells="null",
-                rd=rd,
+                rd1=rd1,
+                rd2=rd2,
                 mod1=mod1,
                 mod2=mod2,
             )
             if inferred_matches is None:
-                print(f"Warning: No results found for rd={rd}. Skipping.")
+                print(f"Warning: No results found for rd1={rd1}, rd2={rd2}. Skipping.")
                 continue
             # Filter to only bulk vs single-cell comparisons
             inferred_matches = inferred_matches.loc[
-                [idx for idx in inferred_matches.index if mod1 in idx],
-                [col for col in inferred_matches.columns if mod2 in col],
+                [idx for idx in inferred_matches.index if _modality_in_label(mod1, idx)],
+                [col for col in inferred_matches.columns if _modality_in_label(mod2, col)],
             ]
             # Count matches, non-matches, and NAs
             total_pairs = inferred_matches.shape[0] * inferred_matches.shape[1]
@@ -536,12 +602,15 @@ def count_matches_real_data(
             nonmatch_counts = (inferred_matches == 0).sum().sum()
             na_counts = (inferred_matches.isna()).sum().sum()
             if match_counts + nonmatch_counts + na_counts != total_pairs:
-                print(f"Warning: Counts do not sum up to total pairs for rd={rd}.")
+                print(
+                    f"Warning: Counts do not sum up to total pairs for rd1={rd1}, rd2={rd2}."
+                )
             results.append(
                 {
                     "tool": tool,
                     "dataset": dataset,
-                    "rd": rd,
+                    "rd_mod1": rd1,
+                    "rd_mod2": rd2,
                     "matches": match_counts,
                     "non_matches": nonmatch_counts,
                     "NA": na_counts,
@@ -551,7 +620,7 @@ def count_matches_real_data(
 
 
 def find_mismatches_real_data(
-    DATA_PATH, tool, dataset, read_depth, mod1="bulk", mod2="single-cell"
+    DATA_PATH, tool, dataset, rd1, rd2, mod1="bulk", mod2="single-cell"
 ):
     """
     Compare matching sample pairs between expected and inferred matches.
@@ -560,7 +629,8 @@ def find_mismatches_real_data(
         - DATA_PATH: base path to the data directory
         - tool: the tool for which to compare expected vs inferred matches (e.g., "CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo")
         - dataset: the dataset name
-        - read_depth: the read depth filter cut-off used for the analysis
+        - rd1: read depth filter cut-off for modality 1
+        - rd2: read depth filter cut-off for modality 2
         - mod1: string to identify the first modality in the sample names (default "bulk")
         - mod2: string to identify the second modality in the sample names (default "single-cell")
 
@@ -572,6 +642,9 @@ def find_mismatches_real_data(
 
     # Load expected matches
     expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+    mod1_col, mod2_col = _resolve_expected_modality_columns(
+        expected_matches, mod1, mod2
+    )
     # Load inferred matches
     inferred_matches = load_sample_matching_results(
         DATA_PATH,
@@ -579,32 +652,58 @@ def find_mismatches_real_data(
         tool,
         dataset,
         "null",
-        read_depth,
+        rd1,
+        rd2,
         mod1=mod1,
         mod2=mod2,
     )
     if inferred_matches is None:
         print(
-            f"No inferred matches found for {tool} on {dataset} at read depth {read_depth}."
+            f"No inferred matches found for {tool} on {dataset} at rd1={rd1}, rd2={rd2}."
         )
-        return None, None
+        return None
 
     # Convert inferred matches matrix to pairwise dataframe
     matches_df = matches_matrix_to_pair_df(inferred_matches)
 
+    # Standardize pair column names across tools (some matrices keep custom index/column names).
+    if "sample_id_0" not in matches_df.columns or "sample_id_1" not in matches_df.columns:
+        if len(matches_df.columns) >= 2:
+            matches_df = matches_df.rename(
+                columns={
+                    matches_df.columns[0]: "sample_id_0",
+                    matches_df.columns[1]: "sample_id_1",
+                }
+            )
+        else:
+            raise ValueError(
+                "Could not identify sample-pair columns in inferred matches dataframe."
+            )
+
     # Split the sample IDs into their components (e.g., "sample1_bulk" -> "sample1", "bulk")
-    matches_df[["sample_id_0", "modality_0"]] = matches_df["sample_id_0"].str.rsplit(
-        "_", n=1, expand=True
-    )
-    matches_df[["sample_id_1", "modality_1"]] = matches_df["sample_id_1"].str.rsplit(
-        "_", n=1, expand=True
-    )
+    # Use temporary variables to avoid pandas multi-column assignment issues
+    # Handle cases where modality suffix may not be present (rsplit returns 1 column instead of 2)
+    split_0 = matches_df["sample_id_0"].str.rsplit("_", n=1, expand=True)
+    if split_0.shape[1] == 2:
+        matches_df["modality_0"] = split_0.iloc[:, 1]
+        matches_df["sample_id_0"] = split_0.iloc[:, 0]
+    else:
+        # No underscore found - sample_id stays as-is, modality is None
+        matches_df["modality_0"] = None
+    
+    split_1 = matches_df["sample_id_1"].str.rsplit("_", n=1, expand=True)
+    if split_1.shape[1] == 2:
+        matches_df["modality_1"] = split_1.iloc[:, 1]
+        matches_df["sample_id_1"] = split_1.iloc[:, 0]
+    else:
+        # No underscore found - sample_id stays as-is, modality is None
+        matches_df["modality_1"] = None
 
     # Merge with expected matches to determine which inferred matches are correct
     merged_df = expected_matches.merge(
         matches_df,
         right_on=["sample_id_0", "sample_id_1"],
-        left_on=[mod1, mod2],
+        left_on=[mod1_col, mod2_col],
         how="outer",
         indicator="match_status",
     )
