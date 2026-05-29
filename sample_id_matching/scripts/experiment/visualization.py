@@ -13,7 +13,6 @@ from accuracy_functions import (
     accuracy_metrics_averaged_over_iterations,
     count_matches_real_data,
 )
-from asyncio import tools
 
 
 def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
@@ -21,6 +20,32 @@ def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
     if rd_mod1 is not None and rd_mod2 is not None:
         return f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}", f"{mod1}:{rd_mod1}, {mod2}:{rd_mod2}"
     return rd, str(rd)
+
+
+def _modality_in_label_local(modality, label):
+    modality_key = str(modality).lower().replace("-", "_").replace(" ", "_")
+    label_key = str(label).lower().replace("-", "_").replace(" ", "_")
+
+    if modality_key in label_key:
+        return True
+
+    modality_tokens = modality_key.split("_")
+    if "single" in modality_tokens and "single" in label_key:
+        return True
+
+    return False
+
+
+def _subset_matrix_by_modalities(matrix, mod1, mod2):
+    row_labels = [label for label in matrix.index if _modality_in_label_local(mod1, label)]
+    col_labels = [
+        label for label in matrix.columns if _modality_in_label_local(mod2, label)
+    ]
+
+    if len(row_labels) == 0 or len(col_labels) == 0:
+        return matrix
+
+    return matrix.loc[row_labels, col_labels]
 
 
 def bulk_vs_singlecell_matrix_viz(
@@ -59,7 +84,7 @@ def bulk_vs_singlecell_matrix_viz(
     if pseudobulk:
         fig_name = f"pseudobulk_{dataset}_{tool}_rd{rd}_ncells{ncells}_{mod1}_vs_{mod2}_similarity_matrix"
     else:
-        fig_name = f"{dataset}_{tool}_rd{rd_to_load}_{mod1}_vs_{mod2}_similarity_matrix"
+        fig_name = f"{dataset}_{tool}_rd{rd_to_load}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
     matrix_df = load_heatmap_data(
@@ -74,12 +99,19 @@ def bulk_vs_singlecell_matrix_viz(
     sub_matrix = matrix_df
     if not pseudobulk:
         expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
-        sub_matrix = order_matrix_by_expected_matches(
-            sub_matrix,
-            expected_matches,
-            mod1,
-            mod2,
-        )
+        try:
+            sub_matrix = order_matrix_by_expected_matches(
+                sub_matrix,
+                expected_matches,
+                mod1,
+                mod2,
+            )
+        except ValueError as exc:
+            print(
+                "Could not order by expected matches for requested modalities "
+                f"({mod1} vs {mod2}): {exc}. Falling back to direct modality filtering."
+            )
+            sub_matrix = _subset_matrix_by_modalities(sub_matrix, mod1, mod2)
 
     extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
 
@@ -619,10 +651,16 @@ def super_plot_heatmaps_real_data(
             )
             if matrix is not None:
                 expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
-
-                ordered_matrix = order_matrix_by_expected_matches(
-                    matrix, expected_matches, mod1, mod2
-                )
+                try:
+                    ordered_matrix = order_matrix_by_expected_matches(
+                        matrix, expected_matches, mod1, mod2
+                    )
+                except ValueError as exc:
+                    print(
+                        "Could not order by expected matches for requested modalities "
+                        f"({mod1} vs {mod2}): {exc}. Falling back to direct modality filtering."
+                    )
+                    ordered_matrix = _subset_matrix_by_modalities(matrix, mod1, mod2)
                 if remove_missing_data:
                     ordered_matrix = ordered_matrix.dropna(axis=0, how="all")
 

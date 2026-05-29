@@ -13,12 +13,39 @@ dataset_regex_dict = {
 
 
 def _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2):
-    """Return the dataset-relative base folder used by analysis outputs."""
+    """Return the default dataset-relative base folder used by analysis outputs."""
     if pseudobulk:
         return os.path.join(dataset, "pseudobulk", f"ncells_{ncells}")
-    if dataset == "hgsoc":
-        return os.path.join(dataset, "real_data", f"{mod1}_vs_{mod2}", "ncells_null")
     return os.path.join(dataset, "real_data", "ncells_null")
+
+
+def _candidate_analysis_base_paths(DATA_PATH, tool, dataset, pseudobulk, ncells, mod1, mod2):
+    """Return candidate base folders in priority order for analysis outputs."""
+    if pseudobulk:
+        return [
+            os.path.join(
+                DATA_PATH,
+                tool,
+                _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2),
+            )
+        ]
+
+    candidate_rel_paths = [
+        os.path.join(dataset, "real_data", f"{mod1}_vs_{mod2}", "ncells_null"),
+        os.path.join(dataset, "real_data", f"{mod1}_vs_{mod2}_0", "ncells_null"),
+        _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2),
+    ]
+    candidate_paths = [
+        os.path.join(DATA_PATH, tool, rel_path) for rel_path in candidate_rel_paths
+    ]
+
+    # Keep order while removing duplicates.
+    deduped_paths = []
+    for path in candidate_paths:
+        if path not in deduped_paths:
+            deduped_paths.append(path)
+
+    return deduped_paths
 
 
 def _normalize_read_depth_tag(rd):
@@ -37,8 +64,9 @@ def _modality_in_label(modality, label):
     if modality_key in label_key:
         return True
 
-    # Treat different single-* labels as compatible (e.g. single-cell vs single-nucleus).
-    if modality_key.startswith("single") and "single" in label_key:
+    # Treat single-cell/nucleus aliases as compatible, including pooled_single_cell.
+    modality_tokens = modality_key.split("_")
+    if "single" in modality_tokens and "single" in label_key:
         return True
 
     return False
@@ -46,49 +74,65 @@ def _modality_in_label(modality, label):
 
 def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2):
     """Resolve a read-depth directory for both legacy scalar and new modality-specific tags."""
-    base_path = os.path.join(DATA_PATH, tool, _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2))
     rd_tag = _normalize_read_depth_tag(rd)
+    candidate_base_paths = _candidate_analysis_base_paths(
+        DATA_PATH,
+        tool,
+        dataset,
+        pseudobulk,
+        ncells,
+        mod1,
+        mod2,
+    )
 
-    exact_path = os.path.join(base_path, f"read_depth_{rd_tag}")
-    if os.path.exists(exact_path):
-        return exact_path
+    for base_path in candidate_base_paths:
+        if not os.path.exists(base_path):
+            continue
 
-    prefixed_matches = sorted(glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*")))
-    if len(prefixed_matches) == 1:
-        return prefixed_matches[0]
+        exact_path = os.path.join(base_path, f"read_depth_{rd_tag}")
+        if os.path.exists(exact_path):
+            return exact_path
 
-    all_matches = sorted(glob.glob(os.path.join(base_path, "read_depth_*")))
+        prefixed_matches = sorted(
+            glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*"))
+        )
+        if len(prefixed_matches) == 1:
+            return prefixed_matches[0]
 
-    # Support modality-specific tags when rd is scalar, e.g.
-    # read_depth_bulk_dissociated_polyA_20_single-cell_20 for rd=20.
-    token_matches = []
-    for candidate in all_matches:
-        candidate_tag = os.path.basename(candidate).replace("read_depth_", "", 1)
-        tokens = re.split(r"[_-]", candidate_tag)
-        if rd_tag in tokens:
-            token_matches.append(candidate)
-    if len(token_matches) == 1:
-        return token_matches[0]
+        all_matches = sorted(glob.glob(os.path.join(base_path, "read_depth_*")))
 
-    # If modality labels differ from folder naming (e.g. single-cell vs single-nucleus),
-    # fall back to matching only by numeric depth tokens.
-    rd_numbers = re.findall(r"\d+", rd_tag)
-    if rd_numbers:
-        numeric_matches = []
+        # Support modality-specific tags when rd is scalar, e.g.
+        # read_depth_bulk_dissociated_polyA_20_single-cell_20 for rd=20.
+        token_matches = []
         for candidate in all_matches:
             candidate_tag = os.path.basename(candidate).replace("read_depth_", "", 1)
-            candidate_numbers = re.findall(r"\d+", candidate_tag)
-            if candidate_numbers == rd_numbers:
-                numeric_matches.append(candidate)
-        if len(numeric_matches) == 1:
-            return numeric_matches[0]
+            tokens = re.split(r"[_-]", candidate_tag)
+            if rd_tag in tokens:
+                token_matches.append(candidate)
+        if len(token_matches) == 1:
+            return token_matches[0]
 
-    if len(all_matches) == 1:
-        return all_matches[0]
+        # If modality labels differ from folder naming (e.g. single-cell vs single-nucleus),
+        # fall back to matching only by numeric depth tokens.
+        rd_numbers = re.findall(r"\d+", rd_tag)
+        if rd_numbers:
+            numeric_matches = []
+            for candidate in all_matches:
+                candidate_tag = os.path.basename(candidate).replace(
+                    "read_depth_", "", 1
+                )
+                candidate_numbers = re.findall(r"\d+", candidate_tag)
+                if candidate_numbers == rd_numbers:
+                    numeric_matches.append(candidate)
+            if len(numeric_matches) == 1:
+                return numeric_matches[0]
 
+        if len(all_matches) == 1:
+            return all_matches[0]
+
+    candidate_base_str = ", ".join(candidate_base_paths)
     raise FileNotFoundError(
-        f"Could not resolve read depth path under {base_path} for rd={rd}. "
-        f"Found {len(all_matches)} candidate read_depth directories."
+        f"Could not resolve read depth path for rd={rd}. Checked base paths: {candidate_base_str}."
     )
 
 
@@ -1194,27 +1238,58 @@ def order_matrix_by_expected_matches(
     output:
         - matrix ordered according to expected matches
     """
-    mod1_col = [col for col in expected_matches.columns if mod1.lower() in col.lower()]
-    mod2_col = [col for col in expected_matches.columns if mod2.lower() in col.lower()]
-    if len(mod1_col) != 1:
-        raise ValueError(f"Expected exactly one {mod1} column in expected_matches")
-    if len(mod2_col) != 1:
-        raise ValueError(f"Expected exactly one {mod2} column in expected_matches")
+    def _norm(text):
+        return str(text).lower().replace("-", " ").replace("_", " ").strip()
 
-    mod1_series = expected_matches[mod1_col[0]]
-    mod2_series = expected_matches[mod2_col[0]]
+    def _resolve_expected_modality_columns_local(matches_df, modality1, modality2):
+        def _has_single_family(text):
+            key = _norm(text)
+            return any(token in key for token in ["single", "nucleus", "pooled"])
 
-    def modality_in_label(modality, label):
-        modality_key = str(modality).lower().replace("-", "_")
-        label_key = str(label).lower().replace("-", "_")
-        return modality_key in label_key
+        columns = list(matches_df.columns)
+        norm_cols = {_norm(col): col for col in columns}
+
+        mod1_key = _norm(modality1)
+        mod2_key = _norm(modality2)
+
+        mod1_candidates = [orig for norm, orig in norm_cols.items() if mod1_key in norm]
+        mod2_candidates = [orig for norm, orig in norm_cols.items() if mod2_key in norm]
+
+        mod1_col = mod1_candidates[0] if len(mod1_candidates) >= 1 else None
+        mod2_col = mod2_candidates[0] if len(mod2_candidates) >= 1 else None
+
+        # Conservative fallback: only infer the counterpart column when the unresolved
+        # requested modality is in the single/pooled family and the remaining column is too.
+        if mod1_col is not None and mod2_col is None and len(columns) == 2:
+            other_col = [col for col in columns if col != mod1_col][0]
+            if _has_single_family(modality2) and _has_single_family(other_col):
+                mod2_col = other_col
+        if mod2_col is not None and mod1_col is None and len(columns) == 2:
+            other_col = [col for col in columns if col != mod2_col][0]
+            if _has_single_family(modality1) and _has_single_family(other_col):
+                mod1_col = other_col
+
+        if mod1_col is None or mod2_col is None:
+            raise ValueError(
+                "Could not resolve expected match columns for requested modalities "
+                f"mod1={modality1}, mod2={modality2}. Available columns: {columns}"
+            )
+
+        return mod1_col, mod2_col
+
+    mod1_col, mod2_col = _resolve_expected_modality_columns_local(
+        expected_matches, mod1, mod2
+    )
+
+    mod1_series = expected_matches[mod1_col]
+    mod2_series = expected_matches[mod2_col]
 
     # Some result files store matrix axes in the opposite orientation (mod2 rows, mod1 columns).
     # Detect and correct this before attempting expected-match alignment.
-    row_has_mod1 = sum(modality_in_label(mod1, label) for label in matrix.index)
-    row_has_mod2 = sum(modality_in_label(mod2, label) for label in matrix.index)
-    col_has_mod1 = sum(modality_in_label(mod1, label) for label in matrix.columns)
-    col_has_mod2 = sum(modality_in_label(mod2, label) for label in matrix.columns)
+    row_has_mod1 = sum(_modality_in_label(mod1, label) for label in matrix.index)
+    row_has_mod2 = sum(_modality_in_label(mod2, label) for label in matrix.index)
+    col_has_mod1 = sum(_modality_in_label(mod1, label) for label in matrix.columns)
+    col_has_mod2 = sum(_modality_in_label(mod2, label) for label in matrix.columns)
     if (
         row_has_mod1 == 0
         and col_has_mod2 == 0
@@ -1245,7 +1320,9 @@ def order_matrix_by_expected_matches(
 
     # Match expected rows/cols to source matrix labels one-by-one, consuming each source label at most once.
     # Restrict matches to the correct modality to avoid cross-modality mismatches.
-    available_rows = [label for label in matrix.index if modality_in_label(mod1, label)]
+    available_rows = [
+        label for label in matrix.index if _modality_in_label(mod1, label)
+    ]
     matched_rows = []
     for sample in mod1_samples:
         row_match = None
@@ -1257,7 +1334,7 @@ def order_matrix_by_expected_matches(
         matched_rows.append(row_match)
 
     available_cols = [
-        label for label in matrix.columns if modality_in_label(mod2, label)
+        label for label in matrix.columns if _modality_in_label(mod2, label)
     ]
     matched_cols = []
     for sample in mod2_samples:
