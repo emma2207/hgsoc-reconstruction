@@ -4,15 +4,25 @@ def buildReadDepthContext(readDepthParam, dataset, isPseudobulk, modalities) {
             ? (readDepthParam[dataset] ?: readDepthParam.default ?: ["default": 0])
             : ["default": readDepthParam]
 
+    def resolvedUpper =
+        (resolvedReadDepth instanceof Map)
+            ? (resolvedReadDepth.upper ?: 1000)
+            : 1000
+
     def resolvedDefault =
         (resolvedReadDepth instanceof Map)
             ? (resolvedReadDepth.default ?: 0)
             : resolvedReadDepth
 
+    def modalityReadDepths =
+        (resolvedReadDepth instanceof Map)
+            ? resolvedReadDepth.findAll { k, v -> k != 'default' && k != 'upper' }
+            : resolvedReadDepth
+
     def datasetReadDepth =
         isPseudobulk
             ? ["default": resolvedDefault]
-            : resolvedReadDepth
+            : modalityReadDepths
 
     def modalityReadDepthTag = modalities.collect { mod ->
         "${mod}_${datasetReadDepth[mod] ?: resolvedDefault}"
@@ -33,6 +43,7 @@ def buildReadDepthContext(readDepthParam, dataset, isPseudobulk, modalities) {
     [
         resolvedReadDepth: resolvedReadDepth,
         resolvedDefault: resolvedDefault,
+        resolvedUpper: resolvedUpper,
         datasetReadDepth: datasetReadDepth,
         modalityReadDepthTag: modalityReadDepthTag,
         readDepthPairs: readDepthPairs,
