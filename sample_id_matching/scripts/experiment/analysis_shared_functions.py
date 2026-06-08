@@ -34,6 +34,15 @@ def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, m
     base_path = os.path.join(DATA_PATH, tool, _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2))
     rd_tag = _normalize_read_depth_tag(rd)
 
+    # For real-data cross-modality runs, prefer the modality-specific folder when
+    # a scalar read depth (e.g., 0) is provided.
+    modality_specific_path = os.path.join(
+        base_path,
+        f"read_depth_{mod1}_{rd_tag}_{mod2}_{rd_tag}",
+    )
+    if not pseudobulk and os.path.exists(modality_specific_path):
+        return modality_specific_path
+
     exact_path = os.path.join(base_path, f"read_depth_{rd_tag}")
     if os.path.exists(exact_path):
         return exact_path
@@ -61,6 +70,27 @@ def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, m
     raise FileNotFoundError(
         f"Could not resolve read depth path under {base_path} for rd={rd}. "
         f"Found {len(all_matches)} candidate read_depth directories."
+    )
+
+
+def _split_sample_label(label):
+    """Split sample label into prefix/suffix at first underscore, safely."""
+    label = str(label)
+    parts = label.split("_", 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return label, ""
+
+
+def _sorted_sample_labels(labels):
+    """Sort labels by suffix then prefix; tolerate labels without underscores."""
+    return sorted(
+        labels,
+        key=lambda x: (
+            _split_sample_label(x)[1],
+            _split_sample_label(x)[0],
+            str(x),
+        ),
     )
 
 
@@ -156,17 +186,9 @@ def long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE"):
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
 
-    # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
-        key=lambda x: x.str.split("_", n=1).str[1]
-    )
-    matrix = matrix.reindex(
-        sorted(
-            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
-            key=lambda x: x.split("_", 1)[1],
-        )
-    )
-    matrix = matrix[matrix.index]
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
 
     return matrix
 
@@ -195,17 +217,9 @@ def long_df_to_matrix_hysys(df):
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
 
-    # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
-        key=lambda x: x.str.split("_", n=1).str[1]
-    )
-    matrix = matrix.reindex(
-        sorted(
-            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
-            key=lambda x: x.split("_", 1)[1],
-        )
-    )
-    matrix = matrix[matrix.index]
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
 
     return matrix
 
@@ -240,17 +254,9 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
 
-    # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
-        key=lambda x: x.str.split("_", n=1).str[1]
-    )
-    matrix = matrix.reindex(
-        sorted(
-            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
-            key=lambda x: x.split("_", 1)[1],
-        )
-    )
-    matrix = matrix[matrix.index]
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
 
     return matrix
 
@@ -1152,8 +1158,22 @@ def order_matrix_by_expected_matches(
     output:
         - matrix ordered according to expected matches
     """
-    mod1_col = [col for col in expected_matches.columns if mod1.lower() in col.lower()]
-    mod2_col = [col for col in expected_matches.columns if mod2.lower() in col.lower()]
+    def normalize_modality_key(value):
+        return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+    mod1_key = normalize_modality_key(mod1)
+    mod2_key = normalize_modality_key(mod2)
+
+    mod1_col = [
+        col
+        for col in expected_matches.columns
+        if mod1_key in normalize_modality_key(col)
+    ]
+    mod2_col = [
+        col
+        for col in expected_matches.columns
+        if mod2_key in normalize_modality_key(col)
+    ]
     if len(mod1_col) != 1:
         raise ValueError(f"Expected exactly one {mod1} column in expected_matches")
     if len(mod2_col) != 1:
@@ -1163,8 +1183,8 @@ def order_matrix_by_expected_matches(
     mod2_series = expected_matches[mod2_col[0]]
 
     def modality_in_label(modality, label):
-        modality_key = str(modality).lower().replace("-", "_")
-        label_key = str(label).lower().replace("-", "_")
+        modality_key = normalize_modality_key(modality)
+        label_key = normalize_modality_key(label)
         return modality_key in label_key
 
     # Some result files store matrix axes in the opposite orientation (mod2 rows, mod1 columns).

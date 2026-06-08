@@ -1,4 +1,5 @@
 import os
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -19,6 +20,51 @@ def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
     if rd_mod1 is not None and rd_mod2 is not None:
         return f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}", f"{mod1}:{rd_mod1}, {mod2}:{rd_mod2}"
     return rd, str(rd)
+
+
+def _modality_submatrix(matrix, mod1, mod2):
+    """Return matrix restricted to mod1 rows and mod2 columns, correcting swapped axes."""
+
+    def normalize_key(value):
+        return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+    def has_modality(label, modality_key):
+        label_key = normalize_key(label)
+        if modality_key in label_key:
+            return True
+        # Pooled single-cell labels are sometimes represented as "poolX" only.
+        if "pooled" in modality_key and label_key.startswith("pool"):
+            return True
+        return False
+
+    mod1_key = normalize_key(mod1)
+    mod2_key = normalize_key(mod2)
+
+    row_has_mod1 = sum(has_modality(label, mod1_key) for label in matrix.index)
+    row_has_mod2 = sum(has_modality(label, mod2_key) for label in matrix.index)
+    col_has_mod1 = sum(has_modality(label, mod1_key) for label in matrix.columns)
+    col_has_mod2 = sum(has_modality(label, mod2_key) for label in matrix.columns)
+
+    # Some outputs can be transposed depending on tool/parser behavior.
+    if row_has_mod1 == 0 and col_has_mod1 > 0 and row_has_mod2 > 0 and col_has_mod2 == 0:
+        matrix = matrix.T
+
+    mod1_rows = [label for label in matrix.index if has_modality(label, mod1_key)]
+    mod2_cols = [label for label in matrix.columns if has_modality(label, mod2_key)]
+
+    # If one modality is not explicitly encoded in labels, use the complement of
+    # the other modality as a fallback partition for mixed-modality matrices.
+    if len(mod2_cols) == 0 and len(mod1_rows) > 0:
+        mod1_cols = [label for label in matrix.columns if has_modality(label, mod1_key)]
+        mod2_cols = [label for label in matrix.columns if label not in mod1_cols]
+    if len(mod1_rows) == 0 and len(mod2_cols) > 0:
+        mod2_rows = [label for label in matrix.index if has_modality(label, mod2_key)]
+        mod1_rows = [label for label in matrix.index if label not in mod2_rows]
+
+    if len(mod1_rows) == 0 or len(mod2_cols) == 0:
+        return matrix
+
+    return matrix.loc[mod1_rows, mod2_cols]
 
 
 def bulk_vs_singlecell_matrix_viz(
@@ -69,15 +115,20 @@ def bulk_vs_singlecell_matrix_viz(
         )
         return
 
-    sub_matrix = matrix_df
+    sub_matrix = _modality_submatrix(matrix_df, mod1, mod2)
     if not pseudobulk:
         expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
-        sub_matrix = order_matrix_by_expected_matches(
-            sub_matrix,
-            expected_matches,
-            mod1,
-            mod2,
-        )
+        try:
+            sub_matrix = order_matrix_by_expected_matches(
+                sub_matrix,
+                expected_matches,
+                mod1,
+                mod2,
+            )
+        except ValueError as exc:
+            # Some datasets only have expected-match metadata for specific modality pairs.
+            # Fall back to the original matrix order when the requested pair is unavailable.
+            print(f"Skipping expected-match ordering: {exc}")
 
     extreme_point = max(abs(sub_matrix.min().min()), abs(sub_matrix.max().max()))
 
