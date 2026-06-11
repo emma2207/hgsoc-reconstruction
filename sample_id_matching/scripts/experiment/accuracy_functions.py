@@ -573,7 +573,9 @@ def count_matches_real_data(
     if read_depths_mod2 is None:
         read_depths_mod2 = read_depths_mod1
     if len(read_depths_mod1) != len(read_depths_mod2):
-        raise ValueError("read_depths_mod1 and read_depths_mod2 must have the same length.")
+        raise ValueError(
+            "read_depths_mod1 and read_depths_mod2 must have the same length."
+        )
 
     for tool in tools:
         for rd1, rd2 in zip(read_depths_mod1, read_depths_mod2):
@@ -593,8 +595,16 @@ def count_matches_real_data(
                 continue
             # Filter to only bulk vs single-cell comparisons
             inferred_matches = inferred_matches.loc[
-                [idx for idx in inferred_matches.index if _modality_in_label(mod1, idx)],
-                [col for col in inferred_matches.columns if _modality_in_label(mod2, col)],
+                [
+                    idx
+                    for idx in inferred_matches.index
+                    if _modality_in_label(mod1, idx)
+                ],
+                [
+                    col
+                    for col in inferred_matches.columns
+                    if _modality_in_label(mod2, col)
+                ],
             ]
             # Count matches, non-matches, and NAs
             total_pairs = inferred_matches.shape[0] * inferred_matches.shape[1]
@@ -667,7 +677,10 @@ def find_mismatches_real_data(
     matches_df = matches_matrix_to_pair_df(inferred_matches)
 
     # Standardize pair column names across tools (some matrices keep custom index/column names).
-    if "sample_id_0" not in matches_df.columns or "sample_id_1" not in matches_df.columns:
+    if (
+        "sample_id_0" not in matches_df.columns
+        or "sample_id_1" not in matches_df.columns
+    ):
         if len(matches_df.columns) >= 2:
             matches_df = matches_df.rename(
                 columns={
@@ -690,7 +703,7 @@ def find_mismatches_real_data(
     else:
         # No underscore found - sample_id stays as-is, modality is None
         matches_df["modality_0"] = None
-    
+
     split_1 = matches_df["sample_id_1"].str.rsplit("_", n=1, expand=True)
     if split_1.shape[1] == 2:
         matches_df["modality_1"] = split_1.iloc[:, 1]

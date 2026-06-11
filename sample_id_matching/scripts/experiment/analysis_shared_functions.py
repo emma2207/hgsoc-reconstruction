@@ -44,16 +44,22 @@ def _modality_in_label(modality, label):
     return False
 
 
-def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2):
+def _resolve_read_depth_path(
+    DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2
+):
     """Resolve a read-depth directory for both legacy scalar and new modality-specific tags."""
-    base_path = os.path.join(DATA_PATH, tool, _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2))
+    base_path = os.path.join(
+        DATA_PATH, tool, _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2)
+    )
     rd_tag = _normalize_read_depth_tag(rd)
 
     exact_path = os.path.join(base_path, f"read_depth_{rd_tag}")
     if os.path.exists(exact_path):
         return exact_path
 
-    prefixed_matches = sorted(glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*")))
+    prefixed_matches = sorted(
+        glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*"))
+    )
     if len(prefixed_matches) == 1:
         return prefixed_matches[0]
 
