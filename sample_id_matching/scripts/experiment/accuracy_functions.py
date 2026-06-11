@@ -20,6 +20,7 @@ from analysis_shared_functions import (
     create_pseudobulk_submatrix_vireo,
     load_sample_matching_results,
     matches_matrix_to_pair_df,
+    _modality_in_label,
 )
 
 
@@ -295,21 +296,6 @@ def _resolve_expected_modality_columns(expected_matches, mod1, mod2):
         )
 
     return mod1_col, mod2_col
-
-
-def _modality_in_label(modality, label):
-    """Return True when a sample label appears to belong to the requested modality."""
-    modality_key = str(modality).lower().replace("-", "_").replace(" ", "_")
-    label_key = str(label).lower().replace("-", "_").replace(" ", "_")
-
-    if modality_key in label_key:
-        return True
-
-    # Treat different single-* labels as compatible (e.g. single-cell vs single-nucleus).
-    if modality_key.startswith("single") and "single" in label_key:
-        return True
-
-    return False
 
 
 def accuracy_metrics_averaged_over_iterations(
