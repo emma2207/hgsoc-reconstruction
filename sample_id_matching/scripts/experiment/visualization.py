@@ -18,7 +18,10 @@ from accuracy_functions import (
 def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
     """Build read-depth selector passed to data loaders for real-data runs."""
     if rd_mod1 is not None and rd_mod2 is not None:
-        return f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}", f"{mod1}:{rd_mod1}, {mod2}:{rd_mod2}"
+        return (
+            f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}",
+            f"{mod1}:{rd_mod1}, {mod2}:{rd_mod2}",
+        )
     return rd, str(rd)
 
 
@@ -46,7 +49,12 @@ def _modality_submatrix(matrix, mod1, mod2):
     col_has_mod2 = sum(has_modality(label, mod2_key) for label in matrix.columns)
 
     # Some outputs can be transposed depending on tool/parser behavior.
-    if row_has_mod1 == 0 and col_has_mod1 > 0 and row_has_mod2 > 0 and col_has_mod2 == 0:
+    if (
+        row_has_mod1 == 0
+        and col_has_mod1 > 0
+        and row_has_mod2 > 0
+        and col_has_mod2 == 0
+    ):
         matrix = matrix.T
 
     mod1_rows = [label for label in matrix.index if has_modality(label, mod1_key)]
@@ -144,14 +152,23 @@ def bulk_vs_singlecell_matrix_viz(
 
     ax.set_xticks(np.arange(len(sub_matrix.columns)))
     ax.set_yticks(np.arange(len(sub_matrix.index)))
-    ax.set_xticklabels(sub_matrix.columns, rotation=45, ha="left")
-    ax.set_yticklabels(sub_matrix.index)
-    ax.xaxis.set_label_position("top")
-    ax.set_xlabel(f"{mod2} samples")
-    ax.set_ylabel(f"{mod1} samples")
-    ax.set_title(f"{tool} {mod1} vs {mod2} similarity matrix", pad=20)
+    xlabels = [
+        f"{col.replace("read_depth_30/HGSOC-", "").replace(f"_{mod2}", "")}"
+        for col in sub_matrix.columns
+    ]
+    ylabels = [
+        f"{idx.replace('read_depth_30/HGSOC-', '').replace(f'_{mod1}', '')}"
+        for idx in sub_matrix.index
+    ]
+    ax.set_xticklabels(xlabels, rotation=90, ha="left")
+    ax.set_yticklabels(ylabels)
+    ax.xaxis.set_ticks_position("bottom")
+    ax.xaxis.set_label_position("bottom")
+    ax.set_xlabel(f"{mod2.replace('_', ' ')} samples")
+    ax.set_ylabel(f"{mod1.replace('_', ' ')} samples")
+    ax.set_title(f"HGSOC, {tool} Similarity Matrix", pad=20)
 
-    fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
+    fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.6)
 
     if save_fig:
         fig.savefig(
@@ -471,7 +488,6 @@ def super_plot_heatmaps_real_data(
             "read_depths_mod1 and read_depths_mod2 must have the same length."
         )
 
-
     fig_name = f"superplot_{dataset}_{mod1}_vs_{mod2}_similarity_matrix"
     tool_extreme_points = np.full(len(tools), -np.inf)
     all_matrices = []
@@ -488,11 +504,18 @@ def super_plot_heatmaps_real_data(
                 DATA_PATH, False, tool, dataset, "null", rd_to_load, mod1, mod2
             )
             if matrix is not None:
+                matrix = _modality_submatrix(matrix, mod1, mod2)
                 expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
 
-                ordered_matrix = order_matrix_by_expected_matches(
-                    matrix, expected_matches, mod1, mod2
-                )
+                try:
+                    ordered_matrix = order_matrix_by_expected_matches(
+                        matrix, expected_matches, mod1, mod2
+                    )
+                except ValueError as exc:
+                    # Some datasets only have expected-match metadata for specific modality pairs.
+                    # Fall back to modality-filtered matrix ordering in that case.
+                    print(f"Skipping expected-match ordering: {exc}")
+                    ordered_matrix = matrix
                 if remove_missing_data:
                     ordered_matrix = ordered_matrix.dropna(axis=0, how="all")
 
@@ -513,18 +536,19 @@ def super_plot_heatmaps_real_data(
                     tool_extreme_points[i] = extreme_point
 
     fig, axes = plt.subplots(
-        len(tools),
         len(rd_pairs),
-        figsize=(3.5 * len(rd_pairs), 2.5 * len(tools)),
+        len(tools),
+        figsize=(3 * len(tools), 3 * len(rd_pairs)),
         sharex="col",
         sharey="row",
     )
-    fig.subplots_adjust(wspace=0.05, hspace=0.05, top=0.88)
-    fig.suptitle(f"{dataset} real data similarity matrices", fontsize=16)
+    fig.subplots_adjust(wspace=-0.20, hspace=0.1)
+    # fig.suptitle(f"{dataset.replace('_', ' ')} similarity matrices".title(), fontsize=16, y=0.93)
+    fig.suptitle("Wilms Tumor Similarity Matrices", fontsize=16, y=0.93)
 
     for i, tool in enumerate(tools):
-        row_has_data = False
-        row_mappable = None
+        col_has_data = False
+        col_mappable = None
 
         if tool == "CrosscheckFingerprints":
             cmap = plt.get_cmap("RdBu").copy()
@@ -553,7 +577,7 @@ def super_plot_heatmaps_real_data(
             elif len(tools) == 1:
                 ax = axes[rd_pairs.index((rd1, rd2, rd_to_load))]
             else:
-                ax = axes[tools.index(tool), rd_pairs.index((rd1, rd2, rd_to_load))]
+                ax = axes[rd_pairs.index((rd1, rd2, rd_to_load)), tools.index(tool)]
 
             matrix_list = [
                 info["matrix"]
@@ -572,48 +596,58 @@ def super_plot_heatmaps_real_data(
                     transform=ax.transAxes,
                     fontsize=12,
                 )
-                print(f"No data for read depth {rd_label} and tool {tool}, skipping plot.")
+                print(
+                    f"No data for read depth {rd_label} and tool {tool}, skipping plot."
+                )
                 continue
 
             matrix = matrix_list[0]
-            row_has_data = True
+            col_has_data = True
 
             ax.imshow(matrix, cmap=cmap, norm=norm)
-            row_mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
-            row_mappable.set_array([])
+            col_mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+            col_mappable.set_array([])
 
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
-            if dataset == "hgsoc":
-                xlabels = [x.replace(mod2, "") + f"{mod2}" for x in matrix.columns]
-                ylabels = [y.replace(mod1, "") + f"{mod1}" for y in matrix.index]
-            else:
-                xlabels = matrix.columns
-                ylabels = matrix.index
-            ax.set_xticklabels(xlabels, rotation=45, ha="right", fontsize=8)
-            ax.set_yticklabels(ylabels, fontsize=8)
-            if tool == tools[0]:
-                ax.set_title(f"read depth filter {rd_label}", pad=10, fontsize=12)
+            # if dataset == "hgsoc":
+            #     xlabels = [x.replace(mod2, "") + f"{mod2}" for x in matrix.columns]
+            #     ylabels = [y.replace(mod1, "") + f"{mod1}" for y in matrix.index]
+            # else:
+            #     xlabels = matrix.columns
+            #     xlabels = [x.replace(mod2, "").rstrip("_").replace("_missing", "") for x in xlabels]
+            #     ylabels = matrix.index
+            #     ylabels = [y.replace(mod1, "").rstrip("_") for y in ylabels]
+            # ax.set_xticklabels(xlabels, rotation=90, ha="right", fontsize=4)
+            # ax.set_yticklabels(ylabels, fontsize=4)
+            ax.set_xticklabels([""] * len(matrix.columns))
+            ax.set_yticklabels([""] * len(matrix.index))
+            if tool == tools[-1]:
+                ax.yaxis.set_label_position("right")
+                ax.set_ylabel(
+                    f"Read depth {rd_label}", fontsize=12, rotation=270, labelpad=20
+                )
             if (rd1, rd2, rd_to_load) == rd_pairs[0]:
-                ax.set_ylabel(f"{tool}", fontsize=12)
+                ax.set_title(f"{tool}", fontsize=12)
 
-        if row_has_data:
+        if col_has_data:
             if len(rd_pairs) == 1 and len(tools) == 1:
-                row_axes = [axes]
-            elif len(rd_pairs) == 1:
-                row_axes = [axes[i]]
+                col_axes = [axes]
             elif len(tools) == 1:
-                row_axes = axes
+                col_axes = axes
+            elif len(rd_pairs) == 1:
+                col_axes = [axes[i]]
             else:
-                row_axes = axes[i, :]
+                col_axes = axes[:, i]
 
-            if row_mappable is not None:
+            if col_mappable is not None:
                 fig.colorbar(
-                    row_mappable,
-                    ax=row_axes,
-                    fraction=0.2,
+                    col_mappable,
+                    ax=col_axes,
+                    orientation="horizontal",
                     pad=0.02,
-                    shrink=0.7,
+                    fraction=0.05,
+                    shrink=0.6,
                 )
 
     if save_fig:
@@ -713,6 +747,172 @@ def heatmap_plot_accuracy_metrics_pseudobulk(
             dpi=300,
         )
     # fig.colorbar(cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5)
+    return
+
+
+def super_plot_heatmaps_real_data_multimodal_hgsoc(
+    DATA_PATH,
+    FIGURES_PATH,
+    tool,
+    rd,
+    save_fig=False,
+):
+
+    fig_name = f"superplot_hgsoc_multimodal_similarity_matrix_{tool}_rd{rd}"
+    mod_list1 = ["single-cell", "bulk_dissociated_polyA", "bulk_dissociated_ribo"] # columns
+    mod_list2 = ["bulk_dissociated_polyA", "bulk_dissociated_ribo", "bulk_chunk_ribo"] # rows
+    dataset = "hgsoc"
+    all_matrices = []
+    overall_extreme_point = 0
+
+    # Find all the data for the plots
+    for i, mod1 in enumerate(mod_list1):
+        for j, mod2 in enumerate(mod_list2):
+
+            matrix = load_heatmap_data(
+                DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2
+            )
+            if matrix is None:
+                # Try loading the transposed matrix in case of swapped axes in the output
+                matrix = load_heatmap_data(
+                    DATA_PATH, False, tool, dataset, "null", rd, mod2, mod1
+                )
+
+            if matrix is not None:
+                print(f"Processing modalities {mod1} vs {mod2} for plotting...")
+                # Clean up labels
+                matrix.index = [
+                    idx.replace(f"{mod1}_vs_{mod2}/", "")
+                    .replace(f"{mod2}_vs_{mod1}/", "")
+                    .replace(f"_{mod1}_{mod1}", f"_{mod1}")
+                    .replace(f"_{mod2}_{mod2}", f"_{mod2}")
+                    for idx in matrix.index
+                ]
+                matrix.columns = [
+                    col.replace(f"{mod1}_vs_{mod2}/", "")
+                    .replace(f"{mod2}_vs_{mod1}/", "")
+                    .replace(f"_{mod1}_{mod1}", f"_{mod1}")
+                    .replace(f"_{mod2}_{mod2}", f"_{mod2}")
+                    for col in matrix.columns
+                ]
+                matrix = _modality_submatrix(matrix, mod1, mod2)                
+
+                all_matrices.append(
+                    {
+                        "mod1": mod1,
+                        "mod2": mod2,
+                        "matrix": matrix,
+                    }
+                )
+                extreme_point = max(abs(matrix.min().min()), abs(matrix.max().max()))
+                if extreme_point > overall_extreme_point:
+                    overall_extreme_point = extreme_point
+
+    # Plot data
+    fig, axes = plt.subplots(3, 3, figsize=(8, 8), sharex=True, sharey=True)
+
+    if tool == "CrosscheckFingerprints":
+        cmap = plt.get_cmap("RdBu").copy()
+        norm = colors.Normalize(
+            vmin=-overall_extreme_point,
+            vmax=overall_extreme_point,
+        )
+    else:
+        cmap = plt.get_cmap("Oranges").copy()
+        norm = colors.Normalize(
+            vmin=0,
+            vmax=overall_extreme_point,
+        )
+    cmap.set_bad(color="lightgrey")
+
+    for j, mod1 in enumerate(mod_list1):
+        for i, mod2 in enumerate(mod_list2):
+            if i < j:
+                axes[i, j].axis("off")
+                continue
+            ax = axes[i, j]
+            matrix_list = [
+                info["matrix"]
+                for info in all_matrices
+                if info["mod1"] == mod1 and info["mod2"] == mod2
+            ]
+
+            if not matrix_list or matrix_list[0] is None:
+                ax.axis("off")
+                ax.text(
+                    0.5,
+                    0.5,
+                    "No data",
+                    ha="center",
+                    va="center",
+                    transform=ax.transAxes,
+                    fontsize=12,
+                )
+                continue
+
+            matrix = matrix_list[0]
+
+            ax.imshow(matrix, cmap=cmap, norm=norm)
+            col_mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+            col_mappable.set_array([])
+
+            # Y-label on left column
+            if j == 0:
+                ax.set_ylabel(f"{mod_list2[i].replace('_', ' ')}", fontsize=12)
+            
+            # Only show x-tick labels on bottom row
+            if i == len(mod_list2) - 1:
+                ax.set_xticks(np.arange(len(matrix.columns)))
+                xlabels = [col.replace(f"_{mod1}", "").replace(f"_{mod2}", "") for col in matrix.columns]
+                ax.set_xticklabels(xlabels, rotation=90)
+            else:
+                ax.set_xticks([])
+            # Only show y-tick labels on left column
+            if j == 2:
+                ax.set_yticks(np.arange(len(matrix.index)))
+                ylabels = [idx.replace(f"_{mod1}", "").replace(f"_{mod2}", "") for idx in matrix.index]
+                ax.set_yticklabels(ylabels)
+            else:
+                ax.set_yticks([])
+            ax.tick_params(axis='both', which='major', labelsize=10)
+    
+    # Modality on top row
+    for j, mod1 in enumerate(mod_list1):
+        fig.text(j*1.15 - 1.9, 
+                 3.5, 
+                 f"{mod1.replace('_', ' ')}", 
+                 fontsize=12, 
+                 transform=ax.transAxes,
+                 ha="center",
+                 )
+        
+    # Add one common colorbar for all subplots
+    cax = ax.inset_axes([0.3, 1.6, 0.15, 1.5])
+    fig.colorbar(
+        col_mappable,
+        ax=axes.ravel().tolist(),
+        cax=cax,
+        orientation="vertical",
+    )
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+
     return
 
 
