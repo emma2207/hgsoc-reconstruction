@@ -141,6 +141,27 @@ def _resolve_read_depth_path(
     )
 
 
+def _split_sample_label(label):
+    """Split sample label into prefix/suffix at first underscore, safely."""
+    label = str(label)
+    parts = label.split("_", 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return label, ""
+
+
+def _sorted_sample_labels(labels):
+    """Sort labels by suffix then prefix; tolerate labels without underscores."""
+    return sorted(
+        labels,
+        key=lambda x: (
+            _split_sample_label(x)[1],
+            _split_sample_label(x)[0],
+            str(x),
+        ),
+    )
+
+
 def matches_matrix_to_pair_df(matrix):
     """
     Convert a 0/1 sample-by-sample match matrix into a long dataframe of matched sample pairs.
@@ -233,17 +254,9 @@ def long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE"):
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
 
-    # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
-        key=lambda x: x.str.split("_", n=1).str[1]
-    )
-    matrix = matrix.reindex(
-        sorted(
-            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
-            key=lambda x: x.split("_", 1)[1],
-        )
-    )
-    matrix = matrix[matrix.index]
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
 
     return matrix
 
@@ -272,17 +285,9 @@ def long_df_to_matrix_hysys(df):
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
 
-    # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
-        key=lambda x: x.str.split("_", n=1).str[1]
-    )
-    matrix = matrix.reindex(
-        sorted(
-            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
-            key=lambda x: x.split("_", 1)[1],
-        )
-    )
-    matrix = matrix[matrix.index]
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
 
     return matrix
 
@@ -317,17 +322,9 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
 
-    # Order rows and columns by bulk modality and sample ID
-    matrix = matrix.sort_index(key=lambda x: x.str.split("_").str[0]).sort_index(
-        key=lambda x: x.str.split("_", n=1).str[1]
-    )
-    matrix = matrix.reindex(
-        sorted(
-            sorted(matrix.columns, key=lambda x: x.split("_", 1)[0]),
-            key=lambda x: x.split("_", 1)[1],
-        )
-    )
-    matrix = matrix[matrix.index]
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
 
     return matrix
 
