@@ -2,7 +2,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-from matplotlib import ticker
 
 from analysis_shared_functions import (
     load_heatmap_data,
@@ -18,7 +17,10 @@ from accuracy_functions import (
 def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
     """Build read-depth selector passed to data loaders for real-data runs."""
     if rd_mod1 is not None and rd_mod2 is not None:
-        return f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}", f"{mod1}:{rd_mod1}, {mod2}:{rd_mod2}"
+        return (
+            f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}",
+            f"{mod1}:{rd_mod1}, {mod2}:{rd_mod2}",
+        )
     return rd, str(rd)
 
 
@@ -421,19 +423,22 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                 else:
                     pseudobulk_1 = "_1"
                     pseudobulk_2 = "_2"
-                
+
                 matrix_filtered = matrix.loc[
                     [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
                     [col for col in matrix.columns if col.endswith(pseudobulk_2)],
                 ]
 
                 # Store matrix for later use in super plot
-                all_matrices.append(
-                    {"ncells": ncells, "tool": tool, "matrix": matrix_filtered}
-                )
+                if matrix_filtered is not None and not matrix_filtered.empty:
+                    all_matrices.append(
+                        {"ncells": ncells, "tool": tool, "matrix": matrix_filtered}
+                    )
 
                 # in the "Find all the data for the plots" loop, keep current logic and also update per-tool max
-                extreme_point = max(abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max()))
+                extreme_point = max(
+                    abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
+                )
                 if extreme_point > super_extreme_point:
                     super_extreme_point = extreme_point
                 if extreme_point > tool_extreme_points[tool]:
@@ -453,17 +458,26 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
     else:
         yval = 1.0
     fig.suptitle(
-        f"{dataset.replace('_', ' ')} pseudobulks - sample similarity".title(), fontsize=fontsize+4, y=yval
+        f"{dataset.replace('_', ' ')} pseudobulks - sample similarity".title(),
+        fontsize=fontsize + 4,
+        y=yval,
     )
 
     for ncells in ncells_list:
         for tool in tools:
-            if len(tools) == 1:
+            # Deal with the axes
+            if len(tools) == 1 and len(ncells_list) == 1:
+                ax = axes
+                row_left_ax = ax
+            elif len(tools) == 1:
                 ax = axes[ncells_list.index(ncells)]
+                row_left_ax = axes[0]
             elif len(ncells_list) == 1:
                 ax = axes[tools.index(tool)]
+                row_left_ax = axes[tools.index(tool)]
             else:
                 ax = axes[tools.index(tool), ncells_list.index(ncells)]
+                row_left_ax = axes[tools.index(tool), 0]
             matrix_list = [
                 info["matrix"]
                 for info in all_matrices
@@ -514,14 +528,16 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                 ax.set_title(f"{ncells} cells", pad=10, fontsize=fontsize)
     # Add text with tool name to the left of each row
     for itool, tool in enumerate(reversed(tools)):
+        row_bbox = row_left_ax.get_position()
         fig.text(
-            -3.4,
-            0.5 + itool * 1.05,
+            row_bbox.x0 - 0.02,
+            row_bbox.y0 + row_bbox.height / 2,
             f"{tool}",
-            transform=ax.transAxes,
+            transform=ax.transFigure,
             fontsize=fontsize,
             rotation=90,
             va="center",
+            ha="right",
         )
 
     # one colorbar per row/tool
@@ -565,6 +581,8 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             bbox_inches="tight",
             dpi=300,
         )
+
+    plt.close(fig)
 
     return
 
@@ -632,7 +650,6 @@ def super_plot_heatmaps_real_data(
         raise ValueError(
             "read_depths_mod1 and read_depths_mod2 must have the same length."
         )
-
 
     fig_name = f"superplot_{dataset}_{mod1}_vs_{mod2}_similarity_matrix"
     tool_extreme_points = np.full(len(tools), -np.inf)
@@ -740,7 +757,9 @@ def super_plot_heatmaps_real_data(
                     transform=ax.transAxes,
                     fontsize=12,
                 )
-                print(f"No data for read depth {rd_label} and tool {tool}, skipping plot.")
+                print(
+                    f"No data for read depth {rd_label} and tool {tool}, skipping plot."
+                )
                 continue
 
             matrix = matrix_list[0]
@@ -918,7 +937,9 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
                         fontsize=fontsize - 2,
                     )
 
-        ax[i // 2, i % 2].set_title(f"{metric.replace('_', ' ')}".title(), fontsize=fontsize)
+        ax[i // 2, i % 2].set_title(
+            f"{metric.replace('_', ' ')}".title(), fontsize=fontsize
+        )
 
         # Format x-tick labels in scientific notation
         xticklabels = []
@@ -936,7 +957,9 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
         # Only show x-label on bottom row
         if i // 2 == 1:
             ax[i // 2, i % 2].set_xlabel("# of cells", fontsize=fontsize)
-            ax[i // 2, i % 2].set_xticklabels(xticklabels, ha="center", fontsize=fontsize)
+            ax[i // 2, i % 2].set_xticklabels(
+                xticklabels, ha="center", fontsize=fontsize
+            )
         else:
             ax[i // 2, i % 2].tick_params(axis="x", labelbottom=False)
 
@@ -946,7 +969,10 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
             ax[i // 2, i % 2].set_yticklabels(matrix.index, fontsize=fontsize)
         else:
             ax[i // 2, i % 2].tick_params(axis="y", labelleft=False)
-    fig.suptitle(f"{dataset.replace('_', ' ')} pseudobulks - performance metrics".title(), fontsize=fontsize)
+    fig.suptitle(
+        f"{dataset.replace('_', ' ')} pseudobulks - performance metrics".title(),
+        fontsize=fontsize,
+    )
 
     if save_fig:
         fig.savefig(
@@ -1002,7 +1028,9 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                         fontsize=fontsize - 2,
                     )
 
-        ax[i // 2, i % 2].set_title(f"{metric.replace('_', ' ')}".title(), fontsize=fontsize)
+        ax[i // 2, i % 2].set_title(
+            f"{metric.replace('_', ' ')}".title(), fontsize=fontsize
+        )
         ax[i // 2, i % 2].set_yticks(np.arange(len(matrix.index)))
         ax[i // 2, i % 2].set_xticks(np.arange(len(matrix.columns)))
 
@@ -1010,7 +1038,9 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
         if i // 2 == 1:
             ax[i // 2, i % 2].set_xlabel("Datasets", fontsize=fontsize)
             dataset_labels = ["HGSOC", "HGG", "LGG", "WT"]
-            ax[i // 2, i % 2].set_xticklabels(dataset_labels, ha="right", fontsize=fontsize, rotation=45)
+            ax[i // 2, i % 2].set_xticklabels(
+                dataset_labels, ha="right", fontsize=fontsize, rotation=45
+            )
         else:
             ax[i // 2, i % 2].tick_params(axis="x", labelbottom=False)
 

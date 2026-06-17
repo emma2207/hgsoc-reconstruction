@@ -72,8 +72,13 @@ def _modality_in_label(modality, label):
     return False
 
 
-def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2):
+def _resolve_read_depth_path(
+    DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2
+):
     """Resolve a read-depth directory for both legacy scalar and new modality-specific tags."""
+    base_path = os.path.join(
+        DATA_PATH, tool, _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2)
+    )
     rd_tag = _normalize_read_depth_tag(rd)
     candidate_base_paths = _candidate_analysis_base_paths(
         DATA_PATH,
@@ -89,46 +94,46 @@ def _resolve_read_depth_path(DATA_PATH, tool, dataset, pseudobulk, ncells, rd, m
         if not os.path.exists(base_path):
             continue
 
-        exact_path = os.path.join(base_path, f"read_depth_{rd_tag}")
-        if os.path.exists(exact_path):
-            return exact_path
+    prefixed_matches = sorted(
+        glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*"))
+    )
+    if len(prefixed_matches) == 1:
+        return prefixed_matches[0]
 
-        prefixed_matches = sorted(
-            glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*"))
-        )
-        if len(prefixed_matches) == 1:
-            return prefixed_matches[0]
+    prefixed_matches = sorted(
+        glob.glob(os.path.join(base_path, f"read_depth_{rd_tag}*"))
+    )
 
-        all_matches = sorted(glob.glob(os.path.join(base_path, "read_depth_*")))
+    all_matches = sorted(glob.glob(os.path.join(base_path, "read_depth_*")))
 
-        # Support modality-specific tags when rd is scalar, e.g.
-        # read_depth_bulk_dissociated_polyA_20_single-cell_20 for rd=20.
-        token_matches = []
+    # Support modality-specific tags when rd is scalar, e.g.
+    # read_depth_bulk_dissociated_polyA_20_single-cell_20 for rd=20.
+    token_matches = []
+    for candidate in all_matches:
+        candidate_tag = os.path.basename(candidate).replace("read_depth_", "", 1)
+        tokens = re.split(r"[_-]", candidate_tag)
+        if rd_tag in tokens:
+            token_matches.append(candidate)
+    if len(token_matches) == 1:
+        return token_matches[0]
+
+    # If modality labels differ from folder naming (e.g. single-cell vs single-nucleus),
+    # fall back to matching only by numeric depth tokens.
+    rd_numbers = re.findall(r"\d+", rd_tag)
+    if rd_numbers:
+        numeric_matches = []
         for candidate in all_matches:
-            candidate_tag = os.path.basename(candidate).replace("read_depth_", "", 1)
-            tokens = re.split(r"[_-]", candidate_tag)
-            if rd_tag in tokens:
-                token_matches.append(candidate)
-        if len(token_matches) == 1:
-            return token_matches[0]
+            candidate_tag = os.path.basename(candidate).replace(
+                "read_depth_", "", 1
+            )
+            candidate_numbers = re.findall(r"\d+", candidate_tag)
+            if candidate_numbers == rd_numbers:
+                numeric_matches.append(candidate)
+        if len(numeric_matches) == 1:
+            return numeric_matches[0]
 
-        # If modality labels differ from folder naming (e.g. single-cell vs single-nucleus),
-        # fall back to matching only by numeric depth tokens.
-        rd_numbers = re.findall(r"\d+", rd_tag)
-        if rd_numbers:
-            numeric_matches = []
-            for candidate in all_matches:
-                candidate_tag = os.path.basename(candidate).replace(
-                    "read_depth_", "", 1
-                )
-                candidate_numbers = re.findall(r"\d+", candidate_tag)
-                if candidate_numbers == rd_numbers:
-                    numeric_matches.append(candidate)
-            if len(numeric_matches) == 1:
-                return numeric_matches[0]
-
-        if len(all_matches) == 1:
-            return all_matches[0]
+    if len(all_matches) == 1:
+        return all_matches[0]
 
     candidate_base_str = ", ".join(candidate_base_paths)
     raise FileNotFoundError(
