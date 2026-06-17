@@ -26,7 +26,7 @@ def buildReadDepthContext(readDepthParam, dataset, isPseudobulk, modalities) {
             : datasetReadDepth
 
     def realDataNcellsPath =
-        (!isPseudobulk && dataset == 'hgsoc' && modalities?.size() >= 2)
+        (!isPseudobulk && dataset in ['hgsoc', 'hgsoc-new'] && modalities?.size() >= 2)
             ? "real_data/${modalities[0]}_vs_${modalities[1]}/ncells_null"
             : "real_data/ncells_null"
 
