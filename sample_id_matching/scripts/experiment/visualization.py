@@ -1143,6 +1143,18 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
     df, dataset, save_fig=False, FIGURES_PATH=""
 ):
     metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
+    metric_labels = {
+        "fraction_inconclusive": "Fraction Inconclusive",
+        "f1": "F1 Score",
+        "precision": "Precision",     
+        "recall": "Recall",
+    }
+    tool_labels = {
+        "CrosscheckFingerprints": "Crosscheck",
+        "HYSYS": "HYSYS",
+        "NGSCheckmate": "NGSCheckMate",
+        "Vireo": "Vireo",
+        }
     fig_name = f"pseudobulk_{dataset}_accuracy_metrics_heatmap_rd0"
     fontsize = 14
 
@@ -1174,7 +1186,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
                     )
 
         ax[i // 2, i % 2].set_title(
-            f"{metric.replace('_', ' ')}".title(), fontsize=fontsize
+            f"{metric_labels.get(metric, metric)}", fontsize=fontsize
         )
 
         # Format x-tick labels in scientific notation
@@ -1202,7 +1214,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
         # Only show y-label on left column
         if i % 2 == 0:
             ax[i // 2, i % 2].set_ylabel("Tools", fontsize=fontsize)
-            ax[i // 2, i % 2].set_yticklabels(matrix.index, fontsize=fontsize)
+            ax[i // 2, i % 2].set_yticklabels([tool_labels.get(label, label) for label in matrix.index], fontsize=fontsize)
         else:
             ax[i // 2, i % 2].tick_params(axis="y", labelleft=False)
     fig.suptitle(
@@ -1234,10 +1246,29 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
     df, datasets, save_fig=False, FIGURES_PATH=""
 ):
     metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
+    metric_labels = {
+        "fraction_inconclusive": "Fraction Inconclusive",
+        "f1": "F1 Score",
+        "precision": "Precision",
+        "recall": "Recall"
+    }
+    tool_labels = {
+        "CrosscheckFingerprints": "Crosscheck",
+        "HYSYS": "HYSYS",
+        "NGSCheckmate": "NGSCheckMate",
+        "Vireo": "Vireo",
+    }
+    dataset_labels = {
+        "hgsoc": "HGSOC",
+        "high_grade_glioma": "HGG",
+        "low_grade_glioma": "LGG",
+        "wilms_tumor": "WT",
+    }
+
     fig_name = f"pseudobulk_accuracy_metrics_heatmap_rd0_ncells500k"
     fontsize = 14
 
-    fig, ax = plt.subplots(2, 2, figsize=(8, 8))
+    fig, ax = plt.subplots(1, 4, figsize=(16, 4))
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
@@ -1246,7 +1277,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
             index=["tool"], columns="dataset", values=metric
         )
 
-        ax[i // 2, i % 2].imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
+        ax[i].imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
 
         # Add text annotations with F1 values
         for row in range(len(matrix.index)):
@@ -1254,7 +1285,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                 value = matrix.iloc[row, col]
                 if not np.isnan(value):
                     text_color = "white" if value > 0.5 else "black"
-                    ax[i // 2, i % 2].text(
+                    ax[i].text(
                         col,
                         row,
                         f"{value:.2f}",
@@ -1264,28 +1295,23 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                         fontsize=fontsize - 2,
                     )
 
-        ax[i // 2, i % 2].set_title(
-            f"{metric.replace('_', ' ')}".title(), fontsize=fontsize
+        ax[i].set_title(
+            f"{metric_labels.get(metric, metric)}", fontsize=fontsize
         )
-        ax[i // 2, i % 2].set_yticks(np.arange(len(matrix.index)))
-        ax[i // 2, i % 2].set_xticks(np.arange(len(matrix.columns)))
+        ax[i].set_yticks(np.arange(len(matrix.index)))
+        ax[i].set_xticks(np.arange(len(matrix.columns)))
 
-        # Only show x-label on bottom row
-        if i // 2 == 1:
-            ax[i // 2, i % 2].set_xlabel("Datasets", fontsize=fontsize)
-            dataset_labels = ["HGSOC", "HGG", "LGG", "WT"]
-            ax[i // 2, i % 2].set_xticklabels(
-                dataset_labels, ha="right", fontsize=fontsize, rotation=45
-            )
-        else:
-            ax[i // 2, i % 2].tick_params(axis="x", labelbottom=False)
+        ax[i].set_xlabel("Datasets", fontsize=fontsize)
+        ax[i].set_xticklabels(
+            [dataset_labels.get(label, label) for label in matrix.columns], ha="right", fontsize=fontsize, rotation=45
+        )
 
         # Only show y-label on left column
-        if i % 2 == 0:
-            ax[i // 2, i % 2].set_ylabel("Tools", fontsize=fontsize)
-            ax[i // 2, i % 2].set_yticklabels(matrix.index, fontsize=fontsize)
+        if i == 0:
+            ax[i].set_ylabel("Tools", fontsize=fontsize)
+            ax[i].set_yticklabels([tool_labels.get(label, label) for label in matrix.index], fontsize=fontsize)
         else:
-            ax[i // 2, i % 2].tick_params(axis="y", labelleft=False)
+            ax[i].tick_params(axis="y", labelleft=False)
     fig.suptitle(f"pseudobulks - performance metrics".title(), fontsize=fontsize)
 
     if save_fig:
