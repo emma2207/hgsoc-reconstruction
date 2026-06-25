@@ -800,7 +800,7 @@ def super_plot_heatmaps_real_data(
     fig, axes = plt.subplots(
         len(tools),
         len(rd_pairs),
-        figsize=(3 * len(tools), 2.75 * len(rd_pairs)),
+        figsize=(2.5 * len(rd_pairs), 2 * len(tools)),
         sharex="col",
         sharey="row",
     )
@@ -1038,11 +1038,14 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
             matrix = load_heatmap_data(
                 DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2
             )
+            transposed = False
             if matrix is None:
                 # Try loading the transposed matrix in case of swapped axes in the output
                 matrix = load_heatmap_data(
                     DATA_PATH, False, tool, dataset, "null", rd, mod2, mod1
                 )
+                transposed = True
+                # matrix = matrix.transpose() if matrix is not None else None
 
             if matrix is not None:
                 print(f"Processing modalities {mod1} vs {mod2} for plotting...")
@@ -1117,7 +1120,9 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
                 continue
 
             matrix = matrix_list[0]
-
+            
+            if transposed:
+                matrix = matrix.T
             ax.imshow(matrix, cmap=cmap, norm=norm)
             col_mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
             col_mappable.set_array([])
@@ -1924,6 +1929,191 @@ def barplot_matches_nonmatches_na(
 
     fig.suptitle(f"Sample matching results for {dataset} dataset")
     plt.tight_layout()
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+
+    return
+
+
+def plot_combined_heatmaps_datasets(
+        DATA_PATH,
+        FIGURES_PATH,
+        save_fig=False,
+):  
+    fig_name = f"combined_heatmaps_WT_HGSOC_LGG"
+    fontsize = 12
+    cmap_oranges = plt.get_cmap("Oranges")
+    cmap_oranges.set_bad(color="lightgrey")
+
+    # Load and prepare Wilms' tumor heatmap
+    mod1_wt = "bulk"
+    mod2_wt = "single-nucleus"
+    matrix_wt = load_heatmap_data(
+        DATA_PATH,
+        False,
+        "HYSYS",
+        "wilms_tumor",
+        "null",
+        "bulk_0_single-nucleus_0",
+        mod1_wt,
+        mod2_wt,
+    )
+    assert matrix_wt is not None, "Matrix for Wilms' tumor is None"
+    matrix_wt = _modality_submatrix(matrix_wt, mod1_wt, mod2_wt)
+    expected_matches_wt = load_expected_matches_real_data(DATA_PATH, "wilms_tumor")
+    try:
+        filtered_matrix_wt = order_matrix_by_expected_matches(
+            matrix_wt,
+            expected_matches_wt,
+            mod1_wt,
+            mod2_wt,
+        )
+    except ValueError as exc:
+        print(
+            "Could not order by expected matches for requested modalities "
+            f"({mod1_wt} vs {mod2_wt}): {exc}. Falling back to direct modality filtering."
+        )
+        filtered_matrix_wt = _subset_matrix_by_modalities(matrix_wt, mod1_wt, mod2_wt)
+
+    # Load and prepare HGSOC heatmap
+    mod1_hgsoc = "bulk_dissociated_ribo"
+    mod2_hgsoc = "single-cell"
+    matrix_hgsoc = load_heatmap_data(
+        DATA_PATH,
+        False,
+        "HYSYS",
+        "hgsoc",
+        "null",
+        "bulk_dissociated_ribo_0_single-cell_0",
+        mod1_hgsoc,
+        mod2_hgsoc,
+    )
+    assert matrix_hgsoc is not None, "Matrix for HGSOC is None"
+    matrix_hgsoc = _modality_submatrix(matrix_hgsoc, mod1_hgsoc, mod2_hgsoc)
+    expected_matches_hgsoc = load_expected_matches_real_data(DATA_PATH, "hgsoc")
+    try:
+        filtered_matrix_hgsoc = order_matrix_by_expected_matches(
+            matrix_hgsoc,
+            expected_matches_hgsoc,
+            mod1_hgsoc,
+            mod2_hgsoc,
+        )
+    except ValueError as exc:
+        print(
+            "Could not order by expected matches for requested modalities "
+            f"({mod1_hgsoc} vs {mod2_hgsoc}): {exc}. Falling back to direct modality filtering."
+        )
+        filtered_matrix_hgsoc = _subset_matrix_by_modalities(
+            matrix_hgsoc, mod1_hgsoc, mod2_hgsoc
+        )
+
+    # Load and prepare low-grade glioma heatmap
+    mod1_lgg = "bulk"
+    mod2_lgg = "single-cell"
+    matrix_lgg = load_heatmap_data(
+        DATA_PATH,
+        False,
+        "CrosscheckFingerprints",
+        "low_grade_glioma",
+        "null",
+        "bulk_0_single-cell_0",
+        mod1_lgg,
+        mod2_lgg,
+    )
+    assert matrix_lgg is not None, "Matrix for low-grade glioma is None"
+    matrix_lgg = _modality_submatrix(matrix_lgg, mod1_lgg, mod2_lgg)
+    expected_matches_lgg = load_expected_matches_real_data(DATA_PATH, "low_grade_glioma")
+    try:
+        filtered_matrix_lgg = order_matrix_by_expected_matches(
+            matrix_lgg,
+            expected_matches_lgg,
+            mod1_lgg,
+            mod2_lgg,
+        )
+    except ValueError as exc:
+        print(
+            "Could not order by expected matches for requested modalities "
+            f"({mod1_lgg} vs {mod2_lgg}): {exc}. Falling back to direct modality filtering."
+        )
+        filtered_matrix_lgg = _subset_matrix_by_modalities(matrix_lgg, mod1_lgg, mod2_lgg)
+    # Hide expected-but-missing samples in the LGG panel.
+    filtered_matrix_lgg = filtered_matrix_lgg.dropna(axis=0, how="all").dropna(
+        axis=1, how="all"
+    )
+    extreme_point = max(
+        abs(filtered_matrix_lgg.min().min()), abs(filtered_matrix_lgg.max().max())
+    )
+    cmap_rd_bu = plt.get_cmap("RdBu")
+    cmap_rd_bu.set_bad(color="lightgrey")
+
+    # Keep image aspect ratios and enforce same bottom-row height by scaling bottom column widths.
+    # width ratio is proportional to each matrix aspect (n_cols / n_rows).
+    hgsoc_aspect = filtered_matrix_hgsoc.shape[1] / max(filtered_matrix_hgsoc.shape[0], 1)
+    lgg_aspect = filtered_matrix_lgg.shape[1] / max(filtered_matrix_lgg.shape[0], 1)
+
+    fig = plt.figure(figsize=(10, 12))
+    gs = fig.add_gridspec(
+        2,
+        2,
+        height_ratios=[1, 1],
+        width_ratios=[hgsoc_aspect, lgg_aspect],
+        hspace=-0.1,
+        wspace=0.2,
+    )
+
+    # Plot Wilms' tumor heatmap
+    ax1 = fig.add_subplot(gs[0, :])
+    ax1.imshow(filtered_matrix_wt, cmap=cmap_oranges)
+    ax1.set_title("Wilms' Tumor", fontsize=fontsize + 2)
+    ax1.set_xlabel("Single-nucleus", fontsize=fontsize)
+    ax1.set_ylabel("Bulk", fontsize=fontsize)
+    ax1.set_xticks(np.arange(len(filtered_matrix_wt.columns)))
+    ax1.set_yticks(np.arange(len(filtered_matrix_wt.index)))
+    ax1.set_xticklabels([""] * len(filtered_matrix_wt.columns))
+    ax1.set_yticklabels([""] * len(filtered_matrix_wt.index))
+
+    # Plot HGSOC heatmap
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax2.imshow(filtered_matrix_hgsoc, cmap=cmap_oranges)
+    ax2.set_title("HGSOC", fontsize=fontsize + 2)
+    ax2.set_xlabel("Single-cell", fontsize=fontsize)
+    ax2.set_ylabel("Bulk dissociated rRNA-", fontsize=fontsize)
+    ax2.set_xticks(np.arange(len(filtered_matrix_hgsoc.columns)))
+    ax2.set_yticks(np.arange(len(filtered_matrix_hgsoc.index)))
+    ax2.set_xticklabels([""] * len(filtered_matrix_hgsoc.columns))
+    ax2.set_yticklabels([""] * len(filtered_matrix_hgsoc.index))
+
+    # Plot low-grade glioma heatmap
+    ax3 = fig.add_subplot(gs[1, 1])
+    ax3.imshow(
+        filtered_matrix_lgg,
+        cmap=cmap_rd_bu,
+        vmin=-extreme_point,
+        vmax=extreme_point,
+    )
+    ax3.set_title("Low-Grade Glioma", fontsize=fontsize + 2)
+    ax3.set_xlabel("Single-cell", fontsize=fontsize)
+    ax3.set_ylabel("Bulk", fontsize=fontsize)
+    ax3.set_xticks(np.arange(len(filtered_matrix_lgg.columns)))
+    ax3.set_yticks(np.arange(len(filtered_matrix_lgg.index)))
+    ax3.set_xticklabels([""] * len(filtered_matrix_lgg.columns))
+    ax3.set_yticklabels([""] * len(filtered_matrix_lgg.index))
 
     if save_fig:
         fig.savefig(
