@@ -904,16 +904,16 @@ def super_plot_heatmaps_real_data(
             else:
                 row_axes = axes[i, :]
 
-                if tool_mappable is not None:
-                    cbar = fig.colorbar(
-                        tool_mappable,
-                        ax=row_axes,
-                        orientation="vertical",
-                        pad=0.03,
-                        fraction=0.08,
-                        shrink=0.75,
-                    )
-                    cbar.ax.tick_params(labelsize=fontsize)
+            if tool_mappable is not None:
+                cbar = fig.colorbar(
+                    tool_mappable,
+                    ax=row_axes,
+                    orientation="vertical",
+                    pad=0.03,
+                    fraction=0.08,
+                    shrink=0.75,
+                )
+                cbar.ax.tick_params(labelsize=fontsize)
 
     if save_fig:
         fig.savefig(

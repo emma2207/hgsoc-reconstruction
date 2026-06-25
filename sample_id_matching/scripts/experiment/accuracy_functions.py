@@ -234,7 +234,7 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
     """
     expected_matches = pd.read_csv(
         os.path.join(
-            DATA_PATH, f"../metadata/sample_matches/sample_matches_{dataset}.csv"
+            DATA_PATH, f"../../metadata/sample_matches/sample_matches_{dataset}.csv"
         )
     )
     expected_matches = expected_matches.dropna(axis=1, how="all").dropna(
