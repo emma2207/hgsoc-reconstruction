@@ -17,6 +17,35 @@ from accuracy_functions import (
 )
 
 
+METRIC_LABELS = {
+    "fraction_inconclusive": "Fraction Inconclusive",
+    "f1": "F1 Score",
+    "precision": "Precision",
+    "recall": "Recall",
+}
+
+TOOL_LABELS = {
+    "CrosscheckFingerprints": "Crosscheck",
+    "HYSYS": "HYSYS",
+    "NGSCheckmate": "NGSCheckMate",
+    "Vireo": "Vireo",
+}
+
+DATASET_LABELS_SHORT = {
+    "hgsoc": "HGSOC",
+    "high_grade_glioma": "HGG",
+    "low_grade_glioma": "LGG",
+    "wilms_tumor": "WT",
+}
+
+DATASET_LABELS = {
+    "hgsoc": "High-Grade Serous Ovarian Cancer",
+    "high_grade_glioma": "High-Grade Glioma",
+    "low_grade_glioma": "Low-Grade Glioma",
+    "wilms_tumor": "Wilms Tumor",
+}
+
+
 def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
     """Build read-depth selector passed to data loaders for real-data runs."""
     if rd_mod1 is not None and rd_mod2 is not None:
@@ -103,6 +132,27 @@ def _subset_matrix_by_modalities(matrix, mod1, mod2):
     return matrix.loc[row_labels, col_labels]
 
 
+def _tool_colormap(tool):
+    cmap_name = "RdBu" if tool == "CrosscheckFingerprints" else "Oranges"
+    cmap = plt.get_cmap(cmap_name).copy()
+    cmap.set_bad(color="lightgrey")
+    return cmap
+
+
+def _tool_norm(tool, limit):
+    if tool == "CrosscheckFingerprints":
+        return colors.Normalize(vmin=-limit, vmax=limit)
+    return colors.Normalize(vmin=0, vmax=limit)
+
+
+def _plot_tool_heatmap(ax, matrix, tool, method="imshow", symmetric_limit=None):
+    cmap = _tool_colormap(tool)
+    plotter = getattr(ax, method)
+    if tool == "CrosscheckFingerprints" and symmetric_limit is not None:
+        return plotter(matrix, cmap=cmap, vmin=-symmetric_limit, vmax=symmetric_limit)
+    return plotter(matrix, cmap=cmap)
+
+
 def bulk_vs_singlecell_matrix_viz(
     DATA_PATH,
     pseudobulk,
@@ -177,14 +227,13 @@ def bulk_vs_singlecell_matrix_viz(
         sub_matrix = sub_matrix.dropna(axis=0, how="all").dropna(axis=1, how="all")
 
     fig, ax = plt.subplots(figsize=(6, 6))
-    if tool == "CrosscheckFingerprints":
-        cmap = plt.get_cmap("RdBu")
-        cmap.set_bad(color="lightgrey")
-        cax = ax.matshow(sub_matrix, cmap=cmap, vmin=-extreme_point, vmax=extreme_point)
-    else:
-        cmap = plt.get_cmap("Oranges")
-        cmap.set_bad(color="lightgrey")
-        cax = ax.matshow(sub_matrix, cmap=cmap)
+    cax = _plot_tool_heatmap(
+        ax,
+        sub_matrix,
+        tool,
+        method="matshow",
+        symmetric_limit=extreme_point,
+    )
 
     ax.set_xticks(np.arange(len(sub_matrix.columns)))
     ax.set_yticks(np.arange(len(sub_matrix.index)))
@@ -269,16 +318,13 @@ def all_samples_matrix_viz(
         extreme_point = max(abs(matrix_df.min().min()), abs(matrix_df.max().max()))
 
         fig, ax = plt.subplots(figsize=(10, 10))
-        if tool == "CrosscheckFingerprints":
-            cmap = plt.get_cmap("RdBu")
-            cmap.set_bad(color="lightgrey")
-            cax = ax.matshow(
-                matrix_df, cmap=cmap, vmin=-extreme_point, vmax=extreme_point
-            )
-        else:
-            cmap = plt.get_cmap("Oranges")
-            cmap.set_bad(color="lightgrey")
-            cax = ax.matshow(matrix_df, cmap=cmap)
+        cax = _plot_tool_heatmap(
+            ax,
+            matrix_df,
+            tool,
+            method="matshow",
+            symmetric_limit=extreme_point,
+        )
 
         ax.set_xticks(np.arange(len(matrix_df.columns)))
         ax.set_yticks(np.arange(len(matrix_df.index)))
@@ -404,19 +450,13 @@ def super_plot_heatmaps_pseudobulk(
 
             matrix = matrix_list[0]
 
-            if tool == "CrosscheckFingerprints":
-                cmap = plt.get_cmap("RdBu")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(
-                    matrix,
-                    cmap=cmap,
-                    vmin=-super_extreme_point,
-                    vmax=super_extreme_point,
-                )
-            else:
-                cmap = plt.get_cmap("Oranges")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(matrix, cmap=cmap)
+            cax = _plot_tool_heatmap(
+                ax,
+                matrix,
+                tool,
+                method="imshow",
+                symmetric_limit=super_extreme_point,
+            )
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
@@ -582,19 +622,8 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             matrix = matrix_list[0]
 
             # in plotting loop, replace imshow branch with row-normalized plotting
-            if tool == "CrosscheckFingerprints":
-                cmap = plt.get_cmap("RdBu").copy()
-                norm = colors.Normalize(
-                    vmin=-tool_extreme_points[tool],
-                    vmax=tool_extreme_points[tool],
-                )
-            else:
-                cmap = plt.get_cmap("Oranges").copy()
-                norm = colors.Normalize(
-                    vmin=0,
-                    vmax=tool_extreme_points[tool],
-                )
-            cmap.set_bad(color="lightgrey")
+            cmap = _tool_colormap(tool)
+            norm = _tool_norm(tool, tool_extreme_points[tool])
 
             ax.imshow(matrix, cmap=cmap, norm=norm)
             row_has_data[tool] = True
@@ -812,19 +841,8 @@ def super_plot_heatmaps_real_data(
         row_has_data = False
         tool_mappable = None
 
-        if tool == "CrosscheckFingerprints":
-            cmap = plt.get_cmap("RdBu").copy()
-            norm = colors.Normalize(
-                vmin=-tool_extreme_points[i],
-                vmax=tool_extreme_points[i],
-            )
-        else:
-            cmap = plt.get_cmap("Oranges").copy()
-            norm = colors.Normalize(
-                vmin=0,
-                vmax=tool_extreme_points[i],
-            )
-        cmap.set_bad(color="lightgrey")
+        cmap = _tool_colormap(tool)
+        norm = _tool_norm(tool, tool_extreme_points[i])
         
 
         for rd1, rd2, rd_to_load in rd_pairs:
@@ -1038,14 +1056,11 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
             matrix = load_heatmap_data(
                 DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2
             )
-            transposed = False
             if matrix is None:
                 # Try loading the transposed matrix in case of swapped axes in the output
                 matrix = load_heatmap_data(
                     DATA_PATH, False, tool, dataset, "null", rd, mod2, mod1
                 )
-                transposed = True
-                # matrix = matrix.transpose() if matrix is not None else None
 
             if matrix is not None:
                 print(f"Processing modalities {mod1} vs {mod2} for plotting...")
@@ -1064,7 +1079,9 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
                     .replace(f"_{mod2}_{mod2}", f"_{mod2}")
                     for col in matrix.columns
                 ]
-                matrix = _modality_submatrix(matrix, mod1, mod2)                
+                # Keep grid semantics consistent: rows correspond to mod_list2,
+                # columns correspond to mod_list1.
+                matrix = _modality_submatrix(matrix, mod2, mod1)
 
                 all_matrices.append(
                     {
@@ -1080,19 +1097,8 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
     # Plot data
     fig, axes = plt.subplots(3, 3, figsize=(8, 8), sharex=True, sharey=True)
 
-    if tool == "CrosscheckFingerprints":
-        cmap = plt.get_cmap("RdBu").copy()
-        norm = colors.Normalize(
-            vmin=-overall_extreme_point,
-            vmax=overall_extreme_point,
-        )
-    else:
-        cmap = plt.get_cmap("Oranges").copy()
-        norm = colors.Normalize(
-            vmin=0,
-            vmax=overall_extreme_point,
-        )
-    cmap.set_bad(color="lightgrey")
+    cmap = _tool_colormap(tool)
+    norm = _tool_norm(tool, overall_extreme_point)
 
     for j, mod1 in enumerate(mod_list1):
         for i, mod2 in enumerate(mod_list2):
@@ -1120,9 +1126,7 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
                 continue
 
             matrix = matrix_list[0]
-            
-            if transposed:
-                matrix = matrix.T
+
             ax.imshow(matrix, cmap=cmap, norm=norm)
             col_mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
             col_mappable.set_array([])
@@ -1130,6 +1134,10 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
             # Y-label on left column
             if j == 0:
                 ax.set_ylabel(f"{mod_list2[i].replace('_', ' ')}", fontsize=12)
+
+            # Modality on bottom row
+            if i == len(mod_list2) - 1:
+                ax.set_xlabel(f"{mod_list1[j].replace('_', ' ')}", fontsize=12)
             
             # Only show x-tick labels on bottom row
             if i == len(mod_list2) - 1:
@@ -1147,16 +1155,6 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
                 ax.set_yticks([])
             ax.tick_params(axis='both', which='major', labelsize=10)
     
-    # Modality on top row
-    for j, mod1 in enumerate(mod_list1):
-        fig.text(j*1.15 - 1.9, 
-                 3.5, 
-                 f"{mod1.replace('_', ' ')}", 
-                 fontsize=12, 
-                 transform=ax.transAxes,
-                 ha="center",
-                 )
-        
     # Add one common colorbar for all subplots
     cax = ax.inset_axes([0.3, 1.6, 0.15, 1.5])
     if col_mappable is not None:
@@ -1192,18 +1190,6 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
     df, dataset, save_fig=False, FIGURES_PATH=""
 ):
     metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
-    metric_labels = {
-        "fraction_inconclusive": "Fraction Inconclusive",
-        "f1": "F1 Score",
-        "precision": "Precision",     
-        "recall": "Recall",
-    }
-    tool_labels = {
-        "CrosscheckFingerprints": "Crosscheck",
-        "HYSYS": "HYSYS",
-        "NGSCheckmate": "NGSCheckMate",
-        "Vireo": "Vireo",
-        }
     fig_name = f"pseudobulk_{dataset}_accuracy_metrics_heatmap_rd0"
     fontsize = 14
 
@@ -1235,7 +1221,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
                     )
 
         ax[i // 2, i % 2].set_title(
-            f"{metric_labels.get(metric, metric)}", fontsize=fontsize
+            f"{METRIC_LABELS.get(metric, metric)}", fontsize=fontsize
         )
 
         # Format x-tick labels in scientific notation
@@ -1263,7 +1249,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
         # Only show y-label on left column
         if i % 2 == 0:
             ax[i // 2, i % 2].set_ylabel("Tools", fontsize=fontsize)
-            ax[i // 2, i % 2].set_yticklabels([tool_labels.get(label, label) for label in matrix.index], fontsize=fontsize)
+            ax[i // 2, i % 2].set_yticklabels([TOOL_LABELS.get(label, label) for label in matrix.index], fontsize=fontsize)
         else:
             ax[i // 2, i % 2].tick_params(axis="y", labelleft=False)
     fig.suptitle(
@@ -1295,24 +1281,6 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
     df, datasets, save_fig=False, FIGURES_PATH=""
 ):
     metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
-    metric_labels = {
-        "fraction_inconclusive": "Fraction Inconclusive",
-        "f1": "F1 Score",
-        "precision": "Precision",
-        "recall": "Recall"
-    }
-    tool_labels = {
-        "CrosscheckFingerprints": "Crosscheck",
-        "HYSYS": "HYSYS",
-        "NGSCheckmate": "NGSCheckMate",
-        "Vireo": "Vireo",
-    }
-    dataset_labels = {
-        "hgsoc": "HGSOC",
-        "high_grade_glioma": "HGG",
-        "low_grade_glioma": "LGG",
-        "wilms_tumor": "WT",
-    }
 
     fig_name = f"pseudobulk_accuracy_metrics_heatmap_rd0_ncells500k"
     fontsize = 12
@@ -1345,7 +1313,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                     )
 
         ax[i // 2, i % 2].set_title(
-            f"{metric_labels.get(metric, metric)}", fontsize=fontsize
+            f"{METRIC_LABELS.get(metric, metric)}", fontsize=fontsize
         )
         ax[i // 2, i % 2].set_yticks(np.arange(len(matrix.index)))
         
@@ -1354,7 +1322,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
             ax[i // 2, i % 2].set_xticks(np.arange(len(matrix.columns)))
             ax[i // 2, i % 2].set_xlabel("Datasets", fontsize=fontsize)
             ax[i // 2, i % 2].set_xticklabels(
-                [dataset_labels.get(label, label) for label in matrix.columns], ha="right", fontsize=fontsize, rotation=45
+                [DATASET_LABELS_SHORT.get(label, label) for label in matrix.columns], ha="right", fontsize=fontsize, rotation=45
             )
         else:
             ax[i // 2, i % 2].tick_params(axis="x", labelbottom=False)
@@ -1362,7 +1330,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
         # Only show y-label on left column
         if i % 2 == 0:
             ax[i // 2, i % 2].set_ylabel("Tools", fontsize=fontsize)
-            ax[i // 2, i % 2].set_yticklabels([tool_labels.get(label, label) for label in matrix.index], fontsize=fontsize)
+            ax[i // 2, i % 2].set_yticklabels([TOOL_LABELS.get(label, label) for label in matrix.index], fontsize=fontsize)
         else:
             ax[i // 2, i % 2].tick_params(axis="y", labelleft=False)
     fig.suptitle(f"pseudobulks - performance metrics".title(), fontsize=fontsize + 4)
@@ -1699,19 +1667,13 @@ def super_plot_heatmaps_uneven_pseudobulk(
 
             matrix = matrix_list[0]
 
-            if tool == "CrosscheckFingerprints":
-                cmap = plt.get_cmap("RdBu")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(
-                    matrix,
-                    cmap=cmap,
-                    vmin=-super_extreme_point,
-                    vmax=super_extreme_point,
-                )
-            else:
-                cmap = plt.get_cmap("Oranges")
-                cmap.set_bad(color="lightgrey")
-                cax = ax.imshow(matrix, cmap=cmap)
+            cax = _plot_tool_heatmap(
+                ax,
+                matrix,
+                tool,
+                method="imshow",
+                symmetric_limit=super_extreme_point,
+            )
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
@@ -2114,6 +2076,172 @@ def plot_combined_heatmaps_datasets(
     ax3.set_yticks(np.arange(len(filtered_matrix_lgg.index)))
     ax3.set_xticklabels([""] * len(filtered_matrix_lgg.columns))
     ax3.set_yticklabels([""] * len(filtered_matrix_lgg.index))
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+
+    return
+
+
+def row_heatmap_plot_real_data(
+    DATA_PATH,
+    FIGURES_PATH,
+    tools,
+    dataset,
+    rd_mod1,
+    rd_mod2=None,
+    mod1="bulk",
+    mod2="single-cell",
+    hide_missing_samples=False,
+    save_fig=False,
+):
+    """
+    Create a row of heatmaps for each tool, showing the similarity matrices for the given dataset and modalities.
+    Each heatmap corresponds to a different tool.
+
+    input:
+        - DATA_PATH: path to data
+        - FIGURES_PATH: path to save figures
+        - tools: list of tools to plot
+        - dataset: name of dataset
+        - rd_mod1: read depth for modality 1
+        - rd_mod2: read depth for modality 2 (if None, use rd_mod1)
+        - mod1: name of modality 1
+        - mod2: name of modality 2
+        - save_fig: whether to save the figure
+
+    output:
+        - row of heatmaps is shown (or saved if save_fig=True)
+    """
+    if rd_mod2 is None:
+        rd_mod2 = rd_mod1
+
+    fig_name = f"row_heatmaps_{dataset}_{mod1}_rd_{rd_mod1}_vs_{mod2}_rd_{rd_mod2}"
+    fontsize = 14
+
+    prepared_matrices: list = []
+    width_ratios = []
+    for tool in tools:
+        matrix = load_heatmap_data(
+            DATA_PATH,
+            False,
+            tool,
+            dataset,
+            "null",
+            f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}",
+            mod1,
+            mod2,
+        )
+        if matrix is None:
+            prepared_matrices.append(None)
+            width_ratios.append(1)
+            continue
+
+        # Filter matrix to only include the requested modalities
+        matrix_filtered = _subset_matrix_by_modalities(matrix, mod1, mod2)
+
+        # Order the matrix by expected matches if available
+        expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+        try:
+            matrix_filtered = order_matrix_by_expected_matches(
+                matrix_filtered,
+                expected_matches,
+                mod1,
+                mod2,
+            )
+        except ValueError as exc:
+            print(
+                "Could not order by expected matches for requested modalities "
+                f"({mod1} vs {mod2}): {exc}. Falling back to direct modality filtering."
+            )
+
+        if matrix_filtered.empty:
+            prepared_matrices.append(None)
+            width_ratios.append(1)
+            continue
+
+        crosscheck_extreme_point = max(
+            abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
+        )
+        if hide_missing_samples:
+            matrix_filtered = matrix_filtered.dropna(axis=0, how="all").dropna(
+                axis=1, how="all"
+            )
+
+        prepared_matrices.append(
+            {
+                "tool": tool,
+                "matrix": matrix_filtered,
+                "symmetric_limit": crosscheck_extreme_point,
+            }
+        )
+        n_rows = max(matrix_filtered.shape[0], 1)
+        n_cols = max(matrix_filtered.shape[1], 1)
+        width_ratios.append(n_cols / n_rows)
+
+    fig_height = 4
+    fig_width = max(4 * len(tools), fig_height * sum(width_ratios))
+    fig, axes = plt.subplots(
+        1,
+        len(tools),
+        figsize=(fig_width, fig_height),
+        sharey=True,
+        gridspec_kw={"width_ratios": width_ratios},
+    )
+    if len(tools) == 1:
+        axes = [axes]
+
+    fig.subplots_adjust(wspace=0.05)
+    fig.suptitle(f"{DATASET_LABELS.get(dataset, dataset)} Similarity Matrices", fontsize=fontsize+2, y=1)
+
+    for i, tool in enumerate(tools):
+        ax = axes[i]
+        prepared = prepared_matrices[i]
+        if prepared is None:
+            ax.axis("off")
+            ax.text(
+                0.5,
+                0.5,
+                "No data",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=fontsize,
+            )
+            continue
+
+        matrix_filtered = prepared["matrix"]
+        cax = _plot_tool_heatmap(
+            ax,
+            matrix_filtered,
+            tool,
+            method="imshow",
+            symmetric_limit=prepared["symmetric_limit"],
+        )
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title(f"{TOOL_LABELS.get(tool, tool)}", fontsize=fontsize)
+        ax.set_xticks(np.arange(len(matrix_filtered.columns)))
+        ax.set_yticks(np.arange(len(matrix_filtered.index)))
+        ax.set_xticklabels([""] * len(matrix_filtered.columns))
+        ax.set_yticklabels([""] * len(matrix_filtered.index))
+        ax.set_xlabel(f"{mod2.replace('_', ' ').capitalize()}", fontsize=fontsize)
+        if i == 0:
+            ax.set_ylabel(f"{mod1.replace('_', ' ').capitalize()}", fontsize=fontsize)
 
     if save_fig:
         fig.savefig(
