@@ -45,6 +45,14 @@ DATASET_LABELS = {
     "wilms_tumor": "Wilms Tumor",
 }
 
+MODALITY_LABELS = {
+    "bulk": "Bulk",
+    "single-cell": "Single-Cell",
+    "single-nucleus": "Single-Nucleus",
+    "bulk_chunk_ribo": "rRNA- Chunk Bulk",
+    "bulk_diss_polyA": "Poly A+ Dissociated Bulk",
+}
+
 
 def _build_real_data_rd_tag(mod1, mod2, rd, rd_mod1, rd_mod2):
     """Build read-depth selector passed to data loaders for real-data runs."""
@@ -237,23 +245,23 @@ def bulk_vs_singlecell_matrix_viz(
 
     ax.set_xticks(np.arange(len(sub_matrix.columns)))
     ax.set_yticks(np.arange(len(sub_matrix.index)))
-    ax.set_xticklabels([""] * len(sub_matrix.columns))
-    ax.set_yticklabels([""] * len(sub_matrix.index))
-    # xlabels = [
-    #     f"{col.replace('read_depth_30/HGSOC-', '').replace(f'_{mod2}', '')}"
-    #     for col in sub_matrix.columns
-    # ]
-    # ylabels = [
-    #     f"{idx.replace('read_depth_30/HGSOC-', '').replace(f'_{mod1}', '')}"
-    #     for idx in sub_matrix.index
-    # ]
-    # ax.set_xticklabels(xlabels, rotation=90, ha="left")
-    # ax.set_yticklabels(ylabels)
-    # ax.xaxis.set_ticks_position("bottom")
-    # ax.xaxis.set_label_position("bottom")
-    ax.set_xlabel(f"{mod2.replace('_', ' ')} samples", fontsize=fontsize)
-    ax.set_ylabel(f"{mod1.replace('_', ' ')} samples", fontsize=fontsize)
-    ax.set_title(f"HGSOC, {tool} Similarity Matrix", pad=20, fontsize=fontsize+2)
+    # ax.set_xticklabels([""] * len(sub_matrix.columns))
+    # ax.set_yticklabels([""] * len(sub_matrix.index))
+    xlabels = [
+        f"{col.replace('HGSOC-', '').replace(f'_{mod2}', '')}"
+        for col in sub_matrix.columns
+    ]
+    ylabels = [
+        f"{idx.replace('HGSOC-', '').replace(f'_{mod1}', '')}"
+        for idx in sub_matrix.index
+    ]
+    ax.set_xticklabels(xlabels, rotation=90, ha="center")
+    ax.set_yticklabels(ylabels)
+    ax.xaxis.set_ticks_position("bottom")
+    ax.xaxis.set_label_position("bottom")
+    ax.set_xlabel(f"{MODALITY_LABELS.get(mod2, mod2)}", fontsize=fontsize)
+    ax.set_ylabel(f"{MODALITY_LABELS.get(mod1, mod1)}", fontsize=fontsize)
+    ax.set_title(f"HGSOC - {tool} Similarity Matrix", pad=20, fontsize=fontsize+2)
 
     # fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.6)
 
@@ -636,7 +644,7 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             ax.set_yticklabels([""] * len(matrix.index))
             # Add title with ncells to the top row
             if tool == tools[0]:
-                ax.set_title(f"{ncells} cells", pad=10, fontsize=fontsize)
+                ax.set_title(f"{ncells:,.0f} UMIs", pad=10, fontsize=fontsize)
 
 
             # Add text with accuracy metrics to each subplot
@@ -680,16 +688,19 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
         else:
             row_axes = axes[i, :]  # full row
 
-        if tool_mappable is not None:
-            cbar = fig.colorbar(
-                tool_mappable,
-                ax=row_axes,
-                fraction=0.08,
-                pad=0.03,
-                shrink=0.75,
-                aspect=18,
-            )
-            cbar.ax.tick_params(labelsize=fontsize)
+        row_mappable = row_mappables[tool]
+        if row_mappable is None:
+            continue
+
+        cbar = fig.colorbar(
+            row_mappable,
+            ax=row_axes,
+            fraction=0.08,
+            pad=0.03,
+            shrink=0.75,
+            aspect=18,
+        )
+        cbar.ax.tick_params(labelsize=fontsize)
 
     if save_fig:
         fig.savefig(
@@ -1278,7 +1289,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
 
 
 def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
-    df, datasets, save_fig=False, FIGURES_PATH=""
+    df, save_fig=False, FIGURES_PATH=""
 ):
     metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
 
@@ -2055,7 +2066,7 @@ def plot_combined_heatmaps_datasets(
     ax2.imshow(filtered_matrix_hgsoc, cmap=cmap_oranges)
     ax2.set_title("HGSOC", fontsize=fontsize + 2)
     ax2.set_xlabel("Single-cell", fontsize=fontsize)
-    ax2.set_ylabel("Bulk dissociated rRNA-", fontsize=fontsize)
+    ax2.set_ylabel("rRNA- dissociated bulk", fontsize=fontsize)
     ax2.set_xticks(np.arange(len(filtered_matrix_hgsoc.columns)))
     ax2.set_yticks(np.arange(len(filtered_matrix_hgsoc.index)))
     ax2.set_xticklabels([""] * len(filtered_matrix_hgsoc.columns))

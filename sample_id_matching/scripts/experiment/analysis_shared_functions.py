@@ -72,6 +72,25 @@ def _modality_in_label(modality, label):
     return False
 
 
+def _collapse_duplicate_labels(matrix, context):
+    """Collapse duplicate index/column labels before label-based subsetting expands the matrix."""
+    if matrix.index.has_duplicates:
+        duplicate_rows = sorted(matrix.index[matrix.index.duplicated()].unique())
+        print(
+            f"Collapsing duplicate Vireo row labels for {context}: {duplicate_rows}"
+        )
+        matrix = matrix.groupby(level=0, sort=False).first()
+
+    if matrix.columns.has_duplicates:
+        duplicate_cols = sorted(matrix.columns[matrix.columns.duplicated()].unique())
+        print(
+            f"Collapsing duplicate Vireo column labels for {context}: {duplicate_cols}"
+        )
+        matrix = matrix.T.groupby(level=0, sort=False).first().T
+
+    return matrix
+
+
 def _resolve_read_depth_path(
     DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2
 ):
@@ -792,6 +811,13 @@ def parse_heatmap_matrix_vireo(
     ]
     matrix.index = pd.Index(
         [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
+    )
+
+    matrix = _collapse_duplicate_labels(
+        matrix,
+        context=(
+            f"dataset={dataset}, pseudobulk={pseudobulk}, ncells={ncells}, rd={rd}"
+        ),
     )
 
     # Order rows and columns
