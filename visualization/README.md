@@ -11,3 +11,5 @@ Analysis notebooks and supporting code to analyze the results coming out of the 
 - **analysis_shared_functions.py:** has mostly data loading and manipulation stuff functions.
 - **accuracy_functions.py:** has mostly functions to help calculate various accuracy metrics.
 - **visualization.py:** has functions that create figures.
+
+A conda environment for everything is found in **analysis.yml**.
