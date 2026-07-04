@@ -8,7 +8,7 @@ from scipy.optimize import linear_sum_assignment
 dataset_regex_dict = {
     "hgsoc": r"[a-zA-Z0-9]{32}_",
     "hgsoc-new": r"ds.[a-zA-Z0-9]{32}_",
-    "low_grade_glioma": r"^GSM[0-9]{7}_",
+    # "low_grade_glioma": r"^GSM[0-9]{7}_",
 }
 
 

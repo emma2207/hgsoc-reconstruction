@@ -25,21 +25,23 @@ METRIC_LABELS = {
 }
 
 TOOL_LABELS = {
-    "CrosscheckFingerprints": "Crosscheck",
+    "CrosscheckFingerprints": "CrosscheckFingerprints",
     "HYSYS": "HYSYS",
     "NGSCheckmate": "NGSCheckMate",
     "Vireo": "Vireo",
 }
 
 DATASET_LABELS_SHORT = {
-    "hgsoc": "HGSOC",
+    "hgsoc": "HGSOC (Pilot)",
+    "hgsoc-new": "HGSOC (New)",
     "high_grade_glioma": "HGG",
     "low_grade_glioma": "LGG",
     "wilms_tumor": "WT",
 }
 
 DATASET_LABELS = {
-    "hgsoc": "High-Grade Serous Ovarian Cancer",
+    "hgsoc": "High-Grade Serous Ovarian Cancer (Pilot)",
+    "hgsoc-new": "High-Grade Serous Ovarian Cancer (New)",
     "high_grade_glioma": "High-Grade Glioma",
     "low_grade_glioma": "Low-Grade Glioma",
     "wilms_tumor": "Wilms Tumor",
@@ -51,6 +53,9 @@ MODALITY_LABELS = {
     "single-nucleus": "Single-Nucleus",
     "bulk_chunk_ribo": "rRNA- Chunk Bulk",
     "bulk_diss_polyA": "Poly A+ Dissociated Bulk",
+    "bulk_diss_ribo": "rRNA- Dissociated Bulk",
+    "bulk_dissociated_polyA": "Poly A+ Dissociated Bulk",
+    "bulk_dissociated_ribo": "rRNA- Dissociated Bulk",
 }
 
 
@@ -370,21 +375,22 @@ def all_samples_matrix_viz(
 def super_plot_heatmaps_pseudobulk(
     DATA_PATH,
     FIGURES_PATH,
-    tool,
-    dataset,
-    ncells_list,
-    read_depths,
+    tools,
+    datasets,
+    ncells,
+    rd,
     experiment,
     save_fig=False,
 ):
 
-    fig_name = f"superplot_pseudobulk_{dataset}_{tool}_all_samples_similarity_matrix"
-    super_extreme_point = 0
+    fig_name = f"superplot_pseudobulk_ncells_{ncells}_rd_{rd}_similarity_matrix"
+    fontsize = 12
     all_matrices = []
 
     # Find all the data for the plots
-    for ncells in ncells_list:
-        for rd in read_depths:
+    for dataset in datasets:
+        for tool in tools:
+            crosscheck_extreme_point = None
             matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd)
 
             if matrix is not None:
@@ -398,49 +404,50 @@ def super_plot_heatmaps_pseudobulk(
                     [idx for idx in matrix.index if idx.endswith(pseudobulk_1)],
                     [col for col in matrix.columns if col.endswith(pseudobulk_2)],
                 ]
-
+                if tool == "CrosscheckFingerprints":
+                    crosscheck_extreme_point = max(
+                        abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
+                    )
                 # Store matrix for later use in super plot
                 all_matrices.append(
-                    {"ncells": ncells, "rd": rd, "matrix": matrix_filtered}
+                    {
+                        "tool": tool, 
+                        "dataset": dataset, 
+                        "matrix": matrix_filtered, 
+                        "crosscheck_extreme_point": crosscheck_extreme_point,
+                     }
                 )
 
-                # Calculate the extreme point over all matrices to use the same color scale for all heatmaps in the super plot
-                extreme_point = max(
-                    abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
-                )
-                if extreme_point > super_extreme_point:
-                    super_extreme_point = extreme_point
 
     # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
-        len(read_depths),
-        len(ncells_list),
-        figsize=(5 * len(ncells_list), 4 * len(read_depths)),
-        sharex=True,
-        sharey=True,
+        len(tools),
+        len(datasets),
+        figsize=(3 * len(datasets), 3 * len(tools)),
     )
     fig.subplots_adjust(hspace=0.05, wspace=0.05, top=0.95)
-    if len(read_depths) == 1:
+    if len(tools) == 1:
         yval = 1.1
     else:
-        yval = 0.98
+        yval = 1.
     fig.suptitle(
-        f"{tool} - {dataset} pseudobulks similarity matrices", fontsize=16, y=yval
+        f"Pseudobulk Sample Similarity Matrices", fontsize=fontsize+2, y=yval
     )
 
-    for ncells in ncells_list:
-        for rd in read_depths:
-            if len(read_depths) == 1:
-                ax = axes[ncells_list.index(ncells)]
-            elif len(ncells_list) == 1:
-                ax = axes[read_depths.index(rd)]
+    for dataset in datasets:
+        for tool in tools:
+            if len(tools) == 1:
+                ax = axes[datasets.index(dataset)]
+            elif len(datasets) == 1:
+                ax = axes[tools.index(tool)]
             else:
-                ax = axes[read_depths.index(rd), ncells_list.index(ncells)]
+                ax = axes[tools.index(tool), datasets.index(dataset)]
             matrix_list = [
                 info["matrix"]
                 for info in all_matrices
-                if info["ncells"] == ncells and info["rd"] == rd
+                if info["tool"] == tool and info["dataset"] == dataset
             ]
+            crosscheck_extreme_point = [info["crosscheck_extreme_point"] for info in all_matrices if info["tool"] == tool and info["dataset"] == dataset][0]
 
             if not matrix_list or matrix_list[0] is None:
                 # Skip this subplot if no data available
@@ -463,31 +470,18 @@ def super_plot_heatmaps_pseudobulk(
                 matrix,
                 tool,
                 method="imshow",
-                symmetric_limit=super_extreme_point,
+                symmetric_limit=crosscheck_extreme_point if tool == "CrosscheckFingerprints" else None
             )
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
             # Add title with ncells to the top row
-            if rd == read_depths[0]:
-                ax.set_title(f"{ncells} cells", pad=10, fontsize=12)
-            # Add text with read depth to the right column
-            if ncells == ncells_list[-1]:
-                ax.text(
-                    1.05,
-                    0.5,
-                    f"Read depth filter: {rd}",
-                    transform=ax.transAxes,
-                    fontsize=12,
-                    rotation=90,
-                    va="center",
-                )
-
-    # Add one common colorbar for all subplots
-    # cbar = fig.colorbar(
-    #     cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5
-    # )
+            if tool == tools[0]:
+                ax.set_title(f"{DATASET_LABELS[dataset]}", pad=10, fontsize=fontsize)
+            # Add text with read depth to the left column
+            if dataset == datasets[0]:
+                ax.set_ylabel(f"{TOOL_LABELS[tool]}", fontsize=fontsize, rotation=90, labelpad=10)
 
     if save_fig:
         fig.savefig(
@@ -1144,11 +1138,11 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
 
             # Y-label on left column
             if j == 0:
-                ax.set_ylabel(f"{mod_list2[i].replace('_', ' ')}", fontsize=12)
+                ax.set_ylabel(f"{MODALITY_LABELS.get(mod_list2[i], mod_list2[i])}", fontsize=12)
 
             # Modality on bottom row
             if i == len(mod_list2) - 1:
-                ax.set_xlabel(f"{mod_list1[j].replace('_', ' ')}", fontsize=12)
+                ax.set_xlabel(f"{MODALITY_LABELS.get(mod_list1[j], mod_list1[j])}", fontsize=12)
             
             # Only show x-tick labels on bottom row
             if i == len(mod_list2) - 1:
@@ -2250,9 +2244,9 @@ def row_heatmap_plot_real_data(
         ax.set_yticks(np.arange(len(matrix_filtered.index)))
         ax.set_xticklabels([""] * len(matrix_filtered.columns))
         ax.set_yticklabels([""] * len(matrix_filtered.index))
-        ax.set_xlabel(f"{mod2.replace('_', ' ').capitalize()}", fontsize=fontsize)
+        ax.set_xlabel(f"{MODALITY_LABELS.get(mod2, mod2)}", fontsize=fontsize)
         if i == 0:
-            ax.set_ylabel(f"{mod1.replace('_', ' ').capitalize()}", fontsize=fontsize)
+            ax.set_ylabel(f"{MODALITY_LABELS.get(mod1, mod1)}", fontsize=fontsize)
 
     if save_fig:
         fig.savefig(
