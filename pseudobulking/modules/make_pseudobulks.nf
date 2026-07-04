@@ -23,7 +23,7 @@ process CREATE_PSEUDOBULKS {
 
     echo "Random barcode selection..."
 
-    python ${params.projectDir}/select_barcodes.py \
+    python ${params.projectDir}/modules/select_barcodes.py \
         -d ${params.dataset} \
         -s ${sample_name} \
         -b "$bam" \
