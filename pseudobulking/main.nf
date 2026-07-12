@@ -62,8 +62,7 @@ workflow {
         
         n_barcodes = channel.of(params.n_barcodes)
         n_pseudobulks = channel.of(params.n_pseudobulks)
-        // pseudobulk_input = bam.aligned_reads.combine(n_barcodes).combine(n_pseudobulks)
-        pseudobulk_input = bam_bai_ch.combine(n_barcodes).combine(n_pseudobulks)
+        pseudobulk_input = bam.aligned_reads.combine(n_barcodes).combine(n_pseudobulks)
         CREATE_PSEUDOBULKS(pseudobulk_input)
     } else {
         println "Skipping pseudobulk creation for datatype: ${params.datatype}"
