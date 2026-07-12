@@ -31,49 +31,30 @@ def collectRunsDynamic(row, prefix) {
 
 workflow {
     // Input metadata & fastqs
-    // metadata = channel.fromPath("${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${params.datatype}_${params.dataset}_${params.read_type}.csv")
-    // input_data = channel.fromPath("${params.petaLibrary}/${params.dataset}/${params.datatype}", type: 'dir')
+    metadata = channel.fromPath("${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${params.datatype}_${params.dataset}_${params.read_type}.csv")
+    input_data = channel.fromPath("${params.petaLibrary}/${params.dataset}/${params.datatype}", type: 'dir')
 
-    // // Process metadata
-    // fastqs = PROCESS_METADATA(metadata, input_data)
+    // Process metadata
+    fastqs = PROCESS_METADATA(metadata, input_data)
 
-    // // Split the fastqs by R1 and R2 paths for each sample
-    // sample_ch = fastqs.splitCsv(header: true)
-    //         .map { row ->
-    //             tuple(
-    //                 row.'Sample Name',
-    //                 collectRunsDynamic(row, 'R1_path'),
-    //                 collectRunsDynamic(row, 'R2_path')
-    //             )
-    //         }
-    //     .view { row -> "Sample fastq dirs: ${row}" }
+    // Split the fastqs by R1 and R2 paths for each sample
+    sample_ch = fastqs.splitCsv(header: true)
+            .map { row ->
+                tuple(
+                    row.'Sample Name',
+                    collectRunsDynamic(row, 'R1_path'),
+                    collectRunsDynamic(row, 'R2_path')
+                )
+            }
+        .view { row -> "Sample fastq dirs: ${row}" }
 
-    // // QC
-    // fastp_out = QC_READS_WITH_FASTP(sample_ch)
-    // fastp_out.merged_fastqs.view { x -> "Fastp merged reads: ${x}" }
+    // QC
+    fastp_out = QC_READS_WITH_FASTP(sample_ch)
+    fastp_out.merged_fastqs.view { x -> "Fastp merged reads: ${x}" }
     
-    // // Align fastqs
-    // bam = ALIGNMENT_WITH_STAR(fastp_out.merged_fastqs)
-    // bam.aligned_reads.view { x -> "Aligned Reads: ${x}" }
-
-    bam_bai_ch = channel
-        .fromPath(
-            "${params.petaLibrary}/aligned_reads/${params.dataset}/${params.datatype}/*/Aligned.sortedByCoord.out.bam{,.bai}",
-            checkIfExists: true
-        )
-        .map { f ->
-            def sample_id = f.parent.name
-            def file_kind = f.name.endsWith('.bai') ? 'bai' : 'bam'
-            tuple(sample_id, file_kind, f)
-        }
-        .groupTuple()
-        .map { sample_id, file_kinds, files ->
-            def bam_idx = file_kinds.indexOf('bam')
-            def bai_idx = file_kinds.indexOf('bai')
-
-            assert bam_idx >= 0 && bai_idx >= 0 : "Missing BAM/BAI pair for sample: ${sample_id}"
-            tuple(sample_id, files[bam_idx], files[bai_idx])
-        }
+    // Align fastqs
+    bam = ALIGNMENT_WITH_STAR(fastp_out.merged_fastqs)
+    bam.aligned_reads.view { x -> "Aligned Reads: ${x}" }
 
     // Create pseudobulks
     if (params.datatype == 'single-cell' || params.datatype == 'single-nucleus') {
