@@ -24,6 +24,23 @@ from analysis_shared_functions import (
 )
 
 
+def _mark_duplicate_value_patterns_inconclusive(inferred_matches):
+    """Replace entries in duplicate rows/columns with NaN so they count as inconclusive."""
+    duplicate_column_mask = inferred_matches.T.duplicated(keep=False)
+    duplicate_row_mask = inferred_matches.duplicated(keep=False)
+
+    if not duplicate_column_mask.any() and not duplicate_row_mask.any():
+        return inferred_matches
+
+    inferred_matches = inferred_matches.copy()
+    if duplicate_column_mask.any():
+        inferred_matches.loc[:, duplicate_column_mask] = np.nan
+    if duplicate_row_mask.any():
+        inferred_matches.loc[duplicate_row_mask, :] = np.nan
+
+    return inferred_matches
+
+
 def calculate_accuracy_metrics_pseudobulk(inferred_matches):
     """
     Calculate accuracy metrics (accuracy, balanced accuracy, precision, recall, F1 score) for the inferred sample matches
@@ -183,6 +200,14 @@ def loop_accuracy_calculations(
                             ],
                         ]
 
+                    if tool == "Vireo":
+                        inferred_matches_filtered = (
+                            _mark_duplicate_value_patterns_inconclusive(
+                                inferred_matches_filtered
+                            )
+                        )
+
+
                     if inferred_matches_filtered.size > 0:
                         (
                             fraction_inconclusive,
@@ -234,7 +259,7 @@ def load_expected_matches_real_data(DATA_PATH, dataset):
     """
     expected_matches = pd.read_csv(
         os.path.join(
-            DATA_PATH, f"../metadata/sample_matches/sample_matches_{dataset}.csv"
+            DATA_PATH, f"../../metadata/sample_matches/sample_matches_{dataset}.csv"
         )
     )
     expected_matches = expected_matches.dropna(axis=1, how="all").dropna(
@@ -394,6 +419,12 @@ def accuracy_metrics_averaged_over_iterations(
                         [idx for idx in inferred_matches.index if idx.endswith("_1")],
                         [col for col in inferred_matches.columns if col.endswith("_2")],
                     ]
+                if tool == "Vireo":
+                    inferred_matches_filtered = (
+                        _mark_duplicate_value_patterns_inconclusive(
+                            inferred_matches_filtered
+                        )
+                    )
                 (
                     fraction_inconclusive,
                     accuracy,

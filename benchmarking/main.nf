@@ -10,6 +10,7 @@ nextflow.enable.dsl = 2
 
 // Import processes
 include { PREPARE_INPUTS } from './modules/0_prepare_inputs'
+include { SNP_REFERENCE_INDEX } from './modules/0_snp_ref_index'
 include { GENOTYPE_INDIVIDUAL } from './modules/1a_genotype_individual'
 include { MERGE_AND_FILTER_VCFS } from './modules/1a_merge_vcfs'
 include { FILTER_BAM } from './modules/1b_filter_bam'
@@ -24,7 +25,7 @@ include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 workflow {
     // Find all bams with the listed datatypes
     if (!params.pseudobulk) {
-        modalities = ["bulk", "single-nucleus"]
+        modalities = ["bulk_dissociated_polyA", "single-cell"]
         bam_patterns = modalities.collect { datatype ->
             "${params.bamsDir}/${params.dataset}/${datatype}/*/Aligned.sortedByCoord.out.bam" 
         }
@@ -54,9 +55,11 @@ workflow {
     // 0. Prepare inputs
     prepped_bam_files = PREPARE_INPUTS(bam_files)
     prepped_bam_files.view { x -> "Prepared BAM files: ${x}" }
+    // 0. Prepare SNP reference
+    snp_ref = SNP_REFERENCE_INDEX(params.snp_vcf)
 
     // 1a. Genotype individual samples in parallel
-    individual_vcfs = GENOTYPE_INDIVIDUAL(prepped_bam_files)
+    individual_vcfs = GENOTYPE_INDIVIDUAL(prepped_bam_files, snp_ref.vcf, snp_ref.tbi)
 
     // 1a. Merge and filter variants
     mod_channel = channel.fromList(modalities)

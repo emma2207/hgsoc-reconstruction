@@ -13,7 +13,7 @@
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu
 #SBATCH --mail-type=ALL
 
-# options: central_nervous_system_tumor, hgsoc_ariel, high_grade_glioma, low_grade_glioma, wilms_tumor
+# options: hgsoc, high_grade_glioma, low_grade_glioma, wilms_tumor
 dataset=$1
 # options: bulk, single-cell, single-nucleus, all
 data_type=$2
@@ -25,7 +25,7 @@ mkdir -p "/pl/active/cgreene-sc-hgsoc/mismatch_project_data/${dataset}/${data_ty
 download_location="/scratch/alpine/$USER/hgsoc/simulations/data/${dataset}/${data_type}"
 final_fastq_location="/pl/active/cgreene-sc-hgsoc/mismatch_project_data/${dataset}/${data_type}"
 
-if [ "${dataset}" = "hgsoc_ariel" ]
+if [ "${dataset}" = "hgsoc" ]
 then
     ngc="../data/prj_41891.ngc"
 else

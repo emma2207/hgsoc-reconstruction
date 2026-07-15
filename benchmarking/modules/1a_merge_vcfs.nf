@@ -29,6 +29,7 @@ process MERGE_AND_FILTER_VCFS {
             def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
             def readDepthPairs = readDepthContext.readDepthPairs
             def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
+            def resolvedUpper = readDepthContext.resolvedUpper
             def realDataNcellsPath = readDepthContext.realDataNcellsPath
 
         """
@@ -54,6 +55,7 @@ process MERGE_AND_FILTER_VCFS {
             RD_BY_MOD["\$key"]="\$value"
         done
         DEFAULT_RD="\${RD_BY_MOD[default]:-0}"
+        UPPER_RD='${resolvedUpper}'
 
         read -r -a MODS <<< "\$MODALITIES_STR"
 
@@ -84,7 +86,7 @@ process MERGE_AND_FILTER_VCFS {
             mod_rd="\${RD_BY_MOD[\$mod]:-\$DEFAULT_RD}"
             mod_filtered_variants="\${output_location}/filtered_variants_\${mod}_rd_\${mod_rd}.vcf.gz"
 
-            bcftools view -Oz -i "DP>=\${mod_rd}" -o "\${mod_filtered_variants}" "\${all_variants_output}"
+            bcftools view -Oz -i "DP>=\${mod_rd} && DP<=\${UPPER_RD}" -o "\${mod_filtered_variants}" "\${all_variants_output}"
             bcftools index "\${mod_filtered_variants}"
 
             bcftools view -S "\${output_location}/\${mod}_files.txt" \
@@ -119,7 +121,7 @@ process MERGE_AND_FILTER_VCFS {
 
             bcftools view \
                 -c1 -Oz \
-                -i "DP>=\${sample_rd}" \
+                -i "DP>=\${sample_rd} && DP<=\${UPPER_RD}" \
                 -o "\${output_location}/\${sample_id}_individual_variants.vcf.gz" \
                 "\$vcf_file"
 

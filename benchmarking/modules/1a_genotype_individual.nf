@@ -6,6 +6,8 @@ process GENOTYPE_INDIVIDUAL {
     
     input:
         tuple path(bam_file), path(bai_file)
+        path(snp_ref_vcf)
+        path(snp_ref_tbi)
 
     output:
         path("${params.dataset}/*/*/*.vcf.gz"), emit: vcf
@@ -24,8 +26,11 @@ process GENOTYPE_INDIVIDUAL {
         sample_name=\$(basename ${bam_file} .bam)
         
         # Call variants using bcftools for individual sample
-        bcftools mpileup -Ou -f ${params.refGenome}/fasta/genome.fa ${bam_file} | \
-        bcftools call -mv -Ou | \
+        bcftools mpileup -Ou \
+            -f ${params.refGenome}/fasta/genome.fa \
+            -T ${snp_ref_vcf} \
+            ${bam_file} | \
+        bcftools call -m -Ou | \
         bcftools view -Oz -i 'QUAL>=20' -o "\${output_location}/\${sample_name}.vcf.gz"
 
         # Index the VCF
