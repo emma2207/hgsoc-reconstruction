@@ -13,7 +13,6 @@ This workflow is branched into two paths: one for .vcf files getting fed into to
     - **main_double_samples.nf:** a variation on `main_from_genotype.nf` for pseudobulk experiments where the input data is manipulated to have samples that are doubly represented (not literally identical samples, but drawn from the same underlying sample).
     - **main_uneven_pseudobulk_sizes.nf:** variation on `main_from_genotype.nf` for pseudobulk experiments where pseudobulk drawn from the size samples but with different numbers of cells are compared.
     - **main_pseudobulk_vs_sc.nf:** variation on `main_from_genotype.nf` comparing pseudobulks with single-cell (or single-nucleus) samples.
-- **prompt.md:** original Github copilot prompt to get the basics of the pipeline set up. The current version of the pipeline is very different from the pipeline resulting directly from this prompt.
 
 ## Modules
 Each module specifies a nextflow process that is called in main:

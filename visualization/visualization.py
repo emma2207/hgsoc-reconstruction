@@ -897,16 +897,16 @@ def super_plot_heatmaps_real_data(
 
             ax.set_xticks(np.arange(len(matrix.columns)))
             ax.set_yticks(np.arange(len(matrix.index)))
-            # if dataset == "hgsoc":
-            #     xlabels = [x.replace(mod2, "") + f"{mod2}" for x in matrix.columns]
-            #     ylabels = [y.replace(mod1, "") + f"{mod1}" for y in matrix.index]
-            # else:
-            #     xlabels = matrix.columns
-            #     xlabels = [x.replace(mod2, "").rstrip("_").replace("_missing", "") for x in xlabels]
-            #     ylabels = matrix.index
-            #     ylabels = [y.replace(mod1, "").rstrip("_") for y in ylabels]
-            # ax.set_xticklabels(xlabels, rotation=90, ha="right", fontsize=4)
-            # ax.set_yticklabels(ylabels, fontsize=4)
+            if dataset == "hgsoc":
+                xlabels = [x.replace(mod2, "") + f"{mod2}" for x in matrix.columns]
+                ylabels = [y.replace(mod1, "") + f"{mod1}" for y in matrix.index]
+            else:
+                xlabels = matrix.columns
+                xlabels = [x.replace(mod2, "").rstrip("_").replace("_missing", "") for x in xlabels]
+                ylabels = matrix.index
+                ylabels = [y.replace(mod1, "").rstrip("_") for y in ylabels]
+            ax.set_xticklabels(xlabels, rotation=90, ha="right", fontsize=4)
+            ax.set_yticklabels(ylabels, fontsize=4)
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
             if tool == tools[0]:
