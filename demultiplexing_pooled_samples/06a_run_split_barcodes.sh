@@ -1,8 +1,8 @@
 #!/bin/sh
 
 #SBATCH --nodes=1
-#SBATCH --qos=normal
-#SBATCH --partition=amilan
+#SBATCH --qos=cpu-normal
+#SBATCH --partition=acpu
 #SBATCH --mem=128M
 #SBATCH --time=00:01:00
 #SBATCH --ntasks=1
@@ -13,8 +13,8 @@
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu
 #SBATCH --mail-type=ALL
 
-module load anaconda
+module load miniforge
 conda activate python_vireosnp_install
 
 # Script location is /scratch/alpine/$USER/hgsoc/pooled
-python split_barcodes.py
+python split_barcodes.py "bulk_diss_polyA"
