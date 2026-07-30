@@ -15,7 +15,8 @@ process MERGE_AND_FILTER_VCFS {
     output:
         path("${params.dataset}/**/*_modality_variants.vcf.gz"), emit: modality_vcfs
         path("${params.dataset}/**/*_individual_variants.vcf.gz"), emit: individual_vcfs
-        path("${params.dataset}/**/all_variants.vcf.gz")
+        path("${params.dataset}/**/all_variants.vcf.gz"), emit: all_variants
+        path("${params.dataset}/**/all_variants.vcf.gz.csi"), emit: all_variants_index
         path("${params.dataset}/**/filtered_variants_*_rd_*.vcf.gz")
 
     script:

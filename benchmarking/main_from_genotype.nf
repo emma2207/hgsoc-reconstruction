@@ -16,6 +16,8 @@ include { CROSSCHECK_FINGERPRINTS } from './modules/2a_fingerprints'
 include { HYSYS } from './modules/2a_hysys'
 include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
+include { PEDDY } from './modules/2a_peddy'
+include { TIMEATTACKGENCOMP } from './modules/2a_timeattackgencomp'
 
 
 // Main workflow
@@ -59,4 +61,6 @@ workflow {
     NGSCHECKMATE(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
     CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
     HYSYS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
+    PEDDY(filtered_vcfs.all_variants, mod_channel.collect())
+    TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
 }
