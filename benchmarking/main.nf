@@ -57,28 +57,27 @@ workflow {
     }
     
     // 0. Prepare inputs
-    // prepped_bam_files = PREPARE_INPUTS(bam_files)
-    // prepped_bam_files.view { x -> "Prepared BAM files: ${x}" }
+    prepped_bam_files = PREPARE_INPUTS(bam_files)
+    prepped_bam_files.view { x -> "Prepared BAM files: ${x}" }
     // 0. Prepare SNP reference
-    // snp_ref = SNP_REFERENCE_INDEX(params.snp_vcf)
+    snp_ref = SNP_REFERENCE_INDEX(params.snp_vcf)
 
     // 1a. Genotype individual samples in parallel
-    // individual_vcfs = GENOTYPE_INDIVIDUAL(prepped_bam_files, snp_ref.vcf, snp_ref.tbi)
+    individual_vcfs = GENOTYPE_INDIVIDUAL(prepped_bam_files, snp_ref.vcf, snp_ref.tbi)
 
     // 1a. Merge and filter variants
-    // mod_channel = channel.fromList(modalities)
-    // filtered_vcfs = MERGE_AND_FILTER_VCFS(
-    //     individual_vcfs.vcf.collect(), 
-    //     individual_vcfs.index.collect(), 
-    //     mod_channel.collect(),
-    //     params.pseudobulk
-    // )
-    // filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
-    // filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
+    filtered_vcfs = MERGE_AND_FILTER_VCFS(
+        individual_vcfs.vcf.collect(), 
+        individual_vcfs.index.collect(), 
+        modalities,
+        params.pseudobulk
+    )
+    filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
+    filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
     // 1b. Filter aligned reads
-    filtered_bams = FILTER_BAM(bam_files)
-    filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
+    // filtered_bams = FILTER_BAM(bam_files)
+    // filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
     // VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
@@ -86,10 +85,10 @@ workflow {
     // CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, mod_channel.collect())
     // HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
     // PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, mod_channel.collect())
-    // TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
+    TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     // BAMIXCHECKER(filtered_bams.bam.collect())
-    somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index)
-    SOMALIER_RELATE(somalier_files.collect())
+    // somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index)
+    // SOMALIER_RELATE(somalier_files.collect())
 }

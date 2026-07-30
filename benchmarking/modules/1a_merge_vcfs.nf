@@ -7,14 +7,15 @@ process MERGE_AND_FILTER_VCFS {
     publishDir "${params.outdir}/1a_vcf", mode: 'copy'
 
     input:
-        path individual_vcfs
-        path index_files
+        path input_individual_vcfs
+        path input_index_files
         val modalities
         val is_pseudobulk
 
     output:
         path("${params.dataset}/**/*_modality_variants.vcf.gz"), emit: modality_vcfs
         path("${params.dataset}/**/*_individual_variants.vcf.gz"), emit: individual_vcfs
+        path("${params.dataset}/**/*_individual_variants.vcf.gz.csi"), emit: individual_vcfs_index
         path("${params.dataset}/**/all_variants.vcf.gz"), emit: all_variants
         path("${params.dataset}/**/all_variants.vcf.gz.csi"), emit: all_variants_index
         path("${params.dataset}/**/filtered_variants_*_rd_*.vcf.gz")
@@ -63,7 +64,7 @@ process MERGE_AND_FILTER_VCFS {
         echo "Start merging individual VCFs"
 
         # Merge individual VCF files
-        bcftools merge -Oz -o "\${all_variants_output}" ${individual_vcfs}
+        bcftools merge -Oz -o "\${all_variants_output}" ${input_individual_vcfs}
         bcftools index "\${all_variants_output}"
 
         echo "Finished merging and indexing all variants"
@@ -99,7 +100,7 @@ process MERGE_AND_FILTER_VCFS {
         echo "Saved modality VCFs with modality-specific read depth filtering"
 
         # Filter individual VCF inputs by modality-specific read depth
-        for vcf_file in ${individual_vcfs}
+        for vcf_file in ${input_individual_vcfs}
         do
             sample_id=\$(basename "\$vcf_file")
             sample_id=\${sample_id%.vcf.bgz}
