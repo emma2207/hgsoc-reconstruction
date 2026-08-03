@@ -1,0 +1,11 @@
+name: conpair
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python>=3.7
+  - numpy>=1.7
+  - scipy>=0.14
+  - GATK>=2.3
