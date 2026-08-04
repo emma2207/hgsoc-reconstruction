@@ -90,7 +90,44 @@ workflow {
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     // BAMIXCHECKER(filtered_bams.bam.collect())
-    CONPAIR(filtered_bams.bam.collect())
+    conpair_pairs = filtered_bams.bam.collect().flatMap { bams ->
+            if (params.pseudobulk) {
+                def bams_1 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_1_filtered$/ }
+                def bams_2 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_2_filtered$/ }
+
+                if (bams_1.isEmpty() || bams_2.isEmpty()) {
+                    throw new IllegalStateException("CONPAIR pseudobulk pairing failed: expected both *_1_filtered.bam and *_2_filtered.bam inputs")
+                }
+
+                bams_1.withIndex().collectMany { bam_1, i ->
+                    bams_2.withIndex().collect { bam_2, j ->
+                        def pair_id = "pb_${i}_${j}"
+                        def sample_1 = "${pair_id}_A_${bam_1.baseName}"
+                        def sample_2 = "${pair_id}_B_${bam_2.baseName}"
+                        tuple(sample_1.toString(), bam_1, sample_2.toString(), bam_2)
+                    }
+                }
+            } else {
+                def modality_1 = modalities[0]
+                def modality_2 = modalities[1]
+                def bams_mod_1 = bams.findAll { bam -> bam.baseName.toString().contains("_${modality_1}_filtered") }
+                def bams_mod_2 = bams.findAll { bam -> bam.baseName.toString().contains("_${modality_2}_filtered") }
+
+                if (bams_mod_1.isEmpty() || bams_mod_2.isEmpty()) {
+                    throw new IllegalStateException("CONPAIR real-data pairing failed: expected BAMs from both modalities '${modality_1}' and '${modality_2}'")
+                }
+
+                bams_mod_1.withIndex().collectMany { bam_1, i ->
+                    bams_mod_2.withIndex().collect { bam_2, j ->
+                        def pair_id = "rd_${i}_${j}"
+                        def sample_1 = "${pair_id}_A_${bam_1.baseName}"
+                        def sample_2 = "${pair_id}_B_${bam_2.baseName}"
+                        tuple(sample_1.toString(), bam_1, sample_2.toString(), bam_2)
+                    }
+                }
+            }
+    }
+    CONPAIR(conpair_pairs)
     // somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index)
     // SOMALIER_RELATE(somalier_files.collect())
 }
