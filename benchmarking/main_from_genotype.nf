@@ -18,6 +18,7 @@ include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
 include { PEDDY } from './modules/2a_peddy'
 include { TIMEATTACKGENCOMP } from './modules/2a_timeattackgencomp'
+include { OMICSPRINT } from './modules/2a_omicsprint'
 
 
 // Main workflow
@@ -63,4 +64,5 @@ workflow {
     HYSYS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
     PEDDY(filtered_vcfs.all_variants, mod_channel.collect())
     TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
+    OMICSPRINT(filtered_vcfs.all_variants, mod_channel.collect())
 }

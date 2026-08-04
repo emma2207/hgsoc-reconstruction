@@ -1,0 +1,9 @@
+name: omicsPrint
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - r-base>=3.5
+  - bioconductor-omicsprint

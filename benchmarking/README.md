@@ -23,6 +23,7 @@ Each module specifies a nextflow process that is called in main:
 - **2a_hysys.nf:** applies the tool HaveYouSwappedYourSamples and needs the conda env specified in `hysys.yml`.
 - **2a_ngscheckmate.nf:** applies the tool NGSCheckmate and needs the conda env specified in `ngscheckmate.yml`.
 - **2a_vireo.nf:** applies the tool Vireo through a python script `vireo.py`.
+- **2a_omicsprint.nf:** applies the Bioconductor package omicsPrint in R on SNPs extracted from the merged VCF.
 - **2b_bamixchecker.mf:** applies the tool BAMixChecker needs the conda env specified in `bamixchecker.yml`.
 
 ## Parameters
@@ -33,12 +34,14 @@ Some notes on the parameter that need to be set in `nextflow.config`.
 - **params.pseudobulk:** is this a pseudobulk experiment or not. Must be `true` for pseudobulk experiments.
 - **params.ncells:** number of cells included in the pseudobulks. Options: 10,0000; 50,000; 100,000; 500,000. 
 - **params.read_depth:** the read depth filter cut-off that is used. Each dataset can define modality-specific lower thresholds plus a dataset-level `upper` cap. Options: Any number, but we focused on [0, 1, 10, 20, 30, 40].
+- **params.omicsprint_max_snps:** optional cap on number of SNPs passed to omicsPrint after filtering. Use `0` to keep all SNPs.
 
 ### Real data experiments
 - **params.dataset:** name of dataset. Options: `hgsoc`, `hgsoc-new`, `high_grade_glioma`, `low_grade_glioma`, `wilms_tumor`.
 - **params.pseudobulk:** is this a pseudobulk experiment or not. Must be `false` for real data experiments.
 - **params.ncells:** number of cells included in the pseudobulks. This parameter is not used when `params.pseudobulk = false`.
 - **params.read_depth:** the read depth filter cut-off that is used. Each dataset can define modality-specific lower thresholds plus a dataset-level `upper` cap. Options: Any number, but we focused on [0, 1, 10, 20, 30, 40].
+- **params.omicsprint_max_snps:** optional cap on number of SNPs passed to omicsPrint after filtering. Use `0` to keep all SNPs.
 
 Additionally, for real data experiments, one has to provide the two modalities that one wants to compare. 
 This is set in whichever main Nextflow files one is using (look for `modalities`).
