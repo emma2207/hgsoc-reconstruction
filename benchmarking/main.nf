@@ -31,7 +31,7 @@ include { SOMALIER_RELATE } from './modules/2b_somalier'
 workflow {
     // Find all bams with the listed datatypes
     if (!params.pseudobulk) {
-        modalities = ["bulk_dissociated_polyA", "single-cell"]
+        modalities = ["bulk_diss_polyA", "bulk_chunk_ribo"]
         bam_patterns = modalities.collect { datatype ->
             "${params.bamsDir}/${params.dataset}/${datatype}/*/Aligned.sortedByCoord.out.bam" 
         }
@@ -74,8 +74,8 @@ workflow {
         modalities,
         params.pseudobulk
     )
-    filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
-    filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
+    // filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
+    // filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
     // 1b. Filter aligned reads
     // filtered_bams = FILTER_BAM(bam_files)
@@ -88,7 +88,7 @@ workflow {
     // HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
     // PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, mod_channel.collect())
     // TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
-    OMICSPRINT(filtered_vcfs.all_variants, modalities)
+    // OMICSPRINT(filtered_vcfs.all_variants, modalities)
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     // BAMIXCHECKER(filtered_bams.bam.collect())

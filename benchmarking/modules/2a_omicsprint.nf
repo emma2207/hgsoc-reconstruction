@@ -84,7 +84,7 @@ process OMICSPRINT {
 
         {
             printf "snp_id"
-            awk '{printf "\t%s", $1} END {printf "\n"}' "\${sample_file}"
+            awk '{printf "\t%s", \$1} END {printf "\n"}' "\${sample_file}"
         } > "\${matrix_file}"
         cat "\${matrix_body_file}" >> "\${matrix_file}"
 
