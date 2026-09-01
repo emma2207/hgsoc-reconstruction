@@ -21,6 +21,7 @@ include { VIREO_MATCH } from './modules/2a_vireo'
 include { PEDDY } from './modules/2a_peddy'
 include { TIMEATTACKGENCOMP } from './modules/2a_timeattackgencomp'
 include { OMICSPRINT } from './modules/2a_omicsprint'
+include { NTSM } from './modules/2a_ntsm'
 include { BAMIXCHECKER } from './modules/2b_bamixchecker'
 include { CONPAIR } from './modules/2b_conpair'
 include { SOMALIER_EXTRACT } from './modules/2b_somalier'
@@ -89,6 +90,7 @@ workflow {
     // PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, mod_channel.collect())
     // TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
     // OMICSPRINT(filtered_vcfs.all_variants, modalities)
+    NTSM(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.all_variants, modalities)
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     // BAMIXCHECKER(filtered_bams.bam.collect())

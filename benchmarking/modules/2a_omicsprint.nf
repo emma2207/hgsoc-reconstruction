@@ -29,6 +29,8 @@ process OMICSPRINT {
         def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
         def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
         def realDataNcellsPath = readDepthContext.realDataNcellsPath
+        def omicsprintCallRate = (params.omicsprint_call_rate != null) ? params.omicsprint_call_rate : 0.80
+        def omicsprintCoverageRate = (params.omicsprint_coverage_rate != null) ? params.omicsprint_coverage_rate : 0.25
 
         """
         set -euo pipefail
@@ -73,7 +75,7 @@ process OMICSPRINT {
                     }
                     printf OFS val
                 }
-                printf "\n"
+                printf "\\n"
             }' > "\${matrix_body_file}"
 
         if [ "${params.omicsprint_max_snps}" -gt 0 ]
@@ -84,63 +86,122 @@ process OMICSPRINT {
 
         {
             printf "snp_id"
-            awk '{printf "\t%s", \$1} END {printf "\n"}' "\${sample_file}"
+            awk '{printf "\t%s", \$1} END {printf "\\n"}' "\${sample_file}"
         } > "\${matrix_file}"
         cat "\${matrix_body_file}" >> "\${matrix_file}"
 
-        cat > run_omicsprint.R << 'EOF'
-        suppressPackageStartupMessages(library(omicsPrint))
-
-        args <- commandArgs(trailingOnly = TRUE)
-        genotype_file <- args[1]
-        out_prefix <- args[2]
-
-        geno_df <- read.delim(genotype_file, check.names = FALSE, stringsAsFactors = FALSE)
-        if (nrow(geno_df) == 0) {
-            stop("No SNP rows available for OMICSPRINT after filtering.")
-        }
-
-        rownames(geno_df) <- geno_df[[1]]
-        x <- as.matrix(geno_df[, -1, drop = FALSE])
-        storage.mode(x) <- "numeric"
-
-        polymorphic <- apply(x, 1, function(row) {
-            length(unique(stats::na.omit(row))) > 1
-        })
-        x <- x[polymorphic, , drop = FALSE]
-
-        if (nrow(x) < 2) {
-            stop("Need at least 2 polymorphic SNPs for OMICSPRINT.")
-        }
-        if (ncol(x) < 2) {
-            stop("Need at least 2 samples for OMICSPRINT.")
-        }
-
-        relation_data <- alleleSharing(x, verbose = TRUE)
-        write.table(
-            relation_data,
-            paste0(out_prefix, "_allele_sharing.tsv"),
-            sep = "\t",
-            quote = FALSE,
-            row.names = FALSE
-        )
-
-        mismatches <- inferRelations(relation_data)
-        write.table(
-            mismatches,
-            paste0(out_prefix, "_mismatches.tsv"),
-            sep = "\t",
-            quote = FALSE,
-            row.names = FALSE
-        )
-
-        grDevices::pdf(paste0(out_prefix, "_ibs_scatter.pdf"), width = 8, height = 6)
-        graphics::plot(relation_data\$mean, relation_data\$var,
-                       xlab = "IBS mean", ylab = "IBS variance", pch = 16,
-                       main = "omicsPrint allele sharing")
-        grDevices::dev.off()
-        EOF
+        {
+            printf '%s\n' 'suppressPackageStartupMessages(library(omicsPrint))'
+            printf '%s\n' ''
+            printf '%s\n' 'args <- commandArgs(trailingOnly = TRUE)'
+            printf '%s\n' 'genotype_file <- args[1]'
+            printf '%s\n' 'out_prefix <- args[2]'
+            printf '%s\n' 'call_rate <- ${omicsprintCallRate}'
+            printf '%s\n' 'coverage_rate <- ${omicsprintCoverageRate}'
+            printf '%s\n' ''
+            printf '%s\n' 'geno_df <- read.delim(genotype_file, check.names = FALSE, stringsAsFactors = FALSE)'
+            printf '%s\n' 'if (nrow(geno_df) == 0) {'
+            printf '%s\n' '    stop("No SNP rows available for OMICSPRINT after filtering.")'
+            printf '%s\n' '}'
+            printf '%s\n' ''
+            printf '%s\n' 'rownames(geno_df) <- geno_df[[1]]'
+            printf '%s\n' 'x <- as.matrix(geno_df[, -1, drop = FALSE])'
+            printf '%s\n' 'storage.mode(x) <- "numeric"'
+            printf '%s\n' ''
+            printf '%s\n' 'polymorphic <- apply(x, 1, function(row) {'
+            printf '%s\n' '    length(unique(stats::na.omit(row))) > 1'
+            printf '%s\n' '})'
+            printf '%s\n' 'x <- x[polymorphic, , drop = FALSE]'
+            printf '%s\n' ''
+            printf '%s\n' 'if (nrow(x) < 2) {'
+            printf '%s\n' '    stop("Need at least 2 polymorphic SNPs for OMICSPRINT.")'
+            printf '%s\n' '}'
+            printf '%s\n' 'if (ncol(x) < 2) {'
+            printf '%s\n' '    stop("Need at least 2 samples for OMICSPRINT.")'
+            printf '%s\n' '}'
+            printf '%s\n' ''
+            printf '%s\n' 'colnames(x) <- colnames(geno_df)[-1]'
+            printf '%s\n' ''
+            printf '%s\n' 'write_empty_outputs <- function(msg) {'
+            printf '%s\n' '    plot_msg <- "No IBS scatter generated: insufficient high-quality samples after OMICSPRINT pruning."'
+            printf '%s\n' '    message(msg)'
+            printf '%s\n' '    write.table('
+            printf '%s\n' '        data.frame(message = msg, stringsAsFactors = FALSE),'
+            printf '%s\n' '        paste0(out_prefix, "_allele_sharing.tsv"),'
+            printf '%s\n' '        sep = "\\t", quote = FALSE, row.names = FALSE'
+            printf '%s\n' '    )'
+            printf '%s\n' '    write.table('
+            printf '%s\n' '        data.frame(message = msg, stringsAsFactors = FALSE),'
+            printf '%s\n' '        paste0(out_prefix, "_mismatches.tsv"),'
+            printf '%s\n' '        sep = "\\t", quote = FALSE, row.names = FALSE'
+            printf '%s\n' '    )'
+            printf '%s\n' '    grDevices::pdf(paste0(out_prefix, "_ibs_scatter.pdf"), width = 8, height = 6)'
+            printf '%s\n' '    graphics::plot.new()'
+            printf '%s\n' '    graphics::title(main = "omicsPrint IBS scatter unavailable")'
+            printf '%s\n' '    graphics::text(0.5, 0.58, labels = plot_msg, cex = 0.9)'
+            printf '%s\n' '    graphics::text(0.5, 0.42, labels = "See *_allele_sharing.tsv for the detailed reason.", cex = 0.8)'
+            printf '%s\n' '    grDevices::dev.off()'
+            printf '%s\n' '}'
+            printf '%s\n' ''
+            printf '%s\n' 'write_outputs <- function(relation_data) {'
+            printf '%s\n' '    write.table('
+            printf '%s\n' '        relation_data,'
+            printf '%s\n' '        paste0(out_prefix, "_allele_sharing.tsv"),'
+            printf '%s\n' '        sep = "\\t",'
+            printf '%s\n' '        quote = FALSE,'
+            printf '%s\n' '        row.names = FALSE'
+            printf '%s\n' '    )'
+            printf '%s\n' ''
+            printf '%s\n' '    mismatches <- inferRelations(relation_data)'
+            printf '%s\n' '    write.table('
+            printf '%s\n' '        mismatches,'
+            printf '%s\n' '        paste0(out_prefix, "_mismatches.tsv"),'
+            printf '%s\n' '        sep = "\\t",'
+            printf '%s\n' '        quote = FALSE,'
+            printf '%s\n' '        row.names = FALSE'
+            printf '%s\n' '    )'
+            printf '%s\n' ''
+            printf '%s\n' '    grDevices::pdf(paste0(out_prefix, "_ibs_scatter.pdf"), width = 8, height = 6)'
+            printf '%s\n' '    graphics::plot(relation_data\$mean, relation_data\$var,'
+            printf '%s\n' '                   xlab = "IBS mean", ylab = "IBS variance", pch = 16,'
+            printf '%s\n' '                   main = "omicsPrint allele sharing")'
+            printf '%s\n' '    grDevices::dev.off()'
+            printf '%s\n' '}'
+            printf '%s\n' ''
+            printf '%s\n' 'attempts <- unique(rbind('
+            printf '%s\n' '    data.frame(callRate = call_rate, coverageRate = coverage_rate),'
+            printf '%s\n' '    data.frame(callRate = 0.60, coverageRate = 0.10),'
+            printf '%s\n' '    data.frame(callRate = 0.50, coverageRate = 0.00),'
+            printf '%s\n' '    data.frame(callRate = 0.30, coverageRate = 0.00)'
+            printf '%s\n' '))'
+            printf '%s\n' ''
+            printf '%s\n' 'result <- FALSE'
+            printf '%s\n' 'last_msg <- "OMICSPRINT failed for unknown reason."'
+            printf '%s\n' 'for (i in seq_len(nrow(attempts))) {'
+            printf '%s\n' '    cr <- attempts\$callRate[i]'
+            printf '%s\n' '    cov <- attempts\$coverageRate[i]'
+            printf '%s\n' '    message(paste0("Trying OMICSPRINT with callRate=", cr, ", coverageRate=", cov, " ..."))'
+            printf '%s\n' '    ok <- tryCatch({'
+            printf '%s\n' '        relation_data <- alleleSharing(x, verbose = TRUE, callRate = cr, coverageRate = cov)'
+            printf '%s\n' '        write_outputs(relation_data)'
+            printf '%s\n' '        TRUE'
+            printf '%s\n' '    }, error = function(e) {'
+            printf '%s\n' '        last_msg <<- paste0("OMICSPRINT failed after filtering/pruning (callRate=", cr, ", coverageRate=", cov, "): ", conditionMessage(e))'
+            printf '%s\n' '        message(last_msg)'
+            printf '%s\n' '        FALSE'
+            printf '%s\n' '    })'
+            printf '%s\n' '    if (ok) {'
+            printf '%s\n' '        result <- TRUE'
+            printf '%s\n' '        break'
+            printf '%s\n' '    }'
+            printf '%s\n' '}'
+            printf '%s\n' ''
+            printf '%s\n' 'if (!result) {'
+            printf '%s\n' '    write_empty_outputs(last_msg)'
+            printf '%s\n' '    message("Wrote placeholder OMICSPRINT outputs due to sparse post-pruning data.")'
+            printf '%s\n' '}'
+        } > run_omicsprint.R
 
         Rscript run_omicsprint.R "\${matrix_file}" "\${omicsprint_prefix}"
-        """
+        """.stripIndent()
 }

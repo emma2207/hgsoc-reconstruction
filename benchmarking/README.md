@@ -35,6 +35,8 @@ Some notes on the parameter that need to be set in `nextflow.config`.
 - **params.ncells:** number of cells included in the pseudobulks. Options: 10,0000; 50,000; 100,000; 500,000. 
 - **params.read_depth:** the read depth filter cut-off that is used. Each dataset can define modality-specific lower thresholds plus a dataset-level `upper` cap. Options: Any number, but we focused on [0, 1, 10, 20, 30, 40].
 - **params.omicsprint_max_snps:** optional cap on number of SNPs passed to omicsPrint after filtering. Use `0` to keep all SNPs.
+- **params.omicsprint_call_rate:** SNP call-rate threshold passed to `omicsPrint::alleleSharing` (default in this pipeline: `0.80`; omicsPrint default: `0.95`). Lower values keep more SNPs in sparse datasets.
+- **params.omicsprint_coverage_rate:** sample coverage threshold passed to `omicsPrint::alleleSharing` (default in this pipeline: `0.25`; omicsPrint default: `2/3`). Lower values retain more samples in low-coverage comparisons.
 
 ### Real data experiments
 - **params.dataset:** name of dataset. Options: `hgsoc`, `hgsoc-new`, `high_grade_glioma`, `low_grade_glioma`, `wilms_tumor`.
@@ -42,6 +44,8 @@ Some notes on the parameter that need to be set in `nextflow.config`.
 - **params.ncells:** number of cells included in the pseudobulks. This parameter is not used when `params.pseudobulk = false`.
 - **params.read_depth:** the read depth filter cut-off that is used. Each dataset can define modality-specific lower thresholds plus a dataset-level `upper` cap. Options: Any number, but we focused on [0, 1, 10, 20, 30, 40].
 - **params.omicsprint_max_snps:** optional cap on number of SNPs passed to omicsPrint after filtering. Use `0` to keep all SNPs.
+- **params.omicsprint_call_rate:** SNP call-rate threshold passed to `omicsPrint::alleleSharing` (default in this pipeline: `0.80`; omicsPrint default: `0.95`). Lower values keep more SNPs in sparse datasets.
+- **params.omicsprint_coverage_rate:** sample coverage threshold passed to `omicsPrint::alleleSharing` (default in this pipeline: `0.25`; omicsPrint default: `2/3`). Lower values retain more samples in low-coverage comparisons.
 
 Additionally, for real data experiments, one has to provide the two modalities that one wants to compare. 
 This is set in whichever main Nextflow files one is using (look for `modalities`).
