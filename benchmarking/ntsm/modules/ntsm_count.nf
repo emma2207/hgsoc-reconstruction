@@ -11,9 +11,6 @@ process NTSM_COUNT {
     path("counts_${sample_name}.txt")
 
     script:
-    // def r1_input = r1_fastqs.join(' ')
-    // def r2_input = r2_fastqs.join(' ')
-
     """
     set -euo pipefail
 

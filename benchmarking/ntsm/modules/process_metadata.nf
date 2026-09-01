@@ -1,7 +1,6 @@
 #!/usr/bin/env nextflow
 
 process PROCESS_METADATA {
-    label 'process_metadata'
     conda "${params.conda}/ntsm"
     publishDir "${params.outdir}/metadata", mode: 'copy'
 
