@@ -1,0 +1,10 @@
+name: ntsm
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - ntsm
+  - bcftools
+  - pandas
