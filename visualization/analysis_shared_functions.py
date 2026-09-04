@@ -341,6 +341,39 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     return matrix
 
 
+def long_df_to_matrix_omicsprint(df, metric="mean"):
+    """
+    Convert long omicsPrint dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [sample1, sample2, mean]
+        - metric: which column to use for the values in the matrix 
+        (default "mean", can also be "relation" for match/no match)
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the concordance values
+    """
+    matrix = df.pivot_table(
+        index="sample1",
+        columns="sample2",
+        values=metric,
+        aggfunc="first",
+    )
+
+    # Get all unique samples to create a square matrix
+    all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
+    matrix = matrix.reindex(index=all_samples, columns=all_samples)
+
+    # Make matrix symmetric by filling NaN values
+    matrix = matrix.combine_first(matrix.T)
+
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
+
+    return matrix
+
+
 ######################################################
 ### Function to create true matches matrix for pseudobulk datasets
 #######################################################
@@ -757,6 +790,67 @@ def parse_heatmap_matrix_ngscheckmate(
 
     # Create heatmap matrix
     matrix = long_df_to_matrix_ngscheckmate(df)
+
+    return df, matrix
+
+
+def parse_heatmap_matrix_omicsprint(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
+    """
+    Read OmicsPrint output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+
+    output:
+        - df: long format dataframe with columns [sample1, sample2, mean, relation]
+        - matrix: square dataframe with samples as rows and columns, values are the mean ibs (identity by state) values
+    """
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_omicsprint",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "omicsprint_allele_sharing.tsv")
+    df = pd.read_csv(
+        file_path,
+        sep="\t",
+        header=0,
+    )
+
+    df = df[["colnames.x", "colnames.y", "mean", "relation"]]
+    df.columns = ["sample1", "sample2", "mean", "relation"]
+
+    if pseudobulk or dataset == "hgsoc-new":
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
+
+    rename_dict = {
+        x: re.sub(regex_exp, "", x.replace(".bam", ""))
+        for x in list(set(df["sample1"]) | set(df["sample2"]))
+    }
+    df["sample1"] = df["sample1"].map(rename_dict)
+    df["sample2"] = df["sample2"].map(rename_dict)
+
+    # Create matrix for heatmap
+    matrix = long_df_to_matrix_omicsprint(df, metric="mean")
 
     return df, matrix
 
