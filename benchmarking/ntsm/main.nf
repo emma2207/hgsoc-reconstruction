@@ -48,7 +48,8 @@ workflow {
                     )
                 }
             .view { row -> "Sample fastq dirs: ${row}" }
-    } else {
+    } 
+    else {
         modalities = ["pseudobulk"]
         pseudobulk_bam_pattern = "${params.prepared_bam_dir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.bam"
         pseudobulk_bams = channel
@@ -66,5 +67,5 @@ workflow {
     }
 
     sample_counts = NTSM_COUNT(sample_fastqs)
-    NTSM_EVAL(sample_counts.collect())
+    NTSM_EVAL(sample_counts.collect(), modalities.collect())
 }
