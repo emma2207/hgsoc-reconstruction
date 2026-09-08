@@ -3,14 +3,13 @@
 process CONPAIR {
     conda "${params.conda}/conpair"
     publishDir "${params.outdir}/2b_conpair", mode: 'copy'
+    errorStrategy 'ignore'
     
     input:
         tuple val(sample_1), path(bam_1), val(sample_2), path(bam_2)
     
     output:
-        path("${sample_1}_pileup.txt")
-        path("${sample_2}_pileup.txt")
-        path("${sample_1}_vs_${sample_2}_concordance.txt")
+        path("${params.dataset}/**/${sample_1}_vs_${sample_2}_concordance.txt")
     
     script:
         def conpairMarkerBed = params.conpair_marker_bed ?: "${params.CONPAIR}/data/markers/GRCh38.autosomes.phase3_shapeit2_mvncall_integrated.20130502.SNV.genotype.sselect_v4_MAF_0.4_LD_0.8.liftover.bed"
@@ -21,6 +20,13 @@ process CONPAIR {
 
         """
         set -euo pipefail
+
+        if [ ${params.pseudobulk} == true ]
+        then 
+            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
+        else
+            output_location="${params.dataset}/real_data/ncells_null" 
+        fi
 
         export CONPAIR_DIR=/projects/\${USER}/software/conpair
         export GATK_JAR=/projects/\${USER}/software/anaconda/envs/conpair/opt/gatk-3.8/GenomeAnalysisTK.jar
@@ -36,7 +42,7 @@ process CONPAIR {
         pileup_1_raw="${sample_1}_pileup.raw.txt"
         pileup_2="${sample_2}_pileup.txt"
         pileup_2_raw="${sample_2}_pileup.raw.txt"
-        output_file="${sample_1}_vs_${sample_2}_concordance.txt"
+        output_file="\${output_location}/${sample_1}_vs_${sample_2}_concordance.txt"
 
         if [ ! -s "\$conpair_marker_bed" ]
         then
@@ -123,20 +129,20 @@ PY
 
         # Run CONPAIR for one explicit pair per task.
         python ${params.CONPAIR}/scripts/run_gatk_pileup_for_sample.py \
-            -B ${bam_1} \
-            -R ${params.refGenome}/fasta/genome.fa \
-            -M \$conpair_marker_bed \
-            \$remove_chr_opt \
-            -O \${pileup_1_raw}
+                -B ${bam_1} \
+                -R ${params.refGenome}/fasta/genome.fa \
+                -M \$conpair_marker_bed \
+                \$remove_chr_opt \
+                -O \${pileup_1_raw}
 
         normalize_and_sanitize_pileup "\${pileup_1_raw}" "\${pileup_1}"
 
         python ${params.CONPAIR}/scripts/run_gatk_pileup_for_sample.py \
-            -B ${bam_2} \
-            -R ${params.refGenome}/fasta/genome.fa \
-            -M \$conpair_marker_bed \
-            \$remove_chr_opt \
-            -O \${pileup_2_raw}
+                -B ${bam_2} \
+                -R ${params.refGenome}/fasta/genome.fa \
+                -M \$conpair_marker_bed \
+                \$remove_chr_opt \
+                -O \${pileup_2_raw}
 
         normalize_and_sanitize_pileup "\${pileup_2_raw}" "\${pileup_2}"
 
@@ -147,6 +153,8 @@ PY
             echo "ERROR: Empty pileup detected for one or both samples: \${pileup_1}, \${pileup_2}" >&2
             exit 1
         fi
+
+        mkdir -p "\$(dirname "\${output_file}")"
 
         python ${params.CONPAIR}/scripts/verify_concordance.py \
             -T \${pileup_1} \
