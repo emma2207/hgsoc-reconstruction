@@ -596,6 +596,52 @@ def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
     return df, matrix
 
 
+def parse_heatmap_matrix_conpair(
+        DATA_PATH,
+        pseudobulk,
+        dataset,
+        ncells,
+        rd,
+        mod1="bulk_chunk_ribo",
+        mod2="bulk_dissociated_polyA",
+):
+    
+    if pseudobulk:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2b_conpair/{dataset}/pseudobulk/ncells_{ncells}",
+        )
+    else:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2b_conpair/{dataset}/real_data/ncells_null",
+        )
+    concordance_matrix = pd.DataFrame()
+
+    # Loop over all files in the directory
+    for filename in os.listdir(file_path): 
+        if filename.endswith(".txt"):
+            # Extract sample names from the filename
+            sample1 = filename.split("_vs_")[0]
+            sample1 = re.sub(r"pb_\d{1,2}_\d{1,2}_A_", "", sample1).replace("_filtered", "")
+            sample2 = filename.split("_vs_")[1]
+            sample2 = re.sub(r"pb_\d{1,2}_\d{1,2}_B_", "", sample2).replace("_filtered_concordance.txt", "")
+
+            # Read the concordance value from the file
+            INPUT_FILE = os.path.join(file_path, filename)
+            df = pd.read_csv(INPUT_FILE, sep="\t", header=None)
+            concordance_string = str(df.iloc[0, 0])
+            concordance_string = concordance_string.replace("Concordance: ", "").replace("%", "")
+            concordance_row = pd.DataFrame({
+                "sample1": [sample1],
+                "sample2": [sample2],
+                "concordance": [float(concordance_string)],
+            })
+            concordance_matrix = pd.concat([concordance_matrix, concordance_row], ignore_index=True)
+
+    return concordance_matrix
+
+
 def parse_heatmap_matrix_crosscheckfingerprints(
     DATA_PATH,
     pseudobulk,
