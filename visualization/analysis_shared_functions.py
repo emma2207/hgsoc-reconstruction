@@ -950,6 +950,54 @@ def parse_heatmap_matrix_omicsprint(
     return df, matrix
 
 
+def parse_heatmap_matrix_timeattackgencomp(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
+    """
+    Read TimeAttackGenComp output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+        - mod1: the first modality
+        - mod2: the second modality
+
+    output:
+        - df: long format dataframe with columns [sample1, sample2, value]
+        - matrix: square dataframe with samples as rows and columns, values are the similarity scores used by TimeAttackGenComp
+    """
+
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_timeattackgencomp",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "timeattackgencomp/timeattackgencomp.snv.out.txt")
+
+    matrix = pd.read_csv(file_path, sep="\t", header=0, index_col=0)[:-1]
+    matrix.index = matrix.index.str.replace("_individual_variants", "")
+    matrix.columns = matrix.columns.str.replace("_individual_variants", "")
+
+    df = matrix.stack().reset_index()
+    df.columns = ["sample1", "sample2", "value"]
+    
+    return df, matrix
+
+
 def parse_heatmap_matrix_vireo(
     DATA_PATH,
     pseudobulk,
@@ -1263,6 +1311,40 @@ def parse_sample_matching_results_ngscheckmate(
     sample_matches = long_df_to_matrix_ngscheckmate(df, "Matched").replace(
         result_mapping
     )
+
+    return sample_matches
+
+
+def parse_sample_matching_results_timeattackgencomp(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    read_depth,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):  
+    """
+    Parse TimeAttackGenComp output to categorize sample relationships.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - read_depth: the read depth filter cut-off used for the analysis
+        - mod1: the first modality
+        - mod2: the second modality
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
+
+    _, matrix = parse_heatmap_matrix_timeattackgencomp(
+        DATA_PATH, pseudobulk, dataset, ncells, read_depth, mod1, mod2,
+    )
+    # If timeattackgencomp value is 0, then samples are considered a match (1), otherwise not a match (0)
+    sample_matches = (matrix == 0).astype(int)  # Convert boolean to int
 
     return sample_matches
 
