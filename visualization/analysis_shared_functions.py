@@ -240,6 +240,39 @@ def long_df_to_matrix_bamixchecker(df, metric="Concordance Rate"):
     return matrix
 
 
+def long_df_to_matrix_conpair(df, metric="concordance"):
+    """
+    Convert long Conpair dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [sample1, sample2, concordance]
+        - metric: which column to use for the values in the matrix
+            (default "concordance", can also be "match" for binary values)
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the concordance values
+    """
+
+    matrix = df.pivot_table(
+        index="sample1",
+        columns="sample2",
+        values=metric,
+        aggfunc="first",
+    )
+
+    all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
+    matrix = matrix.reindex(index=all_samples, columns=all_samples)
+
+    # Make matrix symmetric by filling NaN values
+    matrix = matrix.combine_first(matrix.T)
+
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
+
+    return matrix
+
+
 def long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE"):
     """
     Convert long CrosscheckFingerprints dataframe to a square matrix format for heatmap visualization.
@@ -601,10 +634,24 @@ def parse_heatmap_matrix_conpair(
         pseudobulk,
         dataset,
         ncells,
-        rd,
         mod1="bulk_chunk_ribo",
         mod2="bulk_dissociated_polyA",
 ):
+    """
+    Read Conpair output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - mod1: the first modality
+        - mod2: the second modality
+
+    output:
+        - long_df: long format dataframe with columns [sample1, sample2, concordance]
+        - matrix: square dataframe with samples as rows and columns, values are the concordance rates
+    """
     
     if pseudobulk:
         file_path = os.path.join(
@@ -616,7 +663,7 @@ def parse_heatmap_matrix_conpair(
             DATA_PATH,
             f"2b_conpair/{dataset}/real_data/ncells_null",
         )
-    concordance_matrix = pd.DataFrame()
+    long_df = pd.DataFrame()
 
     # Loop over all files in the directory
     for filename in os.listdir(file_path): 
@@ -637,9 +684,11 @@ def parse_heatmap_matrix_conpair(
                 "sample2": [sample2],
                 "concordance": [float(concordance_string)],
             })
-            concordance_matrix = pd.concat([concordance_matrix, concordance_row], ignore_index=True)
+            long_df = pd.concat([long_df, concordance_row], ignore_index=True)
 
-    return concordance_matrix
+    matrix = long_df_to_matrix_conpair(long_df)
+
+    return long_df, matrix
 
 
 def parse_heatmap_matrix_crosscheckfingerprints(
@@ -994,6 +1043,40 @@ def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, n
     sample_matches = long_df_to_matrix_bamixchecker(df, metric="Conclusion").replace(
         result_mapping
     )
+    return sample_matches
+
+
+def parse_sample_matching_results_conpair(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+    threshold=0.8,
+):
+    """
+    Parse Conpair output to determine sample match predictions.
+
+    input: 
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - mod1: the first modality
+        - mod2: the second modality
+        - threshold: concordance threshold for determining matches (default 0.8)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
+
+    df, _ = parse_heatmap_matrix_conpair(
+        DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+    )
+    df["match"] = (df["concordance"].astype(float) >= threshold*100).astype(int)
+    sample_matches = long_df_to_matrix_conpair(df, metric="match")
+
     return sample_matches
 
 
