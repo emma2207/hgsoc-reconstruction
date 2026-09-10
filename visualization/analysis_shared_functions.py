@@ -374,6 +374,41 @@ def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
     return matrix
 
 
+def long_df_to_matrix_ntsm(df):
+    """
+    Convert long NTSM dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [sample1, sample2, score]
+    
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the concordance values
+    """
+
+    matrix = df.pivot_table(
+        index="sample1",
+        columns="sample2",
+        values="score",
+        aggfunc="first",
+    )
+
+    # Get all unique samples to create a square matrix
+    all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
+    matrix = matrix.reindex(index=all_samples, columns=all_samples)
+
+    # Fill matrix diagonal with 0s because NTSM does not test samples against themselves.
+    # Use a writable copy since matrix.values can be a read-only view in newer pandas/numpy combos.
+    matrix_values = matrix.to_numpy(copy=True)
+    np.fill_diagonal(matrix_values, 0)
+    matrix = pd.DataFrame(matrix_values, index=matrix.index, columns=matrix.columns)
+
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
+
+    return matrix
+
+
 def long_df_to_matrix_omicsprint(df, metric="mean"):
     """
     Convert long omicsPrint dataframe to a square matrix format for heatmap visualization.
@@ -397,6 +432,90 @@ def long_df_to_matrix_omicsprint(df, metric="mean"):
     all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
     matrix = matrix.reindex(index=all_samples, columns=all_samples)
 
+    # Make matrix symmetric by filling NaN values
+    matrix = matrix.combine_first(matrix.T)
+
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
+
+    return matrix
+
+
+def long_df_to_matrix_peddy(df, metric="rel_difference"):
+    """
+    Convert long Peddy dataframe to a square matrix format for heatmap visualization.
+
+    input:
+        - df: long format dataframe with columns [sample_a, sample_b, rel_difference]
+        - metric: which column to use for the values in the matrix (rel_difference or match)
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the specified metric
+    """
+
+    matrix = df.pivot_table(
+        index="sample_a", 
+        columns="sample_b", 
+        values=metric, 
+        aggfunc="first",
+    )
+
+    # Get all unique samples to create a square matrix
+    all_samples = sorted(set(df["sample_a"]) | set(df["sample_b"]))
+    matrix = matrix.reindex(index=all_samples, columns=all_samples)
+
+    # Fill matrix diagonal with 0s because peddy does not test samples against themselves.
+    # Use a writable copy since matrix.values can be a read-only view in newer pandas/numpy combos.
+    matrix_values = matrix.to_numpy(copy=True)
+    if metric == "rel_difference":
+        fill_value = 0
+    elif metric == "match":
+        fill_value = 1
+    np.fill_diagonal(matrix_values, 0)
+    matrix = pd.DataFrame(matrix_values, index=matrix.index, columns=matrix.columns)
+    # Make matrix symmetric by filling NaN values
+    matrix = matrix.combine_first(matrix.T)
+
+    # Order rows and columns by sample label while handling labels without underscores.
+    ordered_labels = _sorted_sample_labels(matrix.index)
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
+
+    return matrix
+
+
+def long_df_to_matrix_somalier(df, metric="relatedness"):
+    """
+    Convert long Somalier dataframe to a square matrix format for heatmap visualization.
+    
+    input:
+        - df: long format dataframe with columns [sample_a, sample_b, relatedness]
+        - metric: which column to use for the values in the matrix (relatedness or match)
+
+    output:
+        - matrix: square dataframe with samples as rows and columns, values are the specified metric
+    """
+
+    matrix = df.pivot_table(
+        index="sample_a", 
+        columns="sample_b", 
+        values=metric, 
+        aggfunc="first",
+    )
+
+    # Get all unique samples to create a square matrix
+    all_samples = sorted(set(df["sample_a"]) | set(df["sample_b"]))
+    matrix = matrix.reindex(index=all_samples, columns=all_samples)
+
+    # Fill matrix diagonal with 0s because peddy does not test samples against themselves.
+    # Use a writable copy since matrix.values can be a read-only view in newer pandas/numpy combos.
+    matrix_values = matrix.to_numpy(copy=True)
+    if metric == "relatedness":
+        fill_value = 0
+    elif metric == "match":
+        fill_value = 1
+    np.fill_diagonal(matrix_values, 0)
+    matrix = pd.DataFrame(matrix_values, index=matrix.index, columns=matrix.columns)
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
 
@@ -889,6 +1008,54 @@ def parse_heatmap_matrix_ngscheckmate(
     return df, matrix
 
 
+def parse_heatmap_matrix_ntsm(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
+    """
+    Read NTSM output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - mod1: the first modality
+        - mod2: the second modality
+
+    output:
+        - df: long format dataframe with columns [sample_a, sample_b, score]
+        - matrix: square dataframe with samples as rows and columns, values are the loglikelihood scores between samples
+    """
+
+    if pseudobulk:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"ntsm_eval/ntsm_pairwise_pseudobulk_{dataset}_ncells_{ncells}.tsv",
+        )
+    else:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"ntsm_eval/ntsm_pairwise_{dataset}_ncells_{ncells}.tsv",
+        )
+    df = pd.read_csv(
+        file_path,
+        sep="\t",
+        header=0,
+    )
+    df["sample1"] = df["sample1"].str.replace("counts_", "").str.replace(".txt", "")
+    df["sample2"] = df["sample2"].str.replace("counts_", "").str.replace(".txt", "")
+    df = df[["sample1", "sample2", "score"]]
+
+    matrix = long_df_to_matrix_ntsm(df)
+
+    return df, matrix
+
+
 def parse_heatmap_matrix_omicsprint(
     DATA_PATH,
     pseudobulk,
@@ -946,6 +1113,106 @@ def parse_heatmap_matrix_omicsprint(
 
     # Create matrix for heatmap
     matrix = long_df_to_matrix_omicsprint(df, metric="mean")
+
+    return df, matrix
+
+
+def parse_heatmap_matrix_peddy(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
+    """
+    Read Peddy output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+        - mod1: the first modality
+        - mod2: the second modality
+
+    output:
+        - df: long format dataframe with columns [sample_a, sample_b, rel_difference]
+        - matrix: square dataframe with samples as rows and columns, values are the relative differences between samples
+    """
+    rd_path = _resolve_read_depth_path(
+        DATA_PATH,
+        "2a_peddy",
+        dataset,
+        pseudobulk,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+    )
+    file_path = os.path.join(rd_path, "output.ped_check.csv")
+    df = pd.read_csv(
+        file_path,
+        header=0,
+    )  
+
+    df["sample_a"] = df["sample_a"].str.replace(".bam", "")
+    df["sample_b"] = df["sample_b"].str.replace(".bam", "")
+    df = df[["sample_a", "sample_b", "rel_difference"]]
+
+    matrix = long_df_to_matrix_peddy(df)
+
+    return df, matrix
+
+
+def parse_heatmap_matrix_somalier(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
+    """
+    Read Somalier output and create a matrix for heatmap visualization.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+        - mod1: the first modality
+        - mod2: the second modality
+
+    output:
+        - df: long format dataframe with columns [sample_a, sample_b, concordance]
+        - matrix: square dataframe with samples as rows and columns, values are the concordance scores between samples
+    """
+
+    if pseudobulk:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2b_somalier/{dataset}/pseudobulk/ncells_{ncells}/somalier/somalier.pairs.tsv",
+        )
+    else:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2b_somalier/{dataset}/real_data/ncells_null/somalier/somalier.pairs.tsv",
+        )
+    df = pd.read_csv(
+        file_path,
+        sep="\t",
+        header=0,
+    )
+
+    df["sample_a"] = df["#sample_a"].str.replace("_filtered", "")
+    df["sample_b"] = df["sample_b"].str.replace("_filtered", "")
+    df = df[["sample_a", "sample_b", "concordance"]]
+
+    matrix = long_df_to_matrix_somalier(df, metric="concordance")
 
     return df, matrix
 
@@ -1311,6 +1578,105 @@ def parse_sample_matching_results_ngscheckmate(
     sample_matches = long_df_to_matrix_ngscheckmate(df, "Matched").replace(
         result_mapping
     )
+
+    return sample_matches
+
+
+def parse_sample_matching_results_ntsm(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+):
+    """
+    Parse NTSM results to categorize sample relationships.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
+    _, matrix = parse_heatmap_matrix_ntsm(
+        DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+    )
+    # If the ntsm value is not NaN, then samples are considered a match (1), otherwise not a match (0)
+    sample_matches = (matrix.notna()).astype(int)
+
+    return sample_matches
+
+
+def parse_sample_matching_results_peddy(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+    threshold=0,
+):
+    """
+    Parse Peddy output to categorize sample relationships.
+    
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+        - mod1: the first modality
+        - mod2: the second modality
+        - threshold: the relative difference threshold for determining matches (default 0)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
+
+    _, matrix = parse_heatmap_matrix_peddy(
+        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2,
+    )
+
+    # If peddy values are <= threshold, then samples are considered a match (1), otherwise not a match (0)
+    sample_matches = (matrix <= threshold).astype(int)
+    
+    return sample_matches
+
+
+def parse_sample_matching_results_somalier(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+    threshold=1,
+):
+    """
+    Parse Somalier output to categorize sample relationships.
+
+    input:
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - mod1: the first modality
+        - mod2: the second modality
+        - threshold: the concordance threshold for determining matches (default 0)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
+    _, matrix = parse_heatmap_matrix_somalier(
+        DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2,
+    )
+    # If somalier value is >= threshold, then samples are considered a match (1), otherwise not a match (0)
+    sample_matches = (matrix >= threshold).astype(int)
 
     return sample_matches
 
