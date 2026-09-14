@@ -6,7 +6,7 @@ process CONPAIR {
     errorStrategy 'ignore'
     
     input:
-        tuple val(sample_1), path(bam_1), val(sample_2), path(bam_2)
+        tuple val(sample_1), path(bam_1), val(sample_2), path(bam_2), val(mod_1), val(mod_2)
     
     output:
         path("${params.dataset}/**/${sample_1}_vs_${sample_2}_concordance.txt")
@@ -24,8 +24,11 @@ process CONPAIR {
         if [ ${params.pseudobulk} == true ]
         then 
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
+        elif [ "${params.dataset}" == "hgsoc" ]
+        then
+            output_location="${params.dataset}/real_data/${mod_1}_vs_${mod_2}/ncells_null"
         else
-            output_location="${params.dataset}/real_data/ncells_null" 
+            output_location="${params.dataset}/real_data/ncells_null"
         fi
 
         export CONPAIR_DIR=/projects/\${USER}/software/conpair

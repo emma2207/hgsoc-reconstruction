@@ -127,6 +127,8 @@ process SOMALIER_RELATE {
 
     input:
         path(somalier_files)
+        val(mod1)
+        val(mod2)
 
     output:
         path("${params.dataset}/**/somalier/somalier*.tsv")
@@ -139,6 +141,9 @@ process SOMALIER_RELATE {
         if [ ${params.pseudobulk} == true ]
         then
             output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
+        elif [ "${params.dataset}" == "hgsoc" ]
+        then
+            output_location="${params.dataset}/real_data/${mod1}_vs_${mod2}/ncells_null"
         else
             output_location="${params.dataset}/real_data/ncells_null"
         fi

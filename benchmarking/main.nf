@@ -78,59 +78,58 @@ workflow {
     // filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
     // 1b. Filter aligned reads
-    // filtered_bams = FILTER_BAM(bam_files)
-    // filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
+    filtered_bams = FILTER_BAM(bam_files)
+    filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
     // VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
     // NGSCHECKMATE(filtered_vcfs.individual_vcfs, mod_channel.collect())
     // CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, mod_channel.collect())
     // HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
-    // PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, mod_channel.collect())
-    // TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
-    // OMICSPRINT(filtered_vcfs.all_variants, modalities)
-    NTSM(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.all_variants, modalities)
+    PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, modalities.collect())
+    TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
+    OMICSPRINT(filtered_vcfs.all_variants, modalities)
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     // BAMIXCHECKER(filtered_bams.bam.collect())
-    // conpair_pairs = filtered_bams.bam.collect().flatMap { bams ->
-    //         if (params.pseudobulk) {
-    //             def bams_1 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_1_filtered$/ }
-    //             def bams_2 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_2_filtered$/ }
+    conpair_pairs = filtered_bams.bam.collect().flatMap { bams ->
+            if (params.pseudobulk) {
+                def bams_1 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_1_filtered$/ }
+                def bams_2 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_2_filtered$/ }
 
-    //             if (bams_1.isEmpty() || bams_2.isEmpty()) {
-    //                 throw new IllegalStateException("CONPAIR pseudobulk pairing failed: expected both *_1_filtered.bam and *_2_filtered.bam inputs")
-    //             }
+                if (bams_1.isEmpty() || bams_2.isEmpty()) {
+                    throw new IllegalStateException("CONPAIR pseudobulk pairing failed: expected both *_1_filtered.bam and *_2_filtered.bam inputs")
+                }
 
-    //             bams_1.withIndex().collectMany { bam_1, i ->
-    //                 bams_2.withIndex().collect { bam_2, j ->
-    //                     def pair_id = "pb_${i}_${j}"
-    //                     def sample_1 = "${pair_id}_A_${bam_1.baseName}"
-    //                     def sample_2 = "${pair_id}_B_${bam_2.baseName}"
-    //                     tuple(sample_1.toString(), bam_1, sample_2.toString(), bam_2)
-    //                 }
-    //             }
-    //         } else {
-    //             def modality_1 = modalities[0]
-    //             def modality_2 = modalities[1]
-    //             def bams_mod_1 = bams.findAll { bam -> bam.baseName.toString().contains("_${modality_1}_filtered") }
-    //             def bams_mod_2 = bams.findAll { bam -> bam.baseName.toString().contains("_${modality_2}_filtered") }
+                bams_1.withIndex().collectMany { bam_1, i ->
+                    bams_2.withIndex().collect { bam_2, j ->
+                        def pair_id = "pb_${i}_${j}"
+                        def sample_1 = "${pair_id}_A_${bam_1.baseName}"
+                        def sample_2 = "${pair_id}_B_${bam_2.baseName}"
+                        tuple(sample_1.toString(), bam_1, sample_2.toString(), bam_2, "pseudobulk_1", "pseudobulk_2")
+                    }
+                }
+            } else {
+                def modality_1 = modalities[0]
+                def modality_2 = modalities[1]
+                def bams_mod_1 = bams.findAll { bam -> bam.baseName.toString().contains("_${modality_1}_filtered") }
+                def bams_mod_2 = bams.findAll { bam -> bam.baseName.toString().contains("_${modality_2}_filtered") }
 
-    //             if (bams_mod_1.isEmpty() || bams_mod_2.isEmpty()) {
-    //                 throw new IllegalStateException("CONPAIR real-data pairing failed: expected BAMs from both modalities '${modality_1}' and '${modality_2}'")
-    //             }
+                if (bams_mod_1.isEmpty() || bams_mod_2.isEmpty()) {
+                    throw new IllegalStateException("CONPAIR real-data pairing failed: expected BAMs from both modalities '${modality_1}' and '${modality_2}'")
+                }
 
-    //             bams_mod_1.withIndex().collectMany { bam_1, i ->
-    //                 bams_mod_2.withIndex().collect { bam_2, j ->
-    //                     def pair_id = "rd_${i}_${j}"
-    //                     def sample_1 = "${pair_id}_A_${bam_1.baseName}"
-    //                     def sample_2 = "${pair_id}_B_${bam_2.baseName}"
-    //                     tuple(sample_1.toString(), bam_1, sample_2.toString(), bam_2)
-    //                 }
-    //             }
-    //         }
-    // }
-    // CONPAIR(conpair_pairs)
-    // somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index)
-    // SOMALIER_RELATE(somalier_files.collect())
+                bams_mod_1.withIndex().collectMany { bam_1, i ->
+                    bams_mod_2.withIndex().collect { bam_2, j ->
+                        def pair_id = "rd_${i}_${j}"
+                        def sample_1 = "${pair_id}_A_${bam_1.baseName}"
+                        def sample_2 = "${pair_id}_B_${bam_2.baseName}"
+                        tuple(sample_1.toString(), bam_1, sample_2.toString(), bam_2, modality_1, modality_2)
+                    }
+                }
+            }
+    }
+    CONPAIR(conpair_pairs)
+    somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index)
+    SOMALIER_RELATE(somalier_files.collect(), modalities[0], modalities[1])
 }
