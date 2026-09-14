@@ -74,24 +74,24 @@ workflow {
         modalities,
         params.pseudobulk
     )
-    // filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
-    // filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
+    filtered_vcfs.modality_vcfs.view { x -> "Modality VCFs: ${x}"}
+    filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
     // 1b. Filter aligned reads
     filtered_bams = FILTER_BAM(bam_files)
     filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    // VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
-    // NGSCHECKMATE(filtered_vcfs.individual_vcfs, mod_channel.collect())
-    // CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, mod_channel.collect())
-    // HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
     PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, modalities.collect())
     TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
     OMICSPRINT(filtered_vcfs.all_variants, modalities)
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
-    // BAMIXCHECKER(filtered_bams.bam.collect())
+    BAMIXCHECKER(filtered_bams.bam.collect())
     conpair_pairs = filtered_bams.bam.collect().flatMap { bams ->
             if (params.pseudobulk) {
                 def bams_1 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_1_filtered$/ }
