@@ -409,14 +409,12 @@ def long_df_to_matrix_ntsm(df):
     return matrix
 
 
-def long_df_to_matrix_omicsprint(df, metric="mean"):
+def long_df_to_matrix_omicsprint(df):
     """
     Convert long omicsPrint dataframe to a square matrix format for heatmap visualization.
 
     input:
         - df: long format dataframe with columns [sample1, sample2, mean]
-        - metric: which column to use for the values in the matrix 
-        (default "mean", can also be "relation" for match/no match)
 
     output:
         - matrix: square dataframe with samples as rows and columns, values are the concordance values
@@ -424,7 +422,7 @@ def long_df_to_matrix_omicsprint(df, metric="mean"):
     matrix = df.pivot_table(
         index="sample1",
         columns="sample2",
-        values=metric,
+        values="mean",
         aggfunc="first",
     )
 
@@ -1096,8 +1094,8 @@ def parse_heatmap_matrix_omicsprint(
         header=0,
     )
 
-    df = df[["colnames.x", "colnames.y", "mean", "relation"]]
-    df.columns = ["sample1", "sample2", "mean", "relation"]
+    df = df[["colnames.x", "colnames.y", "mean"]]
+    df.columns = ["sample1", "sample2", "mean"]
 
     if pseudobulk or dataset == "hgsoc-new":
         regex_exp = dataset_regex_dict.get(dataset, "")
@@ -1112,7 +1110,7 @@ def parse_heatmap_matrix_omicsprint(
     df["sample2"] = df["sample2"].map(rename_dict)
 
     # Create matrix for heatmap
-    matrix = long_df_to_matrix_omicsprint(df, metric="mean")
+    matrix = long_df_to_matrix_omicsprint(df)
 
     return df, matrix
 
@@ -1611,6 +1609,40 @@ def parse_sample_matching_results_ntsm(
     return sample_matches
 
 
+def parse_sample_matching_results_omicsprint(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    rd,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_dissociated_polyA",
+    threshold=1.7,
+):
+    """
+    Parse OmicsPrint output to determine sample match predictions.
+
+    input: 
+        - DATA_PATH: base path to the data directory
+        - pseudobulk: boolean indicating if the data is pseudobulk
+        - dataset: the dataset name
+        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+        - rd: the read depth filter cut-off used for the analysis
+        - mod1: the first modality
+        - mod2: the second modality
+        - threshold: concordance threshold for determining matches (default 1.7)
+
+    output:
+        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+    """
+    _, matrix = parse_heatmap_matrix_omicsprint(
+        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+    )
+    sample_matches = (matrix >= threshold).astype(int)
+
+    return sample_matches
+
+
 def parse_sample_matching_results_peddy(
     DATA_PATH,
     pseudobulk,
@@ -1825,6 +1857,10 @@ def load_sample_matching_results(
             sample_matches = parse_sample_matching_results_bamixchecker(
                 DATA_PATH, pseudobulk, dataset, ncells
             )
+        elif tool == "Conpair":
+            sample_matches = parse_sample_matching_results_conpair(
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            )
         elif tool == "CrosscheckFingerprints":
             sample_matches = parse_sample_matching_results_crosscheckfingerprints(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
@@ -1837,6 +1873,22 @@ def load_sample_matching_results(
             sample_matches = parse_sample_matching_results_ngscheckmate(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
             )
+        elif tool == "OmicsPrint":
+            sample_matches = parse_sample_matching_results_omicsprint(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "Peddy":
+            sample_matches = parse_sample_matching_results_peddy(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "Somalier":
+            sample_matches = parse_sample_matching_results_somalier(
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            )
+        elif tool == "TimeAttackGenComp":
+            sample_matches = parse_sample_matching_results_timeattackgencomp(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
         elif tool == "Vireo":
             sample_matches = parse_sample_matching_results_vireo(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
@@ -1844,7 +1896,7 @@ def load_sample_matching_results(
         else:
             print(f"Error! Do not recognize tool {tool}")
             print(
-                "Choice of tool must be one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                "Choice of tool must be one of BAMixChecker, Conpair, CrosscheckFingerprints, HYSYS, NGSCheckmate, OmicsPrint, Peddy, Somalier, TimeAttackGenComp, or Vireo."
             )
             sample_matches = None
     except FileNotFoundError:
@@ -1881,6 +1933,10 @@ def load_heatmap_data(
             _, matrix = parse_heatmap_matrix_bamixchecker(
                 DATA_PATH, pseudobulk, dataset, ncells
             )
+        elif tool == "Conpair":
+            _, matrix = parse_heatmap_matrix_conpair(
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            )
         elif tool == "CrosscheckFingerprints":
             _, matrix = parse_heatmap_matrix_crosscheckfingerprints(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
@@ -1893,6 +1949,22 @@ def load_heatmap_data(
             _, matrix = parse_heatmap_matrix_ngscheckmate(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
             )
+        elif tool == "OmicsPrint":
+            _, matrix = parse_heatmap_matrix_omicsprint(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "Peddy":
+            _, matrix = parse_heatmap_matrix_peddy(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
+        elif tool == "Somalier":
+            _, matrix = parse_heatmap_matrix_somalier(
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            )
+        elif tool == "TimeAttackGenComp":
+            _, matrix = parse_heatmap_matrix_timeattackgencomp(
+                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            )
         elif tool == "Vireo":
             matrix = parse_heatmap_matrix_vireo(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
@@ -1900,7 +1972,7 @@ def load_heatmap_data(
         else:
             print(f"Error! Do not recognize tool {tool}")
             print(
-                "Choice of tool must be one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                "Choice of tool must be one of BAMixChecker, Conpair, CrosscheckFingerprints, HYSYS, NGSCheckmate, OmicsPrint, Peddy, Somalier, TimeAttackGenComp, or Vireo."
             )
             matrix = None
     except FileNotFoundError:

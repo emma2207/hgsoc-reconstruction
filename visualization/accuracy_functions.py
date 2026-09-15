@@ -11,9 +11,14 @@ from sklearn.metrics import (
 
 from analysis_shared_functions import (
     parse_sample_matching_results_bamixchecker,
+    parse_sample_matching_results_conpair,
     parse_sample_matching_results_crosscheckfingerprints,
     parse_sample_matching_results_hysys,
     parse_sample_matching_results_ngscheckmate,
+    parse_sample_matching_results_omicsprint,
+    parse_sample_matching_results_peddy,
+    parse_sample_matching_results_somalier,
+    parse_sample_matching_results_timeattackgencomp,
     parse_heatmap_matrix_vireo,
     parse_heatmap_matrix_hysys,
     true_matches_pseudobulk,
@@ -123,6 +128,17 @@ def loop_accuracy_calculations(
                                 f"Skipping BAMixChecker for read depth {rd} since it does not vary with read depth. "
                             )
                             continue
+                        elif tool == "Conpair" and rd == 0:
+                            inferred_matches = (
+                                parse_sample_matching_results_conpair(
+                                    DATA_PATH, True, dataset, ncells
+                                )
+                            )
+                        elif tool == "Conpair" and rd != 0:
+                            print(
+                                f"Skipping Conpair for read depth {rd} since it does not vary with read depth. "
+                            )
+                            continue
                         elif tool == "CrosscheckFingerprints":
                             inferred_matches = (
                                 parse_sample_matching_results_crosscheckfingerprints(
@@ -139,6 +155,30 @@ def loop_accuracy_calculations(
                                     DATA_PATH, True, dataset, ncells, rd
                                 )
                             )
+                        elif tool == "OmicsPrint":
+                            inferred_matches = (
+                                parse_sample_matching_results_omicsprint(
+                                    DATA_PATH, True, dataset, ncells, rd
+                                )
+                            )
+                        elif tool == "Peddy":
+                            inferred_matches = (
+                                parse_sample_matching_results_peddy(
+                                    DATA_PATH, True, dataset, ncells, rd,
+                                )
+                            )
+                        elif tool == "Somalier":
+                            inferred_matches = (
+                                parse_sample_matching_results_somalier(
+                                    DATA_PATH, True, dataset, ncells, rd
+                                )
+                            )
+                        elif tool == "TimeAttackGenComp":
+                            inferred_matches = (
+                                parse_sample_matching_results_timeattackgencomp(
+                                    DATA_PATH, True, dataset, ncells, rd
+                                )
+                            )
                         elif tool == "Vireo":
                             matrix = parse_heatmap_matrix_vireo(
                                 DATA_PATH, True, dataset, ncells, rd
@@ -150,9 +190,8 @@ def loop_accuracy_calculations(
                                 matrix, hysys_matrix, experiment
                             )
                         else:
-                            print(
-                                f"Error! Do not recognize tool {tool}. Choose one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
-                            )
+                            print(f"Error! Do not recognize tool {tool}.")
+                            print("Choose one of BAMixChecker, Conpair, CrosscheckFingerprints, HYSYS, NGSCheckmate, OmicsPrint, Peddy, Somalier, TimeAttackGenComp, or Vireo.")
                             continue
                     except FileNotFoundError:
                         print(
@@ -370,7 +409,7 @@ def accuracy_metrics_averaged_over_iterations(
                         f"No results found for {n} samples removed and iteration {i}. Skipping accuracy calculations for this number of samples removed."
                     )
                     continue
-                if tool == "CrosscheckFingerprints":
+                elif tool == "CrosscheckFingerprints":
                     inferred_matches = (
                         parse_sample_matching_results_crosscheckfingerprints(
                             DATA_PATH + f"{folder}{n}/it_{i}/",
@@ -400,9 +439,8 @@ def accuracy_metrics_averaged_over_iterations(
                         matrix, hysys_matrix, experiment, n_samples_double
                     )
                 else:
-                    print(
-                        f"Error! Do not recognize tool {tool}. Choose one of CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
-                    )
+                    print(f"Error! Do not recognize tool {tool}.")
+                    print("Choose one of CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo.")
                     continue
 
                 if experiment == "double_samples":

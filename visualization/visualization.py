@@ -25,9 +25,15 @@ METRIC_LABELS = {
 }
 
 TOOL_LABELS = {
+    "Conpair": "Conpair",
     "CrosscheckFingerprints": "CrosscheckFingerprints",
     "HYSYS": "HYSYS",
     "NGSCheckmate": "NGSCheckMate",
+    "ntsm": "ntsm",
+    "OmicsPrint": "OmicsPrint",
+    "Peddy": "Peddy",
+    "Somalier": "Somalier",
+    "TimeAttackGenComp": "TimeAttackGenComp",
     "Vireo": "Vireo",
 }
 
@@ -636,6 +642,8 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
+            if ncells == ncells_list[0]:
+                ax.set_ylabel(f"{TOOL_LABELS[tool]}", fontsize=fontsize, rotation=90, labelpad=10)
             # Add title with ncells to the top row
             if tool == tools[0]:
                 ax.set_title(f"{ncells:,.0f} UMIs", pad=10, fontsize=fontsize)
@@ -655,18 +663,19 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                 )
 
     # Add text with tool name to the left of each row
-    for itool, tool in enumerate(reversed(tools)):
-        row_bbox = row_left_ax.get_position()
-        fig.text(
-            row_bbox.x0 - 0.02,
-            row_bbox.y0 * (itool * 1.93 + 1) + row_bbox.height / 2,
-            f"{tool}",
-            transform=fig.transFigure,
-            fontsize=fontsize,
-            rotation=90,
-            va="center",
-            ha="right",
-        )
+    # Needed if there are missing data for some tools, so that the row labels are still aligned with the correct rows
+    # for itool, tool in enumerate(reversed(tools)):
+    #     row_bbox = row_left_ax.get_position()
+    #     fig.text(
+    #         row_bbox.x0 - 0.02,
+    #         row_bbox.y0 * (itool * 1.93 + 1) + row_bbox.height / 2,
+    #         f"{tool}",
+    #         transform=fig.transFigure,
+    #         fontsize=fontsize,
+    #         rotation=90,
+    #         va="center",
+    #         ha="right",
+    #     )
 
     # one colorbar per row/tool
     for i, tool in enumerate(tools):
