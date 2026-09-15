@@ -38,7 +38,7 @@ process TIMEATTACKGENCOMP {
         else
             output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}"
         fi
-        mkdir -p "\${output_location}/timeattackgencomp"
+        mkdir -p "\${output_location}"
 
         if [ -z "${params.TIMEATTACKGENCOMP}" ]
         then
@@ -55,7 +55,7 @@ process TIMEATTACKGENCOMP {
         target_bed_path="${params.timeattackgencomp_target_bed}"
         if [[ "\$target_bed_path" == *.gz ]]
         then
-            target_bed_path="\${output_location}/timeattackgencomp/targets_for_timeattackgencomp.bed"
+            target_bed_path="\${output_location}/targets_for_timeattackgencomp.bed"
             gzip -dc "${params.timeattackgencomp_target_bed}" > "\$target_bed_path"
         fi
 
@@ -68,7 +68,7 @@ process TIMEATTACKGENCOMP {
             base_name=\${base_name%.vcf.gz}
             base_name=\${base_name%.vcf}
 
-            sample_snv="\${output_location}/timeattackgencomp/\${base_name}.smp.snv"
+            sample_snv="\${output_location}/\${base_name}.smp.snv"
             bcftools query -R "\$target_bed_path" -f '%CHROM\t%POS\t[%TGT]\n' "\$file" \
                 | awk 'BEGIN { OFS = "\t" } { if (\$3 != "./.") { split(\$3, alleles, "/"); if (alleles[1] > alleles[2]) { \$3 = alleles[2] alleles[1] } else { \$3 = alleles[1] alleles[2] } } print }' \
                 > "\$sample_snv"
@@ -77,16 +77,16 @@ process TIMEATTACKGENCOMP {
 
         if [ "\${#snv_files[@]}" -eq 0 ]
         then
-            echo "ERROR: No .smp.snv files were generated in \${output_location}/timeattackgencomp." >&2
+            echo "ERROR: No .smp.snv files were generated in \${output_location}." >&2
             exit 1
         fi
 
-        perl "${params.TIMEATTACKGENCOMP}/compare_simple.pl" --raw_output "\${output_location}/timeattackgencomp/timeattackgencomp.raw.out" --bed "\$target_bed_path" --missing './.' "\${snv_files[@]}" > "\${output_location}/timeattackgencomp/timeattackgencomp.snv.out.txt"
+        perl "${params.TIMEATTACKGENCOMP}/compare_simple.pl" --raw_output "\${output_location}/timeattackgencomp.raw.out" --bed "\$target_bed_path" --missing './.' "\${snv_files[@]}" > "\${output_location}/timeattackgencomp.snv.out.txt"
 
         # compare_simple.pl computes all-vs-all but only prints the upper triangle of the
         # matrix, leaving the lower triangle blank. Mirror the upper triangle into the lower
         # triangle so every pairwise comparison is present regardless of input file order.
-        snv_matrix="\${output_location}/timeattackgencomp/timeattackgencomp.snv.out.txt"
+        snv_matrix="\${output_location}/timeattackgencomp.snv.out.txt"
         awk -F'\t' '
             NR == 1 {
                 for (i = 2; i <= NF; i++) { header[i] = \$i }
@@ -121,7 +121,7 @@ process TIMEATTACKGENCOMP {
 
         if [ -f "${params.TIMEATTACKGENCOMP}/heatmap.R" ]
         then
-            R --vanilla < "${params.TIMEATTACKGENCOMP}/heatmap.R" --args "\${output_location}/timeattackgencomp/timeattackgencomp.snv.out.txt" "\${output_location}/timeattackgencomp/timeattackgencomp"
+            R --vanilla < "${params.TIMEATTACKGENCOMP}/heatmap.R" --args "\${output_location}/timeattackgencomp.snv.out.txt" "\${output_location}/timeattackgencomp"
         fi
         """.stripIndent()
 }

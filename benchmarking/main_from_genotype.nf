@@ -16,9 +16,9 @@ include { CROSSCHECK_FINGERPRINTS } from './modules/2a_fingerprints'
 include { HYSYS } from './modules/2a_hysys'
 include { NGSCHECKMATE } from './modules/2a_ngscheckmate'
 include { VIREO_MATCH } from './modules/2a_vireo'
+include { OMICSPRINT } from './modules/2a_omicsprint'
 include { PEDDY } from './modules/2a_peddy'
 include { TIMEATTACKGENCOMP } from './modules/2a_timeattackgencomp'
-include { OMICSPRINT } from './modules/2a_omicsprint'
 
 
 // Main workflow
@@ -58,11 +58,11 @@ workflow {
     filtered_vcfs.individual_vcfs.view{ x -> "Individual VCFs: ${x}"}
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
-    NGSCHECKMATE(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
-    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
-    HYSYS(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
-    PEDDY(filtered_vcfs.all_variants, mod_channel.collect())
-    TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), mod_channel.collect())
-    OMICSPRINT(filtered_vcfs.all_variants, mod_channel.collect())
+    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), modalities.collect())
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs, modalities.collect())
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, modalities.collect())
+    HYSYS(filtered_vcfs.individual_vcfs, modalities.collect())
+    PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, modalities.collect())
+    TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
+    OMICSPRINT(filtered_vcfs.all_variants, modalities)
 }
