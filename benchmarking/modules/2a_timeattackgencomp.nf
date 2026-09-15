@@ -83,6 +83,42 @@ process TIMEATTACKGENCOMP {
 
         perl "${params.TIMEATTACKGENCOMP}/compare_simple.pl" --raw_output "\${output_location}/timeattackgencomp/timeattackgencomp.raw.out" --bed "\$target_bed_path" --missing './.' "\${snv_files[@]}" > "\${output_location}/timeattackgencomp/timeattackgencomp.snv.out.txt"
 
+        # compare_simple.pl computes all-vs-all but only prints the upper triangle of the
+        # matrix, leaving the lower triangle blank. Mirror the upper triangle into the lower
+        # triangle so every pairwise comparison is present regardless of input file order.
+        snv_matrix="\${output_location}/timeattackgencomp/timeattackgencomp.snv.out.txt"
+        awk -F'\t' '
+            NR == 1 {
+                for (i = 2; i <= NF; i++) { header[i] = \$i }
+                ncols = NF
+                next
+            }
+            NF == ncols {
+                nrows++
+                row[nrows] = \$1
+                for (i = 2; i <= NF; i++) { val[nrows, i] = \$i }
+                next
+            }
+            { trailing[++ntrail] = \$0 }
+            END {
+                for (i = 1; i <= nrows; i++) {
+                    for (j = 1; j <= nrows; j++) {
+                        if (val[i, j + 1] == "" && val[j, i + 1] != "") {
+                            val[i, j + 1] = val[j, i + 1]
+                        }
+                    }
+                }
+                printf "\t"
+                for (i = 2; i <= ncols; i++) { printf "%s%s", header[i], (i < ncols ? "\t" : "\n") }
+                for (i = 1; i <= nrows; i++) {
+                    printf "%s", row[i]
+                    for (j = 2; j <= ncols; j++) { printf "\t%s", val[i, j] }
+                    printf "\n"
+                }
+                for (t = 1; t <= ntrail; t++) { print trailing[t] }
+            }
+        ' "\$snv_matrix" > "\${snv_matrix}.symmetrized" && mv "\${snv_matrix}.symmetrized" "\$snv_matrix"
+
         if [ -f "${params.TIMEATTACKGENCOMP}/heatmap.R" ]
         then
             R --vanilla < "${params.TIMEATTACKGENCOMP}/heatmap.R" --args "\${output_location}/timeattackgencomp/timeattackgencomp.snv.out.txt" "\${output_location}/timeattackgencomp/timeattackgencomp"
