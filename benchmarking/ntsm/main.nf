@@ -23,28 +23,45 @@ def collectRunsDynamic(row, prefix) {
     return files
 }
 
+// Single-end runs have no real R2 files; lazily create an empty gzipped
+// placeholder so NTSM_COUNT's required R2 path input is always satisfied.
+def emptyR2Placeholder() {
+    def placeholder = file("${workDir}/ntsm_empty_R2.fastq.gz")
+    if (!placeholder.exists()) {
+        placeholder.parent.mkdirs()
+        new java.util.zip.GZIPOutputStream(new FileOutputStream(placeholder.toString())).close()
+    }
+    return placeholder
+}
+
 workflow {
     if (!params.pseudobulk) {
         modalities = ["bulk_dissociated_polyA", "bulk_chunk_ribo"]
-        metadata_patterns = modalities.collect { mod ->
-            "${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${mod}_${params.dataset}_${params.read_type}.csv"
-        }
-        fastq_patterns = modalities.collect { mod ->
-            "${params.petaLibrary}/raw_reads/${params.dataset}/${mod}"
-        }
-        metadata_ch = channel.fromPath(metadata_patterns)
-        fastq_dir_ch = channel.fromPath(fastq_patterns, type: 'dir')
+
+        // Key metadata and fastq dir channels by modality, then join so each
+        // metadata file is always paired with its own modality's fastq dir.
+        metadata_ch = channel.fromList(modalities)
+            .map { mod ->
+                tuple(mod, file("${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${mod}_${params.dataset}_${params.read_type}.csv"))
+            }
+        fastq_dir_ch = channel.fromList(modalities)
+            .map { mod ->
+                tuple(mod, file("${params.petaLibrary}/raw_reads/${params.dataset}/${mod}", type: 'dir'))
+            }
         metadata_ch.view { x -> "Metadata files: ${x}"}
         fastq_dir_ch.view { x -> "Fastq files: ${x}" }
 
-        mapping_csv = PROCESS_METADATA(metadata_ch, fastq_dir_ch)
+        metadata_fastq_ch = metadata_ch.join(fastq_dir_ch)
+
+        mapping_csv = PROCESS_METADATA(metadata_fastq_ch)
 
         sample_fastqs = mapping_csv.splitCsv(header: true)
                 .map { row ->
+                    def r2_paths = params.read_type == 'single' ? [emptyR2Placeholder()] : collectRunsDynamic(row, 'R2_path')
                     tuple(
                         row.'Sample Name',
                         collectRunsDynamic(row, 'R1_path'),
-                        collectRunsDynamic(row, 'R2_path')
+                        r2_paths
                     )
                 }
             .view { row -> "Sample fastq dirs: ${row}" }

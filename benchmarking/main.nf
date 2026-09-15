@@ -82,10 +82,10 @@ workflow {
     filtered_bams.bam.collect().view { x -> "Filtered BAMs: ${x}" }
 
     // 2a. Run similarity analysis tools in parallel on filtered VCFs
-    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), mod_channel.collect())
-    NGSCHECKMATE(filtered_vcfs.individual_vcfs, mod_channel.collect())
-    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, mod_channel.collect())
-    HYSYS(filtered_vcfs.individual_vcfs, mod_channel.collect())
+    VIREO_MATCH(filtered_vcfs.modality_vcfs.collect(), modalities.collect())
+    NGSCHECKMATE(filtered_vcfs.individual_vcfs, modalities.collect())
+    CROSSCHECK_FINGERPRINTS(filtered_vcfs.individual_vcfs, modalities.collect())
+    HYSYS(filtered_vcfs.individual_vcfs, modalities.collect())
     PEDDY(filtered_vcfs.all_variants, filtered_vcfs.all_variants_index, modalities.collect())
     TIMEATTACKGENCOMP(filtered_vcfs.individual_vcfs.collect(), filtered_vcfs.individual_vcfs_index.collect(), modalities)
     OMICSPRINT(filtered_vcfs.all_variants, modalities)
@@ -131,5 +131,5 @@ workflow {
     }
     CONPAIR(conpair_pairs)
     somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index)
-    SOMALIER_RELATE(somalier_files.collect(), modalities[0], modalities[1])
+    SOMALIER_RELATE(somalier_files.collect(), modalities[0], modalities.size() > 1 ? modalities[1] : modalities[0])
 }

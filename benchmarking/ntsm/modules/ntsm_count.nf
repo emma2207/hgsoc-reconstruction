@@ -21,7 +21,7 @@ process NTSM_COUNT {
     cat ${r1_fastqs} > \${output_location}/${sample_name}.R1.fastq.gz
     cat ${r2_fastqs} > \${output_location}/${sample_name}.R2.fastq.gz
 
-    if [ "${params.pseudobulk}" ]
+    if [ "${params.pseudobulk}" = "true" ]
     then
         ntsmCount -t ${task.cpus} -s ${params.sites} \
             \${output_location}/${sample_name}.R1.fastq.gz > counts_${sample_name}.txt

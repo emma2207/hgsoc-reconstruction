@@ -47,8 +47,10 @@ fi
 # --------------------------------------------------
 # 1) Ensure that Nextflow is installed
 # --------------------------------------------------
-module load miniforge
-module load nextflow
+if [ "${RUN_MODE}" == "HPC" ]; then
+    module load miniforge
+    module load nextflow
+fi
 
 if ! command -v nextflow &> /dev/null
 then

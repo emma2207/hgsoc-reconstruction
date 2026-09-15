@@ -107,10 +107,10 @@ def main() -> int:
                 continue
 
             fields = line.rstrip("\n").split("\t")
-            if len(fields) < 6:
+            if len(fields) < 5:
                 # Fallback for whitespace-separated lines.
                 fields = line.rstrip("\n").split()
-            if len(fields) < 6:
+            if len(fields) < 5:
                 continue
 
             chrom, pos, ref = fields[0], fields[1], fields[2]

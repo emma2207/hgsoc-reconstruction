@@ -9,7 +9,7 @@ process NTSM_EVAL {
     val(modalities)
 
     output:
-    path('ntsm_pairwise.tsv', optional: true)
+    path('ntsm_pairwise_*.tsv', optional: true)
 
     script:
     def modalitiesStr = (modalities instanceof Collection) ? modalities.join('_') : modalities.toString()

@@ -16,7 +16,7 @@ process GENOTYPE_INDIVIDUAL {
 
     script:
         """
-        set -o pipefail
+        set -euo pipefail
 
         echo "START" >&2
         date -Is >&2

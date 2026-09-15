@@ -5,8 +5,7 @@ process PROCESS_METADATA {
     publishDir "${params.outdir}/metadata", mode: 'copy'
 
     input:
-    path(metadata)
-    val(fastq_dir)
+    tuple val(modality), path(metadata), val(fastq_dir)
 
     output:
     path('run_name_mapping.csv')
