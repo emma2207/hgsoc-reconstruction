@@ -1251,11 +1251,15 @@ def parse_heatmap_matrix_timeattackgencomp(
         mod1,
         mod2,
     )
-    file_path = os.path.join(rd_path, "timeattackgencomp/timeattackgencomp.snv.out.txt")
+    file_path = os.path.join(rd_path, "timeattackgencomp.snv.out.txt")
 
     matrix = pd.read_csv(file_path, sep="\t", header=0, index_col=0)[:-1]
     matrix.index = matrix.index.str.replace("_individual_variants", "")
     matrix.columns = matrix.columns.str.replace("_individual_variants", "")
+
+    # Symmetrize matrix by copying the upper triangle to the lower triangle
+    matrix = matrix.where(np.triu(np.ones(matrix.shape), k=0).astype(bool))
+    matrix = matrix.combine_first(matrix.T)
 
     df = matrix.stack().reset_index()
     df.columns = ["sample1", "sample2", "value"]
@@ -1721,6 +1725,7 @@ def parse_sample_matching_results_timeattackgencomp(
     read_depth,
     mod1="bulk_chunk_ribo",
     mod2="bulk_dissociated_polyA",
+    threshold=0.05,
 ):  
     """
     Parse TimeAttackGenComp output to categorize sample relationships.
@@ -1742,7 +1747,7 @@ def parse_sample_matching_results_timeattackgencomp(
         DATA_PATH, pseudobulk, dataset, ncells, read_depth, mod1, mod2,
     )
     # If timeattackgencomp value is 0, then samples are considered a match (1), otherwise not a match (0)
-    sample_matches = (matrix == 0).astype(int)  # Convert boolean to int
+    sample_matches = (matrix <= threshold).astype(int)  # Convert boolean to int
 
     return sample_matches
 
