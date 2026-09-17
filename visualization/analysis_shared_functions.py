@@ -119,7 +119,7 @@ def _resolve_read_depth_path(
         all_matches = sorted(glob.glob(os.path.join(base_path, "read_depth_*")))
 
         # Support modality-specific tags when rd is scalar, e.g.
-        # read_depth_bulk_dissociated_polyA_20_single-cell_20 for rd=20.
+        # read_depth_bulk_diss_polyA_20_single-cell_20 for rd=20.
         token_matches = []
         for candidate in all_matches:
             candidate_tag = os.path.basename(candidate).replace("read_depth_", "", 1)
@@ -752,7 +752,7 @@ def parse_heatmap_matrix_conpair(
         dataset,
         ncells,
         mod1="bulk_chunk_ribo",
-        mod2="bulk_dissociated_polyA",
+        mod2="bulk_diss_polyA",
 ):
     """
     Read Conpair output and create a matrix for heatmap visualization.
@@ -786,10 +786,12 @@ def parse_heatmap_matrix_conpair(
     for filename in os.listdir(file_path): 
         if filename.endswith(".txt"):
             # Extract sample names from the filename
+            # Pair-index prefix is "pb_<i>_<j>_" for pseudobulk pairs and "rd_<i>_<j>_"
+            # for real-data pairs (an arbitrary pairing index, not a read-depth value).
             sample1 = filename.split("_vs_")[0]
-            sample1 = re.sub(r"pb_\d{1,2}_\d{1,2}_A_", "", sample1).replace("_filtered", "")
+            sample1 = re.sub(r"(pb|rd)_\d{1,2}_\d{1,2}_A_", "", sample1).replace("_filtered", "")
             sample2 = filename.split("_vs_")[1]
-            sample2 = re.sub(r"pb_\d{1,2}_\d{1,2}_B_", "", sample2).replace("_filtered_concordance.txt", "")
+            sample2 = re.sub(r"(pb|rd)_\d{1,2}_\d{1,2}_B_", "", sample2).replace("_filtered_concordance.txt", "")
 
             # Read the concordance value from the file
             INPUT_FILE = os.path.join(file_path, filename)
@@ -815,7 +817,7 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read CrosscheckFingerprints output and create a matrix for heatmap visualization.
@@ -876,7 +878,7 @@ def parse_heatmap_matrix_hysys(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read HYSYS output and create a matrix for heatmap visualization.
@@ -946,7 +948,7 @@ def parse_heatmap_matrix_ngscheckmate(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read NGSCheckmate output and create a matrix for heatmap visualization.
@@ -1012,7 +1014,7 @@ def parse_heatmap_matrix_ntsm(
     dataset,
     ncells,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read NTSM output and create a matrix for heatmap visualization.
@@ -1038,7 +1040,7 @@ def parse_heatmap_matrix_ntsm(
     else:
         file_path = os.path.join(
             DATA_PATH,
-            f"ntsm_eval/ntsm_pairwise_{dataset}_ncells_{ncells}.tsv",
+            f"ntsm_eval/ntsm_pairwise_{mod1}_{mod2}_{dataset}.tsv",
         )
     df = pd.read_csv(
         file_path,
@@ -1061,7 +1063,7 @@ def parse_heatmap_matrix_omicsprint(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read OmicsPrint output and create a matrix for heatmap visualization.
@@ -1122,7 +1124,7 @@ def parse_heatmap_matrix_peddy(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read Peddy output and create a matrix for heatmap visualization.
@@ -1171,7 +1173,7 @@ def parse_heatmap_matrix_somalier(
     dataset,
     ncells,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read Somalier output and create a matrix for heatmap visualization.
@@ -1222,7 +1224,7 @@ def parse_heatmap_matrix_timeattackgencomp(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read TimeAttackGenComp output and create a matrix for heatmap visualization.
@@ -1274,7 +1276,7 @@ def parse_heatmap_matrix_vireo(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Read Vireo output and create a matrix for heatmap visualization.
@@ -1369,7 +1371,7 @@ def parse_sample_matching_results_conpair(
     dataset,
     ncells,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
     threshold=0.8,
 ):
     """
@@ -1404,7 +1406,7 @@ def parse_sample_matching_results_crosscheckfingerprints(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Parse CrosscheckFingerprints results to categorize sample relationships.
@@ -1442,7 +1444,7 @@ def parse_sample_matching_results_hysys(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Parse HYSYS model_results.txt file to categorize sample relationships.
@@ -1555,7 +1557,7 @@ def parse_sample_matching_results_ngscheckmate(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Parse NGSCheckMate results to categorize sample relationships.
@@ -1590,7 +1592,7 @@ def parse_sample_matching_results_ntsm(
     dataset,
     ncells,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Parse NTSM results to categorize sample relationships.
@@ -1620,7 +1622,7 @@ def parse_sample_matching_results_omicsprint(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
     threshold=1.7,
 ):
     """
@@ -1654,7 +1656,7 @@ def parse_sample_matching_results_peddy(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
     threshold=0,
 ):
     """
@@ -1690,7 +1692,7 @@ def parse_sample_matching_results_somalier(
     dataset,
     ncells,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
     threshold=1,
 ):
     """
@@ -1724,7 +1726,7 @@ def parse_sample_matching_results_timeattackgencomp(
     ncells,
     read_depth,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
     threshold=0.05,
 ):  
     """
@@ -1759,7 +1761,7 @@ def parse_sample_matching_results_vireo(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
     """
     Parse Vireo's matched_samples.csv to categorize sample relationships.
@@ -1844,7 +1846,7 @@ def load_sample_matching_results(
     rd1,
     rd2=None,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
 
     if rd2 is not None:
@@ -1878,6 +1880,10 @@ def load_sample_matching_results(
             sample_matches = parse_sample_matching_results_ngscheckmate(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
             )
+        elif tool == "ntsm":
+            sample_matches = parse_sample_matching_results_ntsm(
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            )
         elif tool == "OmicsPrint":
             sample_matches = parse_sample_matching_results_omicsprint(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
@@ -1901,7 +1907,7 @@ def load_sample_matching_results(
         else:
             print(f"Error! Do not recognize tool {tool}")
             print(
-                "Choice of tool must be one of BAMixChecker, Conpair, CrosscheckFingerprints, HYSYS, NGSCheckmate, OmicsPrint, Peddy, Somalier, TimeAttackGenComp, or Vireo."
+                "Choice of tool must be one of BAMixChecker, Conpair, CrosscheckFingerprints, HYSYS, NGSCheckmate, ntsm,OmicsPrint, Peddy, Somalier, TimeAttackGenComp, or Vireo."
             )
             sample_matches = None
     except FileNotFoundError:
@@ -1928,7 +1934,7 @@ def load_heatmap_data(
     ncells,
     rd,
     mod1="bulk_chunk_ribo",
-    mod2="bulk_dissociated_polyA",
+    mod2="bulk_diss_polyA",
 ):
 
     print(f"Processing tool {tool}, dataset {dataset}, read depth {rd}...")
@@ -1954,6 +1960,10 @@ def load_heatmap_data(
             _, matrix = parse_heatmap_matrix_ngscheckmate(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
             )
+        elif tool == "ntsm":
+            _, matrix = parse_heatmap_matrix_ntsm(
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            )
         elif tool == "OmicsPrint":
             _, matrix = parse_heatmap_matrix_omicsprint(
                 DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
@@ -1977,7 +1987,7 @@ def load_heatmap_data(
         else:
             print(f"Error! Do not recognize tool {tool}")
             print(
-                "Choice of tool must be one of BAMixChecker, Conpair, CrosscheckFingerprints, HYSYS, NGSCheckmate, OmicsPrint, Peddy, Somalier, TimeAttackGenComp, or Vireo."
+                "Choice of tool must be one of BAMixChecker, Conpair, CrosscheckFingerprints, HYSYS, NGSCheckmate, ntsm, OmicsPrint, Peddy, Somalier, TimeAttackGenComp, or Vireo."
             )
             matrix = None
     except FileNotFoundError:

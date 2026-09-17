@@ -15,6 +15,7 @@ from analysis_shared_functions import (
     parse_sample_matching_results_crosscheckfingerprints,
     parse_sample_matching_results_hysys,
     parse_sample_matching_results_ngscheckmate,
+    parse_sample_matching_results_ntsm,
     parse_sample_matching_results_omicsprint,
     parse_sample_matching_results_peddy,
     parse_sample_matching_results_somalier,
@@ -155,6 +156,17 @@ def loop_accuracy_calculations(
                                     DATA_PATH, True, dataset, ncells, rd
                                 )
                             )
+                        elif tool == "ntsm" and rd == 0:
+                            inferred_matches = (
+                                parse_sample_matching_results_ntsm(
+                                    DATA_PATH, True, dataset, ncells,
+                                )
+                            )
+                        elif tool == "ntsm" and rd != 0:
+                            print(
+                                f"Skipping ntsm for read depth {rd} since it does not vary with read depth. "
+                            )
+                            continue 
                         elif tool == "OmicsPrint":
                             inferred_matches = (
                                 parse_sample_matching_results_omicsprint(

@@ -642,8 +642,8 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
-            if ncells == ncells_list[0]:
-                ax.set_ylabel(f"{TOOL_LABELS[tool]}", fontsize=fontsize, rotation=90, labelpad=10)
+            # if ncells == ncells_list[0]:
+            #     ax.set_ylabel(f"{TOOL_LABELS[tool]}", fontsize=fontsize, rotation=90, labelpad=10)
             # Add title with ncells to the top row
             if tool == tools[0]:
                 ax.set_title(f"{ncells:,.0f} UMIs", pad=10, fontsize=fontsize)
@@ -664,18 +664,18 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
 
     # Add text with tool name to the left of each row
     # Needed if there are missing data for some tools, so that the row labels are still aligned with the correct rows
-    # for itool, tool in enumerate(reversed(tools)):
-    #     row_bbox = row_left_ax.get_position()
-    #     fig.text(
-    #         row_bbox.x0 - 0.02,
-    #         row_bbox.y0 * (itool * 1.93 + 1) + row_bbox.height / 2,
-    #         f"{tool}",
-    #         transform=fig.transFigure,
-    #         fontsize=fontsize,
-    #         rotation=90,
-    #         va="center",
-    #         ha="right",
-    #     )
+    for itool, tool in enumerate(reversed(tools)):
+        row_bbox = row_left_ax.get_position()
+        fig.text(
+            row_bbox.x0 - 0.02,
+            row_bbox.y0 * (itool * 1.3 + 1) + row_bbox.height / 2,
+            f"{tool}",
+            transform=fig.transFigure,
+            fontsize=fontsize,
+            rotation=90,
+            va="center",
+            ha="right",
+        )
 
     # one colorbar per row/tool
     for i, tool in enumerate(tools):
@@ -968,8 +968,8 @@ def heatmap_plot_accuracy_metrics_pseudobulk(
 
     fig_name = f"pseudobulk_{dataset}_{metric}_heatmap"
 
-    fig, axes = plt.subplots(2, 2, figsize=(8, 10))
-    fig.subplots_adjust(hspace=0.2)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig.subplots_adjust(hspace=0.2, wspace=0.)
     fig.suptitle(f"{metric} Heatmaps - {dataset} pseudobulks", fontsize=14, y=0.94)
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
@@ -982,7 +982,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk(
 
         ax = axes[i // 2, i % 2]
 
-        cax = ax.imshow(sub_matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
+        cax = ax.imshow(sub_matrix, cmap=cmap, vmin=0, vmax=1, aspect='auto')
 
         # Add text annotations with F1 values
         for row in range(len(sub_matrix.index)):
@@ -1308,7 +1308,7 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
             index=["tool"], columns="dataset", values=metric
         )
 
-        ax[i // 2, i % 2].imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
+        ax[i // 2, i % 2].imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect='auto')
 
         # Add text annotations with F1 values
         for row in range(len(matrix.index)):
