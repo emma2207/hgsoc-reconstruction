@@ -574,15 +574,15 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
 
     # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
-        len(tools),
         len(ncells_list),
-        figsize=(5 * len(ncells_list), 4 * len(tools)),
+        len(tools),
+        figsize=(4 * len(tools), 4 * len(ncells_list)),
         sharex=True,
         sharey=True,
     )
-    fig.subplots_adjust(hspace=0.05, wspace=0.05, top=0.95)
+    fig.subplots_adjust(hspace=0.1, wspace=0.1, top=0.95)
     if len(tools) == 1:
-        yval = 1.1
+        yval = 1.25
     else:
         yval = 1.0
     fig.suptitle(
@@ -605,8 +605,8 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                 ax = axes[tools.index(tool)]
                 row_left_ax = axes[tools.index(tool)]
             else:
-                ax = axes[tools.index(tool), ncells_list.index(ncells)]
-                row_left_ax = axes[tools.index(tool), 0]
+                ax = axes[ncells_list.index(ncells), tools.index(tool)]
+                row_left_ax = axes[ncells_list.index(ncells), 0]
             matrix_list = [
                 info["matrix"]
                 for info in all_matrices
@@ -633,7 +633,7 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             cmap = _tool_colormap(tool)
             norm = _tool_norm(tool, tool_extreme_points[tool])
 
-            ax.imshow(matrix, cmap=cmap, norm=norm)
+            ax.imshow(matrix, cmap=cmap, norm=norm, aspect=1)
             row_has_data[tool] = True
             tool_mappable = ScalarMappable(norm=norm, cmap=cmap)
             tool_mappable.set_array([])
@@ -642,11 +642,11 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
-            # if ncells == ncells_list[0]:
-            #     ax.set_ylabel(f"{TOOL_LABELS[tool]}", fontsize=fontsize, rotation=90, labelpad=10)
-            # Add title with ncells to the top row
             if tool == tools[0]:
-                ax.set_title(f"{ncells:,.0f} UMIs", pad=10, fontsize=fontsize)
+                ax.set_ylabel(f"{ncells:,.0f} UMIs", fontsize=fontsize, rotation=90, labelpad=10)
+            # Add title with ncells to the top row
+            # if ncells == ncells_list[0]:
+            #     ax.set_title(f"{TOOL_LABELS[tool]}", pad=10, fontsize=fontsize)
 
 
             # Add text with accuracy metrics to each subplot
@@ -664,32 +664,33 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
 
     # Add text with tool name to the left of each row
     # Needed if there are missing data for some tools, so that the row labels are still aligned with the correct rows
-    for itool, tool in enumerate(reversed(tools)):
+    for itool, tool in enumerate(tools):
         row_bbox = row_left_ax.get_position()
         fig.text(
-            row_bbox.x0 - 0.02,
-            row_bbox.y0 * (itool * 1.3 + 1) + row_bbox.height / 2,
+            row_bbox.y0 * (itool * 0.66 + 0.6) + row_bbox.height/2,
+            row_bbox.x0 + 0.84,
             f"{tool}",
             transform=fig.transFigure,
             fontsize=fontsize,
-            rotation=90,
+            rotation=0,
             va="center",
-            ha="right",
+            ha="center",
         )
 
-    # one colorbar per row/tool
+    # one colorbar per column/tool
     for i, tool in enumerate(tools):
         if not row_has_data[tool] or row_mappables[tool] is None:
             continue
 
+        # Determine the axes for the colorbar
         if len(tools) == 1 and len(ncells_list) == 1:
-            row_axes = [axes]
-        elif len(tools) == 1:
-            row_axes = axes  # 1D over columns
+            col_axes = [axes]
         elif len(ncells_list) == 1:
-            row_axes = [axes[i]]  # 1D over rows
+            col_axes = axes  # 1D over columns
+        elif len(tools) == 1:
+            col_axes = [axes[i]]  # 1D over rows
         else:
-            row_axes = axes[i, :]  # full row
+            col_axes = axes[:, i]  # full column
 
         row_mappable = row_mappables[tool]
         if row_mappable is None:
@@ -697,11 +698,12 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
 
         cbar = fig.colorbar(
             row_mappable,
-            ax=row_axes,
+            ax=col_axes,
             fraction=0.08,
             pad=0.03,
-            shrink=0.75,
-            aspect=18,
+            shrink=0.8,
+            aspect=16,
+            location='bottom',
         )
         cbar.ax.tick_params(labelsize=fontsize)
 
@@ -722,7 +724,7 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             bbox_inches="tight",
             dpi=300,
         )
-
+    plt.show()
     plt.close(fig)
 
     return
