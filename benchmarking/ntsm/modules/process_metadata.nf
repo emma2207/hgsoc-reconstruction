@@ -8,7 +8,7 @@ process PROCESS_METADATA {
     tuple val(modality), path(metadata), val(fastq_dir)
 
     output:
-    path('run_name_mapping.csv')
+    tuple val(modality), path('run_name_mapping.csv')
 
     script:
     """
