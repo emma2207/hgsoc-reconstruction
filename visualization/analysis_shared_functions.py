@@ -775,6 +775,11 @@ def parse_heatmap_matrix_conpair(
             DATA_PATH,
             f"2b_conpair/{dataset}/pseudobulk/ncells_{ncells}",
         )
+    elif dataset == "hgsoc":
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2b_conpair/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null",
+        )
     else:
         file_path = os.path.join(
             DATA_PATH,
@@ -1042,18 +1047,40 @@ def parse_heatmap_matrix_ntsm(
             DATA_PATH,
             f"ntsm_eval/ntsm_pairwise_{mod1}_{mod2}_{dataset}.tsv",
         )
-    df = pd.read_csv(
+    ntsm_df = pd.read_csv(
         file_path,
         sep="\t",
         header=0,
     )
-    df["sample1"] = df["sample1"].str.replace("counts_", "").str.replace(".txt", "")
-    df["sample2"] = df["sample2"].str.replace("counts_", "").str.replace(".txt", "")
-    df = df[["sample1", "sample2", "score"]]
+    ntsm_df["sample1"] = ntsm_df["sample1"].str.replace("counts_", "").str.replace(".txt", "")
+    ntsm_df["sample2"] = ntsm_df["sample2"].str.replace("counts_", "").str.replace(".txt", "")
+    ntsm_df = ntsm_df[["sample1", "sample2", "score"]]
+    # Symmetrize the dataframe by adding the reverse pairs
+    ntsm_df = pd.concat([ntsm_df, ntsm_df.rename(columns={"sample1": "sample2", "sample2": "sample1"})], ignore_index=True)
 
-    matrix = long_df_to_matrix_ntsm(df)
+    # ntsm does not necessarily output all pairwise comparisons, 
+    # so we need to read the missing sample pairs from a different tool
+    crosscheck_df, _ = parse_heatmap_matrix_crosscheckfingerprints(
+        DATA_PATH,
+        pseudobulk,
+        dataset,
+        ncells,
+        rd=None,
+        mod1=mod1,
+        mod2=mod2,
+    )
+    # Get all unique sample pairs from crosscheck_df
+    crosscheck_pairs = set(tuple(sorted([row["LEFT_SAMPLE"], row["RIGHT_SAMPLE"]])) for _, row in crosscheck_df.iterrows())
 
-    return df, matrix
+    # Add missing sample pairs to the ntsm_df
+    for pair in crosscheck_pairs:
+        if pair not in set(tuple(sorted([row["sample1"], row["sample2"]])) for _, row in ntsm_df.iterrows()):
+            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[0], "sample2": pair[1], "score": np.nan}])], ignore_index=True)
+            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[1], "sample2": pair[0], "score": np.nan}])], ignore_index=True)
+
+    matrix = long_df_to_matrix_ntsm(ntsm_df)
+
+    return ntsm_df, matrix
 
 
 def parse_heatmap_matrix_omicsprint(
@@ -1111,6 +1138,25 @@ def parse_heatmap_matrix_omicsprint(
     df["sample1"] = df["sample1"].map(rename_dict)
     df["sample2"] = df["sample2"].map(rename_dict)
 
+    # Get all samples from CrosscheckFingerprints output to ensure that the OmicsPrint matrix has the same samples as the other tools.
+    crosscheck_df, _ = parse_heatmap_matrix_crosscheckfingerprints(
+        DATA_PATH,
+        pseudobulk,
+        dataset,
+        ncells,
+        rd=None,
+        mod1=mod1,
+        mod2=mod2,
+    )
+    crosscheck_pairs = set(tuple(sorted([row["LEFT_SAMPLE"], row["RIGHT_SAMPLE"]])) for _, row in crosscheck_df.iterrows())
+
+    # Add missing sample pairs to the omicsprint df
+    for pair in crosscheck_pairs:
+        if pair not in set(tuple(sorted([row["sample1"], row["sample2"]])) for _, row in df.iterrows()):
+            df = pd.concat([df, pd.DataFrame([{"sample1": pair[0], "sample2": pair[1], "score": np.nan}])], ignore_index=True)
+            df = pd.concat([df, pd.DataFrame([{"sample1": pair[1], "sample2": pair[0], "score": np.nan}])], ignore_index=True)
+    
+
     # Create matrix for heatmap
     matrix = long_df_to_matrix_omicsprint(df)
 
@@ -1162,6 +1208,13 @@ def parse_heatmap_matrix_peddy(
     df["sample_b"] = df["sample_b"].str.replace(".bam", "")
     df = df[["sample_a", "sample_b", "rel_difference"]]
 
+    # peddy leaves out the diagonal values (self-comparisons) in the output, so we need to fill them in with 0s.
+    samples = set(df["sample_a"].unique()) | set(df["sample_b"].unique())
+    for sample in samples:
+        if not df[(df["sample_a"] == sample) & (df["sample_b"] == sample)].empty:
+            continue
+        df = pd.concat([df, pd.DataFrame([{"sample_a": sample, "sample_b": sample, "rel_difference": 0}])], ignore_index=True)
+
     matrix = long_df_to_matrix_peddy(df)
 
     return df, matrix
@@ -1197,6 +1250,11 @@ def parse_heatmap_matrix_somalier(
             DATA_PATH,
             f"2b_somalier/{dataset}/pseudobulk/ncells_{ncells}/somalier/somalier.pairs.tsv",
         )
+    elif dataset == "hgsoc":
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2b_somalier/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/somalier/somalier.pairs.tsv",
+        )
     else:
         file_path = os.path.join(
             DATA_PATH,
@@ -1211,6 +1269,15 @@ def parse_heatmap_matrix_somalier(
     df["sample_a"] = df["#sample_a"].str.replace("_filtered", "")
     df["sample_b"] = df["sample_b"].str.replace("_filtered", "")
     df = df[["sample_a", "sample_b", "concordance"]]
+
+    # We need to symmetrize the matrix by adding the reverse pairs, since Somalier only outputs one direction of the pairwise comparisons.
+    df = pd.concat([df, df.rename(columns={"sample_a": "sample_b", "sample_b": "sample_a"})], ignore_index=True)
+    # Somalier leaves out the diagonal values (self-comparisons) in the output, so we need to fill them in with 1s.
+    samples = set(df["sample_a"].unique()) | set(df["sample_b"].unique())
+    for sample in samples:
+        if not df[(df["sample_a"] == sample) & (df["sample_b"] == sample)].empty:
+            continue
+        df = pd.concat([df, pd.DataFrame([{"sample_a": sample, "sample_b": sample, "concordance": 1}])], ignore_index=True)
 
     matrix = long_df_to_matrix_somalier(df, metric="concordance")
 
@@ -1390,11 +1457,10 @@ def parse_sample_matching_results_conpair(
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
 
-    df, _ = parse_heatmap_matrix_conpair(
+    _, matrix = parse_heatmap_matrix_conpair(
         DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
     )
-    df["match"] = (df["concordance"].astype(float) >= threshold*100).astype(int)
-    sample_matches = long_df_to_matrix_conpair(df, metric="match")
+    sample_matches = (matrix.astype(float) >= threshold*100).astype(int)
 
     return sample_matches
 
@@ -1644,7 +1710,13 @@ def parse_sample_matching_results_omicsprint(
     _, matrix = parse_heatmap_matrix_omicsprint(
         DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
     )
-    sample_matches = (matrix >= threshold).astype(int)
+    # If the omicsprint value is >= threshold, then samples are considered a match (1), otherwise not a match (0).
+    # NaNs are preserved
+    sample_matches = (
+        matrix.ge(threshold)
+        .where(matrix.notna())
+        .astype("Int64")
+    )
 
     return sample_matches
 
@@ -1679,9 +1751,13 @@ def parse_sample_matching_results_peddy(
     _, matrix = parse_heatmap_matrix_peddy(
         DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2,
     )
-
     # If peddy values are <= threshold, then samples are considered a match (1), otherwise not a match (0)
-    sample_matches = (matrix <= threshold).astype(int)
+    # NaNs are preserved
+    sample_matches = (
+        matrix.le(threshold)
+        .where(matrix.notna())
+        .astype("Int64")
+    )
     
     return sample_matches
 
@@ -1714,7 +1790,12 @@ def parse_sample_matching_results_somalier(
         DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2,
     )
     # If somalier value is >= threshold, then samples are considered a match (1), otherwise not a match (0)
-    sample_matches = (matrix >= threshold).astype(int)
+    # NaNs are preserved
+    sample_matches = (
+        matrix.ge(threshold)
+        .where(matrix.notna())
+        .astype("Int64")
+    )
 
     return sample_matches
 
@@ -1749,7 +1830,12 @@ def parse_sample_matching_results_timeattackgencomp(
         DATA_PATH, pseudobulk, dataset, ncells, read_depth, mod1, mod2,
     )
     # If timeattackgencomp value is 0, then samples are considered a match (1), otherwise not a match (0)
-    sample_matches = (matrix <= threshold).astype(int)  # Convert boolean to int
+    # NaNs are preserved
+    sample_matches = (
+        matrix.le(threshold)
+        .where(matrix.notna())
+        .astype("Int64")
+    )
 
     return sample_matches
 

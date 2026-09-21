@@ -26,19 +26,19 @@ METRIC_LABELS = {
 
 TOOL_LABELS = {
     "Conpair": "Conpair",
-    "CrosscheckFingerprints": "CrosscheckFingerprints",
+    "CrosscheckFingerprints": "Crosscheck",
     "HYSYS": "HYSYS",
     "NGSCheckmate": "NGSCheckMate",
     "ntsm": "ntsm",
     "OmicsPrint": "OmicsPrint",
     "Peddy": "Peddy",
     "Somalier": "Somalier",
-    "TimeAttackGenComp": "TimeAttackGenComp",
+    "TimeAttackGenComp": "TimeAttack",
     "Vireo": "Vireo",
 }
 
 DATASET_LABELS_SHORT = {
-    "hgsoc": "HGSOC (Pilot)",
+    "hgsoc": "HGSOC",
     "hgsoc-new": "HGSOC (New)",
     "high_grade_glioma": "HGG",
     "low_grade_glioma": "LGG",
@@ -1296,21 +1296,21 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
 def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
     df, save_fig=False, FIGURES_PATH=""
 ):
-    metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
+    metrics = ["f1", "precision", "recall"]
 
     fig_name = f"pseudobulk_accuracy_metrics_heatmap_rd0_ncells500k"
-    fontsize = 12
+    fontsize = 10
 
-    fig, ax = plt.subplots(2, 2, figsize=(8, 8))
+    fig, ax = plt.subplots(1, 3, figsize=(16, 3))
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
     for i, metric in enumerate(metrics):
         matrix = df[(df["read depth"] == 0) & (df["ncells"] == 500000)].pivot_table(
-            index=["tool"], columns="dataset", values=metric
+            index=["tool"], columns="dataset", values=metric, sort=False
         )
 
-        ax[i // 2, i % 2].imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect='auto')
+        ax[i].imshow(matrix.T, cmap=cmap, vmin=0, vmax=1, aspect='auto')
 
         # Add text annotations with F1 values
         for row in range(len(matrix.index)):
@@ -1318,9 +1318,9 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                 value = matrix.iloc[row, col]
                 if not np.isnan(value):
                     text_color = "white" if value > 0.5 else "black"
-                    ax[i // 2, i % 2].text(
-                        col,
+                    ax[i].text(
                         row,
+                        col,
                         f"{value:.2f}",
                         ha="center",
                         va="center",
@@ -1328,28 +1328,24 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                         fontsize=fontsize - 2,
                     )
 
-        ax[i // 2, i % 2].set_title(
+        ax[i].set_title(
             f"{METRIC_LABELS.get(metric, metric)}", fontsize=fontsize
         )
-        ax[i // 2, i % 2].set_yticks(np.arange(len(matrix.index)))
-        
-        # Only show x-label on bottom row
-        if i // 2 == 1:
-            ax[i // 2, i % 2].set_xticks(np.arange(len(matrix.columns)))
-            ax[i // 2, i % 2].set_xlabel("Datasets", fontsize=fontsize)
-            ax[i // 2, i % 2].set_xticklabels(
-                [DATASET_LABELS_SHORT.get(label, label) for label in matrix.columns], ha="right", fontsize=fontsize, rotation=45
+        ax[i].set_yticks(np.arange(len(matrix.columns)))
+        ax[i].set_xticks(np.arange(len(matrix.index)))
+        if i == 0:
+            ax[i].set_ylabel("Datasets", fontsize=fontsize)
+            ax[i].set_yticklabels(
+                [DATASET_LABELS_SHORT.get(label, label) for label in matrix.columns], fontsize=fontsize,
             )
         else:
-            ax[i // 2, i % 2].tick_params(axis="x", labelbottom=False)
+            ax[i].tick_params(axis="y", labelleft=False)
 
         # Only show y-label on left column
-        if i % 2 == 0:
-            ax[i // 2, i % 2].set_ylabel("Tools", fontsize=fontsize)
-            ax[i // 2, i % 2].set_yticklabels([TOOL_LABELS.get(label, label) for label in matrix.index], fontsize=fontsize)
-        else:
-            ax[i // 2, i % 2].tick_params(axis="y", labelleft=False)
-    fig.suptitle(f"pseudobulks - performance metrics".title(), fontsize=fontsize + 4)
+        ax[i].set_xlabel("Tools", fontsize=fontsize)
+        ax[i].set_xticklabels([TOOL_LABELS.get(label, label) for label in matrix.index], fontsize=fontsize, rotation=45, ha="right")
+        # ax[i].tick_params(axis="x", labelleft=False)
+    fig.suptitle(f"pseudobulks - performance metrics".title(), fontsize=fontsize + 4, y=1.05)
 
     if save_fig:
         fig.savefig(

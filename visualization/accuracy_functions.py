@@ -182,7 +182,7 @@ def loop_accuracy_calculations(
                         elif tool == "Somalier":
                             inferred_matches = (
                                 parse_sample_matching_results_somalier(
-                                    DATA_PATH, True, dataset, ncells, rd
+                                    DATA_PATH, True, dataset, ncells,
                                 )
                             )
                         elif tool == "TimeAttackGenComp":
