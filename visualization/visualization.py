@@ -259,11 +259,11 @@ def bulk_vs_singlecell_matrix_viz(
     # ax.set_xticklabels([""] * len(sub_matrix.columns))
     # ax.set_yticklabels([""] * len(sub_matrix.index))
     xlabels = [
-        f"{col.replace('HGSOC-', '').replace(f'_{mod2}', '')}"
+        f"{col.replace('HGSOC-', '').replace(f'_{mod1}', '').replace(f'_{mod2}', '')}"
         for col in sub_matrix.columns
     ]
     ylabels = [
-        f"{idx.replace('HGSOC-', '').replace(f'_{mod1}', '')}"
+        f"{idx.replace('HGSOC-', '').replace(f'_{mod2}', '').replace(f'_{mod1}', '')}"
         for idx in sub_matrix.index
     ]
     ax.set_xticklabels(xlabels, rotation=90, ha="center")
@@ -842,14 +842,23 @@ def super_plot_heatmaps_real_data(
                 if extreme_point > tool_extreme_points[i]:
                     tool_extreme_points[i] = extreme_point
 
-    fig, axes = plt.subplots(
-        len(tools),
-        len(rd_pairs),
-        figsize=(2.5 * len(rd_pairs), 2 * len(tools)),
-        sharex="col",
-        sharey="row",
+    fig = plt.figure(
+        figsize=(2.5 * len(tools), 2.5 * len(rd_pairs) + 0.5),
     )
-    fig.subplots_adjust(wspace=0.10, hspace=0.1)
+    grid = fig.add_gridspec(
+        nrows=len(rd_pairs) + 1,
+        ncols=len(tools),
+        height_ratios=[1] * len(rd_pairs) + [0.08],
+        wspace=0.10,
+        hspace=0.1,
+    )
+    axes = np.empty((len(rd_pairs), len(tools)), dtype=object)
+    colorbar_axes = []
+    for row in range(len(rd_pairs)):
+        for col in range(len(tools)):
+            axes[row, col] = fig.add_subplot(grid[row, col])
+    for col in range(len(tools)):
+        colorbar_axes.append(fig.add_subplot(grid[-1, col]))
     fig.suptitle(f"{dataset.replace('_', ' ')} similarity matrices".title(), fontsize=fontsize + 4, y=0.95)
     # fig.suptitle("Wilms Tumor Similarity Matrices", fontsize=16, y=0.93)
 
@@ -867,14 +876,10 @@ def super_plot_heatmaps_real_data(
             else:
                 rd_label = f"{rd_to_load}"
             print(f"Processing read depth {rd_label} and tool {tool} for plotting...")
-            if len(rd_pairs) == 1 and len(tools) == 1:
-                ax = axes
-            elif len(rd_pairs) == 1:
-                ax = axes[tools.index(tool)]
-            elif len(tools) == 1:
-                ax = axes[rd_pairs.index((rd1, rd2, rd_to_load))]
-            else:
-                ax = axes[tools.index(tool), rd_pairs.index((rd1, rd2, rd_to_load))]
+            ax = axes[
+                rd_pairs.index((rd1, rd2, rd_to_load)),
+                tools.index(tool),
+            ]
 
             matrix_list = [
                 info["matrix"]
@@ -921,33 +926,34 @@ def super_plot_heatmaps_real_data(
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
             if tool == tools[0]:
-                ax.yaxis.set_label_position("left")
-                ax.set_title(
-                    f"Read depth {rd_label}", fontsize=fontsize, pad=10
+                # ax.xaxis.set_label_position("left")
+                ax.set_ylabel(
+                    f"Read depth {rd_label}", fontsize=fontsize
                 )
             if (rd1, rd2, rd_to_load) == rd_pairs[0]:
-                ax.set_ylabel(f"{tool}", fontsize=fontsize, rotation=90, labelpad=10, va="center")
+                ax.set_title(f"{tool}", fontsize=fontsize, va="center")
 
         if row_has_data:
-            if len(rd_pairs) == 1 and len(tools) == 1:
-                row_axes = [axes]
-            elif len(tools) == 1:
-                row_axes = axes
-            elif len(rd_pairs) == 1:
-                row_axes = [axes[i]]
-            else:
-                row_axes = axes[i, :]
-
             if tool_mappable is not None:
                 cbar = fig.colorbar(
                     tool_mappable,
-                    ax=row_axes,
-                    orientation="vertical",
-                    pad=0.03,
-                    fraction=0.08,
-                    shrink=0.75,
+                    cax=colorbar_axes[i],
+                    orientation="horizontal",
+                )
+                colorbar_bbox = cbar.ax.get_position()
+                colorbar_width = colorbar_bbox.width * 0.8
+                cbar.ax.set_position(
+                    [
+                        colorbar_bbox.x0
+                        + (colorbar_bbox.width - colorbar_width) / 2,
+                        colorbar_bbox.y0,
+                        colorbar_width,
+                        colorbar_bbox.height,
+                    ]
                 )
                 cbar.ax.tick_params(labelsize=fontsize)
+        else:
+            colorbar_axes[i].set_axis_off()
 
     if save_fig:
         fig.savefig(
@@ -1941,7 +1947,7 @@ def plot_combined_heatmaps_datasets(
     matrix_wt = load_heatmap_data(
         DATA_PATH,
         False,
-        "HYSYS",
+        "Conpair",
         "wilms_tumor",
         "null",
         "bulk_0_single-nucleus_0",
@@ -1966,15 +1972,15 @@ def plot_combined_heatmaps_datasets(
         filtered_matrix_wt = _subset_matrix_by_modalities(matrix_wt, mod1_wt, mod2_wt)
 
     # Load and prepare HGSOC heatmap
-    mod1_hgsoc = "bulk_dissociated_ribo"
-    mod2_hgsoc = "single-cell"
+    mod2_hgsoc = "bulk_dissociated_ribo"
+    mod1_hgsoc = "single-cell"
     matrix_hgsoc = load_heatmap_data(
         DATA_PATH,
         False,
-        "HYSYS",
+        "Conpair",
         "hgsoc",
         "null",
-        "bulk_dissociated_ribo_0_single-cell_0",
+        "single-cell_0_bulk_dissociated_ribo_0",
         mod1_hgsoc,
         mod2_hgsoc,
     )
@@ -2003,7 +2009,7 @@ def plot_combined_heatmaps_datasets(
     matrix_lgg = load_heatmap_data(
         DATA_PATH,
         False,
-        "CrosscheckFingerprints",
+        "Conpair",
         "low_grade_glioma",
         "null",
         "bulk_0_single-cell_0",
@@ -2033,61 +2039,50 @@ def plot_combined_heatmaps_datasets(
     extreme_point = max(
         abs(filtered_matrix_lgg.min().min()), abs(filtered_matrix_lgg.max().max())
     )
-    cmap_rd_bu = plt.get_cmap("RdBu")
-    cmap_rd_bu.set_bad(color="lightgrey")
 
-    # Keep image aspect ratios and enforce same bottom-row height by scaling bottom column widths.
-    # width ratio is proportional to each matrix aspect (n_cols / n_rows).
-    hgsoc_aspect = filtered_matrix_hgsoc.shape[1] / max(filtered_matrix_hgsoc.shape[0], 1)
-    lgg_aspect = filtered_matrix_lgg.shape[1] / max(filtered_matrix_lgg.shape[0], 1)
+    fig, ax = plt.subplots(1, 3, figsize=(8, 4))
+    fig.subplots_adjust(wspace=0.3)
 
-    fig = plt.figure(figsize=(10, 12))
-    gs = fig.add_gridspec(
-        2,
-        2,
-        height_ratios=[1, 1],
-        width_ratios=[hgsoc_aspect, lgg_aspect],
-        hspace=-0.1,
-        wspace=0.2,
-    )
+    # Force each axes box to match its data's row/column aspect so imshow
+    # fills the full box height instead of letterboxing, keeping all panels the same height.
+    ax[0].set_box_aspect(filtered_matrix_wt.shape[0] / filtered_matrix_wt.shape[1])
+    ax[1].set_box_aspect(filtered_matrix_hgsoc.shape[0] / filtered_matrix_hgsoc.shape[1])
+    ax[2].set_box_aspect(filtered_matrix_lgg.T.shape[0] / filtered_matrix_lgg.T.shape[1])
 
     # Plot Wilms' tumor heatmap
-    ax1 = fig.add_subplot(gs[0, :])
-    ax1.imshow(filtered_matrix_wt, cmap=cmap_oranges)
-    ax1.set_title("Wilms' Tumor", fontsize=fontsize + 2)
-    ax1.set_xlabel("Single-nucleus", fontsize=fontsize)
-    ax1.set_ylabel("Bulk", fontsize=fontsize)
-    ax1.set_xticks(np.arange(len(filtered_matrix_wt.columns)))
-    ax1.set_yticks(np.arange(len(filtered_matrix_wt.index)))
-    ax1.set_xticklabels([""] * len(filtered_matrix_wt.columns))
-    ax1.set_yticklabels([""] * len(filtered_matrix_wt.index))
+    ax[0].imshow(filtered_matrix_wt, cmap=cmap_oranges)
+    ax[0].set_title("Wilms' Tumor", fontsize=fontsize + 2)
+    ax[0].set_xlabel("Single-nucleus", fontsize=fontsize)
+    ax[0].set_ylabel("Bulk", fontsize=fontsize)
+    ax[0].set_xticks(np.arange(len(filtered_matrix_wt.columns)))
+    ax[0].set_yticks(np.arange(len(filtered_matrix_wt.index)))
+    ax[0].set_xticklabels([""] * len(filtered_matrix_wt.columns))
+    ax[0].set_yticklabels([""] * len(filtered_matrix_wt.index))
 
     # Plot HGSOC heatmap
-    ax2 = fig.add_subplot(gs[1, 0])
-    ax2.imshow(filtered_matrix_hgsoc, cmap=cmap_oranges)
-    ax2.set_title("HGSOC", fontsize=fontsize + 2)
-    ax2.set_xlabel("Single-cell", fontsize=fontsize)
-    ax2.set_ylabel("rRNA- dissociated bulk", fontsize=fontsize)
-    ax2.set_xticks(np.arange(len(filtered_matrix_hgsoc.columns)))
-    ax2.set_yticks(np.arange(len(filtered_matrix_hgsoc.index)))
-    ax2.set_xticklabels([""] * len(filtered_matrix_hgsoc.columns))
-    ax2.set_yticklabels([""] * len(filtered_matrix_hgsoc.index))
+    ax[1].imshow(filtered_matrix_hgsoc, cmap=cmap_oranges)
+    ax[1].set_title("HGSOC", fontsize=fontsize + 2)
+    ax[1].set_xlabel("Single-cell", fontsize=fontsize)
+    ax[1].set_ylabel("rRNA- dissociated bulk", fontsize=fontsize)
+    ax[1].set_xticks(np.arange(len(filtered_matrix_hgsoc.columns)))
+    ax[1].set_yticks(np.arange(len(filtered_matrix_hgsoc.index)))
+    ax[1].set_xticklabels([""] * len(filtered_matrix_hgsoc.columns))
+    ax[1].set_yticklabels([""] * len(filtered_matrix_hgsoc.index))
 
     # Plot low-grade glioma heatmap
-    ax3 = fig.add_subplot(gs[1, 1])
-    ax3.imshow(
-        filtered_matrix_lgg,
-        cmap=cmap_rd_bu,
-        vmin=-extreme_point,
+    ax[2].imshow(
+        filtered_matrix_lgg.T,
+        cmap=cmap_oranges,
+        vmin=0,
         vmax=extreme_point,
     )
-    ax3.set_title("Low-Grade Glioma", fontsize=fontsize + 2)
-    ax3.set_xlabel("Single-cell", fontsize=fontsize)
-    ax3.set_ylabel("Bulk", fontsize=fontsize)
-    ax3.set_xticks(np.arange(len(filtered_matrix_lgg.columns)))
-    ax3.set_yticks(np.arange(len(filtered_matrix_lgg.index)))
-    ax3.set_xticklabels([""] * len(filtered_matrix_lgg.columns))
-    ax3.set_yticklabels([""] * len(filtered_matrix_lgg.index))
+    ax[2].set_title("Low-Grade Glioma", fontsize=fontsize + 2)
+    ax[2].set_xlabel("Single-cell", fontsize=fontsize)
+    ax[2].set_ylabel("Bulk", fontsize=fontsize)
+    ax[2].set_xticks(np.arange(len(filtered_matrix_lgg.T.columns)))
+    ax[2].set_yticks(np.arange(len(filtered_matrix_lgg.T.index)))
+    ax[2].set_xticklabels([""] * len(filtered_matrix_lgg.T.columns))
+    ax[2].set_yticklabels([""] * len(filtered_matrix_lgg.T.index))
 
     if save_fig:
         fig.savefig(
@@ -2191,9 +2186,9 @@ def row_heatmap_plot_real_data(
             abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
         )
         if hide_missing_samples:
-            matrix_filtered = matrix_filtered.dropna(axis=0, how="all").dropna(
-                axis=1, how="all"
-            )
+            matrix_filtered = matrix_filtered.dropna(axis=1, how="all")#.dropna(
+            #     axis=0, how="all"
+            # )
 
         prepared_matrices.append(
             {
@@ -2208,6 +2203,8 @@ def row_heatmap_plot_real_data(
 
     fig_height = 4
     fig_width = max(4 * len(tools), fig_height * sum(width_ratios))
+    if dataset == "low_grade_glioma":
+        fig_width *= 0.5
     fig, axes = plt.subplots(
         1,
         len(tools),

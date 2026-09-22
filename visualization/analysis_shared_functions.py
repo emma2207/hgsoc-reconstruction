@@ -396,12 +396,6 @@ def long_df_to_matrix_ntsm(df):
     all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
     matrix = matrix.reindex(index=all_samples, columns=all_samples)
 
-    # Fill matrix diagonal with 0s because NTSM does not test samples against themselves.
-    # Use a writable copy since matrix.values can be a read-only view in newer pandas/numpy combos.
-    matrix_values = matrix.to_numpy(copy=True)
-    np.fill_diagonal(matrix_values, 0)
-    matrix = pd.DataFrame(matrix_values, index=matrix.index, columns=matrix.columns)
-
     # Order rows and columns by sample label while handling labels without underscores.
     ordered_labels = _sorted_sample_labels(matrix.index)
     matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
@@ -795,8 +789,19 @@ def parse_heatmap_matrix_conpair(
             # for real-data pairs (an arbitrary pairing index, not a read-depth value).
             sample1 = filename.split("_vs_")[0]
             sample1 = re.sub(r"(pb|rd)_\d{1,2}_\d{1,2}_A_", "", sample1).replace("_filtered", "")
+            if dataset == "hgsoc-new":
+                sample1 = re.sub(r"_ds\.[a-z0-9]{32}", "", sample1)
             sample2 = filename.split("_vs_")[1]
             sample2 = re.sub(r"(pb|rd)_\d{1,2}_\d{1,2}_B_", "", sample2).replace("_filtered_concordance.txt", "")
+            if dataset == "hgsoc-new":
+                sample2 = re.sub(r"_ds\.[a-z0-9]{32}", "", sample2)
+
+            # Tag real-data sample names with their modality so downstream modality-based
+            # filtering/ordering can distinguish mod1 (A) from mod2 (B) samples.
+            # Pseudobulk sample names keep their "_1"/"_2" suffix untouched.
+            if not pseudobulk:
+                sample1 = f"{sample1}_{mod1}"
+                sample2 = f"{sample2}_{mod2}"
 
             # Read the concordance value from the file
             INPUT_FILE = os.path.join(file_path, filename)
@@ -1042,6 +1047,11 @@ def parse_heatmap_matrix_ntsm(
             DATA_PATH,
             f"ntsm_eval/ntsm_pairwise_pseudobulk_{dataset}_ncells_{ncells}.tsv",
         )
+    elif dataset == "low_grade_glioma":
+        file_path = os.path.join(
+            DATA_PATH,
+            f"ntsm_eval/ntsm_pairwise_{mod2}_{mod1}_{dataset}.tsv",
+        )
     else:
         file_path = os.path.join(
             DATA_PATH,
@@ -1065,20 +1075,25 @@ def parse_heatmap_matrix_ntsm(
         pseudobulk,
         dataset,
         ncells,
-        rd=None,
+        rd=0,
         mod1=mod1,
         mod2=mod2,
     )
     # Get all unique sample pairs from crosscheck_df
     crosscheck_pairs = set(tuple(sorted([row["LEFT_SAMPLE"], row["RIGHT_SAMPLE"]])) for _, row in crosscheck_df.iterrows())
-
+    # crosscheck sample ids are in the format "{sample_id}_{modality}", while the ntsm sample ids are in the format "{modality}_{sample_id}", 
+    # we need make the sample ids from crosscheck_df match the sample ids from ntsm_df
+    # beware that the sample ids contain underscores, so we need to split on the second underscore only
+    crosscheck_pairs = set(tuple(sorted([f"{mod1}_{pair[0].split('_')[1]}", f"{mod2}_{pair[1].split('_')[1]}"])) for pair in crosscheck_pairs)
+    
     # Add missing sample pairs to the ntsm_df
     for pair in crosscheck_pairs:
         if pair not in set(tuple(sorted([row["sample1"], row["sample2"]])) for _, row in ntsm_df.iterrows()):
-            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[0], "sample2": pair[1], "score": np.nan}])], ignore_index=True)
-            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[1], "sample2": pair[0], "score": np.nan}])], ignore_index=True)
-
+            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[0], "sample2": pair[1], "score": -1}])], ignore_index=True)
+            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[1], "sample2": pair[0], "score": -1}])], ignore_index=True)
+    
     matrix = long_df_to_matrix_ntsm(ntsm_df)
+
 
     return ntsm_df, matrix
 
@@ -1144,7 +1159,7 @@ def parse_heatmap_matrix_omicsprint(
         pseudobulk,
         dataset,
         ncells,
-        rd=None,
+        rd,
         mod1=mod1,
         mod2=mod2,
     )
@@ -1153,9 +1168,8 @@ def parse_heatmap_matrix_omicsprint(
     # Add missing sample pairs to the omicsprint df
     for pair in crosscheck_pairs:
         if pair not in set(tuple(sorted([row["sample1"], row["sample2"]])) for _, row in df.iterrows()):
-            df = pd.concat([df, pd.DataFrame([{"sample1": pair[0], "sample2": pair[1], "score": np.nan}])], ignore_index=True)
-            df = pd.concat([df, pd.DataFrame([{"sample1": pair[1], "sample2": pair[0], "score": np.nan}])], ignore_index=True)
-    
+            df = pd.concat([df, pd.DataFrame([{"sample1": pair[0], "sample2": pair[1], "mean": np.nan}])], ignore_index=True)
+            df = pd.concat([df, pd.DataFrame([{"sample1": pair[1], "sample2": pair[0], "mean": np.nan}])], ignore_index=True)
 
     # Create matrix for heatmap
     matrix = long_df_to_matrix_omicsprint(df)
