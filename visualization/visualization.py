@@ -46,7 +46,7 @@ DATASET_LABELS_SHORT = {
 }
 
 DATASET_LABELS = {
-    "hgsoc": "High-Grade Serous Ovarian Cancer (Pilot)",
+    "hgsoc": "HGSOC",
     "hgsoc-new": "High-Grade Serous Ovarian Cancer (New)",
     "high_grade_glioma": "High-Grade Glioma",
     "low_grade_glioma": "Low-Grade Glioma",
@@ -58,7 +58,7 @@ MODALITY_LABELS = {
     "single-cell": "Single-Cell",
     "single-nucleus": "Single-Nucleus",
     "bulk_chunk_ribo": "rRNA- Chunk Bulk",
-    "bulk_diss_polyA": "Poly A+ Dissociated Bulk",
+    "bulk_diss_polyA": "Poly A+ Diss. Bulk",
     "bulk_diss_ribo": "rRNA- Dissociated Bulk",
     "bulk_dissociated_polyA": "Poly A+ Dissociated Bulk",
     "bulk_dissociated_ribo": "rRNA- Dissociated Bulk",
@@ -397,7 +397,7 @@ def super_plot_heatmaps_pseudobulk(
     for dataset in datasets:
         for tool in tools:
             crosscheck_extreme_point = None
-            matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd)
+            matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd, "_1", "_2")
 
             if matrix is not None:
                 if experiment == "pseudobulk_vs_sc":
@@ -429,13 +429,13 @@ def super_plot_heatmaps_pseudobulk(
     fig, axes = plt.subplots(
         len(tools),
         len(datasets),
-        figsize=(3 * len(datasets), 3 * len(tools)),
+        figsize=(2* len(datasets), 2 * len(tools)),
     )
-    fig.subplots_adjust(hspace=0.05, wspace=0.05, top=0.95)
+    fig.subplots_adjust(hspace=0.05, wspace=0.05)
     if len(tools) == 1:
         yval = 1.1
     else:
-        yval = 1.
+        yval = 0.91
     fig.suptitle(
         f"Pseudobulk Sample Similarity Matrices", fontsize=fontsize+2, y=yval
     )
@@ -581,8 +581,8 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
         sharey=True,
     )
     fig.subplots_adjust(hspace=0.1, wspace=0.1, top=0.95)
-    if len(tools) == 1:
-        yval = 1.25
+    if len(ncells_list) == 1:
+        yval = 1.1
     else:
         yval = 1.0
     fig.suptitle(
@@ -645,67 +645,67 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             if tool == tools[0]:
                 ax.set_ylabel(f"{ncells:,.0f} UMIs", fontsize=fontsize, rotation=90, labelpad=10)
             # Add title with ncells to the top row
-            # if ncells == ncells_list[0]:
-            #     ax.set_title(f"{TOOL_LABELS[tool]}", pad=10, fontsize=fontsize)
+            if ncells == ncells_list[0]:
+                ax.set_title(f"{TOOL_LABELS[tool]}", pad=10, fontsize=fontsize)
 
 
             # Add text with accuracy metrics to each subplot
-            accuracy_metrics = accuracy_df[(accuracy_df["tool"] == tool) & (accuracy_df["ncells"] == ncells)]
-            if not accuracy_metrics.empty:
-                ax.text(
-                    0.03,
-                    0.03,
-                    f"F1: {accuracy_metrics['f1'].values[0]:.2f}\nRecall: {accuracy_metrics['recall'].values[0]:.2f}\nPrecision: {accuracy_metrics['precision'].values[0]:.2f}\n% Inconclusive: {accuracy_metrics['fraction_inconclusive'].values[0]:.2f}",
-                    transform=ax.transAxes,
-                    fontsize=fontsize - 2,
-                    verticalalignment="bottom",
-                    horizontalalignment="left",
-                )
+            # accuracy_metrics = accuracy_df[(accuracy_df["tool"] == tool) & (accuracy_df["ncells"] == ncells)]
+            # if not accuracy_metrics.empty:
+            #     ax.text(
+            #         0.03,
+            #         0.03,
+            #         f"F1: {accuracy_metrics['f1'].values[0]:.2f}\nRecall: {accuracy_metrics['recall'].values[0]:.2f}\nPrecision: {accuracy_metrics['precision'].values[0]:.2f}\n% Inconclusive: {accuracy_metrics['fraction_inconclusive'].values[0]:.2f}",
+            #         transform=ax.transAxes,
+            #         fontsize=fontsize - 2,
+            #         verticalalignment="bottom",
+            #         horizontalalignment="left",
+            #     )
 
     # Add text with tool name to the left of each row
     # Needed if there are missing data for some tools, so that the row labels are still aligned with the correct rows
-    for itool, tool in enumerate(tools):
-        row_bbox = row_left_ax.get_position()
-        fig.text(
-            row_bbox.y0 * (itool * 0.66 + 0.6) + row_bbox.height/2,
-            row_bbox.x0 + 0.84,
-            f"{tool}",
-            transform=fig.transFigure,
-            fontsize=fontsize,
-            rotation=0,
-            va="center",
-            ha="center",
-        )
+    # for itool, tool in enumerate(tools):
+    #     row_bbox = row_left_ax.get_position()
+    #     fig.text(
+    #         row_bbox.y0 * (itool * 0.66 + 0.6) + row_bbox.height/2,
+    #         row_bbox.x0 + 0.84,
+    #         f"{tool}",
+    #         transform=fig.transFigure,
+    #         fontsize=fontsize,
+    #         rotation=0,
+    #         va="center",
+    #         ha="center",
+    #     )
 
     # one colorbar per column/tool
-    for i, tool in enumerate(tools):
-        if not row_has_data[tool] or row_mappables[tool] is None:
-            continue
+    # for i, tool in enumerate(tools):
+    #     if not row_has_data[tool] or row_mappables[tool] is None:
+    #         continue
 
-        # Determine the axes for the colorbar
-        if len(tools) == 1 and len(ncells_list) == 1:
-            col_axes = [axes]
-        elif len(ncells_list) == 1:
-            col_axes = axes  # 1D over columns
-        elif len(tools) == 1:
-            col_axes = [axes[i]]  # 1D over rows
-        else:
-            col_axes = axes[:, i]  # full column
+    #     # Determine the axes for the colorbar
+    #     if len(tools) == 1 and len(ncells_list) == 1:
+    #         col_axes = [axes]
+    #     elif len(ncells_list) == 1:
+    #         col_axes = axes  # 1D over columns
+    #     elif len(tools) == 1:
+    #         col_axes = [axes[i]]  # 1D over rows
+    #     else:
+    #         col_axes = axes[:, i]  # full column
 
-        row_mappable = row_mappables[tool]
-        if row_mappable is None:
-            continue
+    #     row_mappable = row_mappables[tool]
+    #     if row_mappable is None:
+    #         continue
 
-        cbar = fig.colorbar(
-            row_mappable,
-            ax=col_axes,
-            fraction=0.08,
-            pad=0.03,
-            shrink=0.8,
-            aspect=16,
-            location='bottom',
-        )
-        cbar.ax.tick_params(labelsize=fontsize)
+    #     cbar = fig.colorbar(
+    #         row_mappable,
+    #         ax=col_axes,
+    #         fraction=0.08,
+    #         pad=0.03,
+    #         shrink=0.8,
+    #         aspect=16,
+    #         location='bottom',
+    #     )
+    #     cbar.ax.tick_params(labelsize=fontsize)
 
     if save_fig:
         fig.savefig(
@@ -2250,6 +2250,174 @@ def row_heatmap_plot_real_data(
         ax.set_yticklabels([""] * len(matrix_filtered.index))
         ax.set_xlabel(f"{MODALITY_LABELS.get(mod2, mod2)}", fontsize=fontsize)
         if i == 0:
+            ax.set_ylabel(f"{MODALITY_LABELS.get(mod1, mod1)}", fontsize=fontsize)
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+
+    return
+
+
+def double_row_heatmap_plot_real_data(
+    DATA_PATH,
+    FIGURES_PATH,
+    tools,
+    dataset,
+    rd_mod1,
+    rd_mod2=None,
+    mod1="bulk",
+    mod2="single-cell",
+    hide_missing_samples=False,
+    save_fig=False,
+):
+    """
+    Create two rows of heatmaps for each tool, showing the similarity matrices for the given dataset and modalities.
+    Each heatmap corresponds to a different tool.
+
+    input:
+        - DATA_PATH: path to data
+        - FIGURES_PATH: path to save figures
+        - tools: list of tools to plot
+        - dataset: name of dataset
+        - rd_mod1: read depth for modality 1
+        - rd_mod2: read depth for modality 2 (if None, use rd_mod1)
+        - mod1: name of modality 1
+        - mod2: name of modality 2
+        - save_fig: whether to save the figure
+
+    output:
+        - two rows of heatmaps are shown (or saved if save_fig=True)
+    """
+    if rd_mod2 is None:
+        rd_mod2 = rd_mod1
+
+    if len(tools) % 2 == 0:
+        n_cols = len(tools) // 2
+    else:
+        n_cols = (len(tools) + 1) // 2
+
+    fig_name = f"row_heatmaps_{dataset}_{mod1}_rd_{rd_mod1}_vs_{mod2}_rd_{rd_mod2}"
+    fontsize = 10
+
+    prepared_matrices: list = []
+    width_ratios = []
+    for tool in tools:
+        matrix = load_heatmap_data(
+            DATA_PATH,
+            False,
+            tool,
+            dataset,
+            "null",
+            f"{mod2}_{rd_mod1}_{mod1}_{rd_mod1}",
+            mod1,
+            mod2,
+        )
+        if matrix is None:
+            prepared_matrices.append(None)
+            width_ratios.append(1)
+            continue
+
+        # Filter matrix to only include the requested modalities
+        matrix_filtered = _subset_matrix_by_modalities(matrix, mod1, mod2)
+
+        # Order the matrix by expected matches if available
+        expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+        try:
+            matrix_filtered = order_matrix_by_expected_matches(
+                matrix_filtered,
+                expected_matches,
+                mod1,
+                mod2,
+            )
+        except ValueError as exc:
+            print(
+                "Could not order by expected matches for requested modalities "
+                f"({mod1} vs {mod2}): {exc}. Falling back to direct modality filtering."
+            )
+
+        if matrix_filtered.empty:
+            prepared_matrices.append(None)
+            width_ratios.append(1)
+            continue
+
+        crosscheck_extreme_point = max(
+            abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
+        )
+        if hide_missing_samples:
+            matrix_filtered = matrix_filtered.dropna(axis=1, how="all")#.dropna(
+            #     axis=0, how="all"
+            # )
+
+        prepared_matrices.append(
+            {
+                "tool": tool,
+                "matrix": matrix_filtered,
+                "symmetric_limit": crosscheck_extreme_point,
+            }
+        )
+
+    fig, axes = plt.subplots(
+        2,
+        n_cols,
+        figsize=(2 * n_cols, 4),
+        sharey=True,
+        sharex=True,
+    )
+
+    fig.subplots_adjust(wspace=0.05)
+    fig.suptitle(f"{DATASET_LABELS.get(dataset, dataset)} Similarity Matrices", fontsize=fontsize+2, y=1)
+
+    for i, tool in enumerate(tools):
+        if len(tools) == 1:
+            print("Only one tool provided, use different function")
+            return
+        ax = axes[i // n_cols, i % n_cols]
+        prepared = prepared_matrices[i]
+        if prepared is None:
+            ax.axis("off")
+            ax.text(
+                0.5,
+                0.5,
+                "No data",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=fontsize,
+            )
+            continue
+
+        matrix_filtered = prepared["matrix"]
+        cax = _plot_tool_heatmap(
+            ax,
+            matrix_filtered,
+            tool,
+            method="imshow",
+            symmetric_limit=prepared["symmetric_limit"],
+        )
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title(f"{TOOL_LABELS.get(tool, tool)}", fontsize=fontsize)
+        ax.set_xticks(np.arange(len(matrix_filtered.columns)))
+        ax.set_yticks(np.arange(len(matrix_filtered.index)))
+        ax.set_xticklabels([""] * len(matrix_filtered.columns))
+        ax.set_yticklabels([""] * len(matrix_filtered.index))
+        if i // n_cols == 1:
+            ax.set_xlabel(f"{MODALITY_LABELS.get(mod2, mod2)}", fontsize=fontsize)
+        if i % n_cols == 0:
             ax.set_ylabel(f"{MODALITY_LABELS.get(mod1, mod1)}", fontsize=fontsize)
 
     if save_fig:

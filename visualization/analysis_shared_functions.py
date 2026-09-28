@@ -388,13 +388,17 @@ def long_df_to_matrix_ntsm(df):
     matrix = df.pivot_table(
         index="sample1",
         columns="sample2",
-        values="score",
+        values="relate",
         aggfunc="first",
     )
 
     # Get all unique samples to create a square matrix
     all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
     matrix = matrix.reindex(index=all_samples, columns=all_samples)
+
+    # Make matrix symmetric by filling NaN values, matching the behavior of the
+    # other long_df_to_matrix_* functions.
+    # matrix = matrix.combine_first(matrix.T)
 
     # Order rows and columns by sample label while handling labels without underscores.
     ordered_labels = _sorted_sample_labels(matrix.index)
@@ -772,7 +776,7 @@ def parse_heatmap_matrix_conpair(
     elif dataset == "hgsoc":
         file_path = os.path.join(
             DATA_PATH,
-            f"2b_conpair/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null",
+            f"2b_conpair/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null",
         )
     else:
         file_path = os.path.join(
@@ -843,16 +847,17 @@ def parse_heatmap_matrix_crosscheckfingerprints(
         - df: long format dataframe with columns [LEFT_SAMPLE, RIGHT_SAMPLE, LOD_SCORE, RESULT]
         - matrix: square dataframe with samples as rows and columns, values are the LOD_SCOREs
     """
-    rd_path = _resolve_read_depth_path(
-        DATA_PATH,
-        "2a_fingerprints",
-        dataset,
-        pseudobulk,
-        ncells,
-        rd,
-        mod1,
-        mod2,
-    )
+    # rd_path = _resolve_read_depth_path(
+    #     DATA_PATH,
+    #     "2a_fingerprints",
+    #     dataset,
+    #     pseudobulk,
+    #     ncells,
+    #     rd,
+    #     mod1,
+    #     mod2,
+    # )
+    rd_path = f"{DATA_PATH}/2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
     file_path = os.path.join(rd_path, "crosscheck_metrics.txt")
     df = pd.read_csv(
         file_path,
@@ -860,7 +865,6 @@ def parse_heatmap_matrix_crosscheckfingerprints(
         skiprows=6,
         header=0,
     )
-
     df = df[["LEFT_SAMPLE", "RIGHT_SAMPLE", "LOD_SCORE", "RESULT"]]
 
     if pseudobulk or dataset == "hgsoc-new":
@@ -1047,7 +1051,7 @@ def parse_heatmap_matrix_ntsm(
             DATA_PATH,
             f"ntsm_eval/ntsm_pairwise_pseudobulk_{dataset}_ncells_{ncells}.tsv",
         )
-    elif dataset == "low_grade_glioma":
+    elif dataset == "low_grade_glioma" or dataset == "hgsoc":
         file_path = os.path.join(
             DATA_PATH,
             f"ntsm_eval/ntsm_pairwise_{mod2}_{mod1}_{dataset}.tsv",
@@ -1064,10 +1068,9 @@ def parse_heatmap_matrix_ntsm(
     )
     ntsm_df["sample1"] = ntsm_df["sample1"].str.replace("counts_", "").str.replace(".txt", "")
     ntsm_df["sample2"] = ntsm_df["sample2"].str.replace("counts_", "").str.replace(".txt", "")
-    ntsm_df = ntsm_df[["sample1", "sample2", "score"]]
+    ntsm_df = ntsm_df[["sample1", "sample2", "relate"]]
     # Symmetrize the dataframe by adding the reverse pairs
     ntsm_df = pd.concat([ntsm_df, ntsm_df.rename(columns={"sample1": "sample2", "sample2": "sample1"})], ignore_index=True)
-
     # ntsm does not necessarily output all pairwise comparisons, 
     # so we need to read the missing sample pairs from a different tool
     crosscheck_df, _ = parse_heatmap_matrix_crosscheckfingerprints(
@@ -1079,21 +1082,30 @@ def parse_heatmap_matrix_ntsm(
         mod1=mod1,
         mod2=mod2,
     )
-    # Get all unique sample pairs from crosscheck_df
-    crosscheck_pairs = set(tuple(sorted([row["LEFT_SAMPLE"], row["RIGHT_SAMPLE"]])) for _, row in crosscheck_df.iterrows())
-    # crosscheck sample ids are in the format "{sample_id}_{modality}", while the ntsm sample ids are in the format "{modality}_{sample_id}", 
-    # we need make the sample ids from crosscheck_df match the sample ids from ntsm_df
-    # beware that the sample ids contain underscores, so we need to split on the second underscore only
-    crosscheck_pairs = set(tuple(sorted([f"{mod1}_{pair[0].split('_')[1]}", f"{mod2}_{pair[1].split('_')[1]}"])) for pair in crosscheck_pairs)
-    
-    # Add missing sample pairs to the ntsm_df
-    for pair in crosscheck_pairs:
-        if pair not in set(tuple(sorted([row["sample1"], row["sample2"]])) for _, row in ntsm_df.iterrows()):
-            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[0], "sample2": pair[1], "score": -1}])], ignore_index=True)
-            ntsm_df = pd.concat([ntsm_df, pd.DataFrame([{"sample1": pair[1], "sample2": pair[0], "score": -1}])], ignore_index=True)
-    
-    matrix = long_df_to_matrix_ntsm(ntsm_df)
 
+    crosscheck_pairs = set()
+    for _, row in crosscheck_df.iterrows():
+        left, right = row["LEFT_SAMPLE"], row["RIGHT_SAMPLE"]
+        crosscheck_pairs.add(tuple(sorted([left, right])))
+    # Add missing sample pairs from crosscheck_pairs to the ntsm_df
+    existing_pairs = set(
+        tuple(sorted([row["sample1"], row["sample2"]])) for _, row in ntsm_df.iterrows()
+    )
+    for pair in crosscheck_pairs:
+        if pair not in existing_pairs:
+            ntsm_df = pd.concat(
+                [
+                    ntsm_df,
+                    pd.DataFrame(
+                        [
+                            {"sample1": pair[0], "sample2": pair[1], "relate": 0},
+                            {"sample1": pair[1], "sample2": pair[0], "relate": 0},
+                        ]
+                    ),
+                ],
+                ignore_index=True,
+            )
+    matrix = long_df_to_matrix_ntsm(ntsm_df)
 
     return ntsm_df, matrix
 
@@ -1121,17 +1133,16 @@ def parse_heatmap_matrix_omicsprint(
         - df: long format dataframe with columns [sample1, sample2, mean, relation]
         - matrix: square dataframe with samples as rows and columns, values are the mean ibs (identity by state) values
     """
-    rd_path = _resolve_read_depth_path(
-        DATA_PATH,
-        "2a_omicsprint",
-        dataset,
-        pseudobulk,
-        ncells,
-        rd,
-        mod1,
-        mod2,
-    )
-    file_path = os.path.join(rd_path, "omicsprint_allele_sharing.tsv")
+    if pseudobulk:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2a_omicsprint/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/omicsprint_allele_sharing.tsv",
+        )
+    else:
+        file_path = os.path.join(
+            DATA_PATH,
+            f"2a_omicsprint/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null/read_depth_{rd}/omicsprint_allele_sharing.tsv",
+        )
     df = pd.read_csv(
         file_path,
         sep="\t",
@@ -1202,24 +1213,25 @@ def parse_heatmap_matrix_peddy(
         - df: long format dataframe with columns [sample_a, sample_b, rel_difference]
         - matrix: square dataframe with samples as rows and columns, values are the relative differences between samples
     """
-    rd_path = _resolve_read_depth_path(
-        DATA_PATH,
-        "2a_peddy",
-        dataset,
-        pseudobulk,
-        ncells,
-        rd,
-        mod1,
-        mod2,
-    )
+    # rd_path = _resolve_read_depth_path(
+    #     DATA_PATH,
+    #     "2a_peddy",
+    #     dataset,
+    #     pseudobulk,
+    #     ncells,
+    #     rd,
+    #     mod1,
+    #     mod2,
+    # )
+    rd_path = f"../benchmarking/data/output_data/vcf_update/2a_peddy/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0/"
     file_path = os.path.join(rd_path, "output.ped_check.csv")
     df = pd.read_csv(
         file_path,
         header=0,
     )  
-
     df["sample_a"] = df["sample_a"].str.replace(".bam", "")
     df["sample_b"] = df["sample_b"].str.replace(".bam", "")
+
     df = df[["sample_a", "sample_b", "rel_difference"]]
 
     # peddy leaves out the diagonal values (self-comparisons) in the output, so we need to fill them in with 0s.
@@ -1230,6 +1242,17 @@ def parse_heatmap_matrix_peddy(
         df = pd.concat([df, pd.DataFrame([{"sample_a": sample, "sample_b": sample, "rel_difference": 0}])], ignore_index=True)
 
     matrix = long_df_to_matrix_peddy(df)
+    if pseudobulk or dataset == "hgsoc-new":
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
+
+    matrix.columns = [
+        re.sub(regex_exp, "", col.replace(".bam", "")) for col in matrix.columns
+    ]
+    matrix.index = pd.Index(
+        [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
+    )
 
     return df, matrix
 
@@ -1267,7 +1290,7 @@ def parse_heatmap_matrix_somalier(
     elif dataset == "hgsoc":
         file_path = os.path.join(
             DATA_PATH,
-            f"2b_somalier/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/somalier/somalier.pairs.tsv",
+            f"2b_somalier/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null/somalier.pairs.tsv",
         )
     else:
         file_path = os.path.join(
@@ -1294,6 +1317,18 @@ def parse_heatmap_matrix_somalier(
         df = pd.concat([df, pd.DataFrame([{"sample_a": sample, "sample_b": sample, "concordance": 1}])], ignore_index=True)
 
     matrix = long_df_to_matrix_somalier(df, metric="concordance")
+
+    if pseudobulk or dataset == "hgsoc-new":
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
+
+    matrix.columns = [
+        re.sub(regex_exp, "", col.replace(".bam", "")) for col in matrix.columns
+    ]
+    matrix.index = pd.Index(
+        [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
+    )
 
     return df, matrix
 
@@ -1324,16 +1359,17 @@ def parse_heatmap_matrix_timeattackgencomp(
         - matrix: square dataframe with samples as rows and columns, values are the similarity scores used by TimeAttackGenComp
     """
 
-    rd_path = _resolve_read_depth_path(
-        DATA_PATH,
-        "2a_timeattackgencomp",
-        dataset,
-        pseudobulk,
-        ncells,
-        rd,
-        mod1,
-        mod2,
-    )
+    # rd_path = _resolve_read_depth_path(
+    #     DATA_PATH,
+    #     "2a_timeattackgencomp",
+    #     dataset,
+    #     pseudobulk,
+    #     ncells,
+    #     rd,
+    #     mod1,
+    #     mod2,
+    # )
+    rd_path = f"../benchmarking/data/output_data/vcf_update/2a_timeattackgencomp/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0/"
     file_path = os.path.join(rd_path, "timeattackgencomp.snv.out.txt")
 
     matrix = pd.read_csv(file_path, sep="\t", header=0, index_col=0)[:-1]
@@ -1346,6 +1382,18 @@ def parse_heatmap_matrix_timeattackgencomp(
 
     df = matrix.stack().reset_index()
     df.columns = ["sample1", "sample2", "value"]
+
+    if pseudobulk or dataset == "hgsoc-new":
+        regex_exp = dataset_regex_dict.get(dataset, "")
+    else:
+        regex_exp = ""
+
+    matrix.columns = [
+        re.sub(regex_exp, "", col.replace(".bam", "")) for col in matrix.columns
+    ]
+    matrix.index = pd.Index(
+        [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
+    )
     
     return df, matrix
 
@@ -1689,8 +1737,8 @@ def parse_sample_matching_results_ntsm(
     _, matrix = parse_heatmap_matrix_ntsm(
         DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
     )
-    # If the ntsm value is not NaN, then samples are considered a match (1), otherwise not a match (0)
-    sample_matches = (matrix.notna()).astype(int)
+    # If the ntsm relatedness is greater than zero, then samples are considered a match (1), otherwise not a match (0)
+    sample_matches = (matrix > 0).astype(int)
 
     return sample_matches
 
