@@ -908,16 +908,7 @@ def parse_heatmap_matrix_hysys(
         - df: long format dataframe with columns [Sample, Concordance, Size]
         - matrix: square dataframe with samples as rows and columns, values are the Concordance values
     """
-    rd_path = _resolve_read_depth_path(
-        DATA_PATH,
-        "2a_hysys",
-        dataset,
-        pseudobulk,
-        ncells,
-        rd,
-        mod1,
-        mod2,
-    )
+    rd_path = f"{DATA_PATH}/2a_hysys/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
     file_path = os.path.join(rd_path, "concordance_output.txt")
 
     df = pd.read_csv(
@@ -978,16 +969,7 @@ def parse_heatmap_matrix_ngscheckmate(
         - df: long format dataframe with columns [Matched, Sample, Binary, Correlation]
         - matrix: square dataframe with samples as rows and columns, values are the Correlation values
     """
-    rd_path = _resolve_read_depth_path(
-        DATA_PATH,
-        "2a_ngscheckmate",
-        dataset,
-        pseudobulk,
-        ncells,
-        rd,
-        mod1,
-        mod2,
-    )
+    rd_path = f"{DATA_PATH}/2a_ngscheckmate/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
     file_path = os.path.join(rd_path, "output_all.txt")
 
     df = pd.read_csv(
@@ -1071,6 +1053,18 @@ def parse_heatmap_matrix_ntsm(
     ntsm_df = ntsm_df[["sample1", "sample2", "relate"]]
     # Symmetrize the dataframe by adding the reverse pairs
     ntsm_df = pd.concat([ntsm_df, ntsm_df.rename(columns={"sample1": "sample2", "sample2": "sample1"})], ignore_index=True)
+
+    def fix_sample_id(sample_id):
+        parts = sample_id.split("_")
+
+        if parts[-1].startswith("HGSOC-"):
+            return f"{parts[-1]}_{'_'.join(parts[:-1])}"
+
+        return sample_id
+
+
+    ntsm_df["sample1"] = ntsm_df["sample1"].apply(fix_sample_id)
+    ntsm_df["sample2"] = ntsm_df["sample2"].apply(fix_sample_id)
     # ntsm does not necessarily output all pairwise comparisons, 
     # so we need to read the missing sample pairs from a different tool
     crosscheck_df, _ = parse_heatmap_matrix_crosscheckfingerprints(
@@ -1141,7 +1135,7 @@ def parse_heatmap_matrix_omicsprint(
     else:
         file_path = os.path.join(
             DATA_PATH,
-            f"2a_omicsprint/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null/read_depth_{rd}/omicsprint_allele_sharing.tsv",
+            f"2a_omicsprint/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_{rd}_{mod2}_{rd}/omicsprint_allele_sharing.tsv",
         )
     df = pd.read_csv(
         file_path,
