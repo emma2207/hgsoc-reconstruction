@@ -468,7 +468,7 @@ def long_df_to_matrix_peddy(df, metric="rel_difference"):
         fill_value = 0
     elif metric == "match":
         fill_value = 1
-    np.fill_diagonal(matrix_values, 0)
+    np.fill_diagonal(matrix_values, fill_value)
     matrix = pd.DataFrame(matrix_values, index=matrix.index, columns=matrix.columns)
     # Make matrix symmetric by filling NaN values
     matrix = matrix.combine_first(matrix.T)
@@ -1248,6 +1248,9 @@ def parse_heatmap_matrix_peddy(
         [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
     )
 
+    # Order the matrix rows and columns
+    matrix = matrix.loc[sorted(matrix.index), sorted(matrix.columns)]
+
     return df, matrix
 
 
@@ -1323,6 +1326,9 @@ def parse_heatmap_matrix_somalier(
     matrix.index = pd.Index(
         [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
     )
+
+    # Order the matrix rows and columns
+    matrix = matrix.loc[sorted(matrix.index), sorted(matrix.columns)]
 
     return df, matrix
 
@@ -1416,16 +1422,17 @@ def parse_heatmap_matrix_vireo(
         - matrix: dataframe with samples from one modality as rows and samples from another modality as columns,
             values are the similarity scores used by Vireo to match samples (lower values indicate more similar samples)
     """
-    rd_path = _resolve_read_depth_path(
-        DATA_PATH,
-        "2a_vireo",
-        dataset,
-        pseudobulk,
-        ncells,
-        rd,
-        mod1,
-        mod2,
-    )
+    # rd_path = _resolve_read_depth_path(
+    #     DATA_PATH,
+    #     "2a_vireo",
+    #     dataset,
+    #     pseudobulk,
+    #     ncells,
+    #     rd,
+    #     mod1,
+    #     mod2,
+    # )
+    rd_path = f"../benchmarking/data/output_data/vcf_update/2a_vireo/{dataset}/real_data/ncells_null/read_depth_{mod2}_0_{mod1}_0/"
     file_path = os.path.join(rd_path, "similarity_matrix.csv")
     matrix = pd.read_csv(
         file_path,
@@ -1450,6 +1457,31 @@ def parse_heatmap_matrix_vireo(
             f"dataset={dataset}, pseudobulk={pseudobulk}, ncells={ncells}, rd={rd}"
         ),
     )
+
+    # Vireo does not always return rows/columns for all samples, so we may have missing entries in the matrix
+    # We add missing rows and columns with NaN values to ensure all samples are represented
+    # Missing samples are identified using CrosscheckFingerprints
+    crosscheck_df, _ = parse_heatmap_matrix_crosscheckfingerprints(
+        DATA_PATH,
+        pseudobulk,
+        dataset,
+        ncells,
+        rd=0,
+        mod1=mod1,
+        mod2=mod2,
+    )
+
+    crosscheck_pairs = set()
+    for _, row in crosscheck_df.iterrows():
+        left, right = row["LEFT_SAMPLE"], row["RIGHT_SAMPLE"]
+        crosscheck_pairs.add(tuple(sorted([left, right])))
+    existing_pairs = set(
+        tuple(sorted([i, j])) for i in matrix.index for j in matrix.columns
+    )
+    missing_pairs = crosscheck_pairs - existing_pairs
+    for pair in missing_pairs:
+        matrix.loc[pair[0], pair[1]] = np.nan
+        matrix.loc[pair[1], pair[0]] = np.nan
 
     # Order rows and columns
     ordered_columns = sorted(matrix.columns)
