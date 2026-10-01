@@ -72,25 +72,6 @@ def _modality_in_label(modality, label):
     return False
 
 
-def _collapse_duplicate_labels(matrix, context):
-    """Collapse duplicate index/column labels before label-based subsetting expands the matrix."""
-    if matrix.index.has_duplicates:
-        duplicate_rows = sorted(matrix.index[matrix.index.duplicated()].unique())
-        print(
-            f"Collapsing duplicate Vireo row labels for {context}: {duplicate_rows}"
-        )
-        matrix = matrix.groupby(level=0, sort=False).first()
-
-    if matrix.columns.has_duplicates:
-        duplicate_cols = sorted(matrix.columns[matrix.columns.duplicated()].unique())
-        print(
-            f"Collapsing duplicate Vireo column labels for {context}: {duplicate_cols}"
-        )
-        matrix = matrix.T.groupby(level=0, sort=False).first().T
-
-    return matrix
-
-
 def _resolve_read_depth_path(
     DATA_PATH, tool, dataset, pseudobulk, ncells, rd, mod1, mod2
 ):
@@ -847,17 +828,10 @@ def parse_heatmap_matrix_crosscheckfingerprints(
         - df: long format dataframe with columns [LEFT_SAMPLE, RIGHT_SAMPLE, LOD_SCORE, RESULT]
         - matrix: square dataframe with samples as rows and columns, values are the LOD_SCOREs
     """
-    # rd_path = _resolve_read_depth_path(
-    #     DATA_PATH,
-    #     "2a_fingerprints",
-    #     dataset,
-    #     pseudobulk,
-    #     ncells,
-    #     rd,
-    #     mod1,
-    #     mod2,
-    # )
-    rd_path = f"{DATA_PATH}/2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
+    if pseudobulk:
+        rd_path = f"{DATA_PATH}/2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
+    else:
+        rd_path = f"{DATA_PATH}/2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
     file_path = os.path.join(rd_path, "crosscheck_metrics.txt")
     df = pd.read_csv(
         file_path,
@@ -878,6 +852,10 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     }
     df["LEFT_SAMPLE"] = df["LEFT_SAMPLE"].map(rename_dict)
     df["RIGHT_SAMPLE"] = df["RIGHT_SAMPLE"].map(rename_dict)
+    df["LOD_SCORE"] = df["LOD_SCORE"].astype(float)
+    if dataset == "hgsoc":
+        df["LEFT_SAMPLE"] = df["LEFT_SAMPLE"].str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
+        df["RIGHT_SAMPLE"] = df["RIGHT_SAMPLE"].str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
 
     # Create matrix for heatmap
     matrix = long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE")
@@ -908,7 +886,10 @@ def parse_heatmap_matrix_hysys(
         - df: long format dataframe with columns [Sample, Concordance, Size]
         - matrix: square dataframe with samples as rows and columns, values are the Concordance values
     """
-    rd_path = f"{DATA_PATH}/2a_hysys/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
+    if pseudobulk:
+        rd_path = f"{DATA_PATH}/2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
+    else:
+        rd_path = f"{DATA_PATH}/2a_hysys/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
     file_path = os.path.join(rd_path, "concordance_output.txt")
 
     df = pd.read_csv(
@@ -969,7 +950,10 @@ def parse_heatmap_matrix_ngscheckmate(
         - df: long format dataframe with columns [Matched, Sample, Binary, Correlation]
         - matrix: square dataframe with samples as rows and columns, values are the Correlation values
     """
-    rd_path = f"{DATA_PATH}/2a_ngscheckmate/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
+    if pseudobulk:
+        rd_path = f"{DATA_PATH}/2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
+    else:
+        rd_path = f"{DATA_PATH}/2a_ngscheckmate/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
     file_path = os.path.join(rd_path, "output_all.txt")
 
     df = pd.read_csv(
@@ -1065,7 +1049,8 @@ def parse_heatmap_matrix_ntsm(
 
     ntsm_df["sample1"] = ntsm_df["sample1"].apply(fix_sample_id)
     ntsm_df["sample2"] = ntsm_df["sample2"].apply(fix_sample_id)
-    # ntsm does not necessarily output all pairwise comparisons, 
+
+    # ntsm only puts out matching pairs, not non-matching pairs
     # so we need to read the missing sample pairs from a different tool
     crosscheck_df, _ = parse_heatmap_matrix_crosscheckfingerprints(
         DATA_PATH,
@@ -1101,7 +1086,7 @@ def parse_heatmap_matrix_ntsm(
             )
     matrix = long_df_to_matrix_ntsm(ntsm_df)
 
-    return ntsm_df, matrix
+    return ntsm_df, matrix.astype(float)
 
 
 def parse_heatmap_matrix_omicsprint(
@@ -1135,7 +1120,7 @@ def parse_heatmap_matrix_omicsprint(
     else:
         file_path = os.path.join(
             DATA_PATH,
-            f"2a_omicsprint/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_{rd}_{mod2}_{rd}/omicsprint_allele_sharing.tsv",
+            f"2a_omicsprint/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0/omicsprint_allele_sharing.tsv",
         )
     df = pd.read_csv(
         file_path,
@@ -1157,6 +1142,10 @@ def parse_heatmap_matrix_omicsprint(
     }
     df["sample1"] = df["sample1"].map(rename_dict)
     df["sample2"] = df["sample2"].map(rename_dict)
+
+    if dataset == "hgsoc":
+        df["sample1"] = df["sample1"].str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
+        df["sample2"] = df["sample2"].str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
 
     # Get all samples from CrosscheckFingerprints output to ensure that the OmicsPrint matrix has the same samples as the other tools.
     crosscheck_df, _ = parse_heatmap_matrix_crosscheckfingerprints(
@@ -1217,7 +1206,10 @@ def parse_heatmap_matrix_peddy(
     #     mod1,
     #     mod2,
     # )
-    rd_path = f"../benchmarking/data/output_data/vcf_update/2a_peddy/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0/"
+    if pseudobulk:
+        rd_path = f"{DATA_PATH}/2a_peddy/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
+    else:
+        rd_path = f"{DATA_PATH}/2a_peddy/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0"
     file_path = os.path.join(rd_path, "output.ped_check.csv")
     df = pd.read_csv(
         file_path,
@@ -1359,17 +1351,10 @@ def parse_heatmap_matrix_timeattackgencomp(
         - matrix: square dataframe with samples as rows and columns, values are the similarity scores used by TimeAttackGenComp
     """
 
-    # rd_path = _resolve_read_depth_path(
-    #     DATA_PATH,
-    #     "2a_timeattackgencomp",
-    #     dataset,
-    #     pseudobulk,
-    #     ncells,
-    #     rd,
-    #     mod1,
-    #     mod2,
-    # )
-    rd_path = f"../benchmarking/data/output_data/vcf_update/2a_timeattackgencomp/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0/"
+    if pseudobulk:
+        rd_path = f"{DATA_PATH}/2a_timeattackgencomp/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
+    else:
+        rd_path = f"{DATA_PATH}/2a_timeattackgencomp/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null/read_depth_{mod2}_0_{mod1}_0"
     file_path = os.path.join(rd_path, "timeattackgencomp.snv.out.txt")
 
     matrix = pd.read_csv(file_path, sep="\t", header=0, index_col=0)[:-1]
@@ -1422,17 +1407,11 @@ def parse_heatmap_matrix_vireo(
         - matrix: dataframe with samples from one modality as rows and samples from another modality as columns,
             values are the similarity scores used by Vireo to match samples (lower values indicate more similar samples)
     """
-    # rd_path = _resolve_read_depth_path(
-    #     DATA_PATH,
-    #     "2a_vireo",
-    #     dataset,
-    #     pseudobulk,
-    #     ncells,
-    #     rd,
-    #     mod1,
-    #     mod2,
-    # )
-    rd_path = f"../benchmarking/data/output_data/vcf_update/2a_vireo/{dataset}/real_data/ncells_null/read_depth_{mod2}_0_{mod1}_0/"
+
+    if pseudobulk:
+        rd_path = f"{DATA_PATH}/2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/"
+    else:
+        rd_path = f"{DATA_PATH}/2a_vireo/{dataset}/real_data/ncells_null/read_depth_{mod2}_0_{mod1}_0/"
     file_path = os.path.join(rd_path, "similarity_matrix.csv")
     matrix = pd.read_csv(
         file_path,
@@ -1451,12 +1430,9 @@ def parse_heatmap_matrix_vireo(
         [re.sub(regex_exp, "", idx.replace(".bam", "")) for idx in matrix.index]
     )
 
-    matrix = _collapse_duplicate_labels(
-        matrix,
-        context=(
-            f"dataset={dataset}, pseudobulk={pseudobulk}, ncells={ncells}, rd={rd}"
-        ),
-    )
+    if dataset == "hgsoc":
+        matrix.columns = matrix.columns.str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
+        matrix.index = matrix.index.str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
 
     # Vireo does not always return rows/columns for all samples, so we may have missing entries in the matrix
     # We add missing rows and columns with NaN values to ensure all samples are represented

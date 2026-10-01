@@ -650,17 +650,17 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
 
 
             # Add text with accuracy metrics to each subplot
-            # accuracy_metrics = accuracy_df[(accuracy_df["tool"] == tool) & (accuracy_df["ncells"] == ncells)]
-            # if not accuracy_metrics.empty:
-            #     ax.text(
-            #         0.03,
-            #         0.03,
-            #         f"F1: {accuracy_metrics['f1'].values[0]:.2f}\nRecall: {accuracy_metrics['recall'].values[0]:.2f}\nPrecision: {accuracy_metrics['precision'].values[0]:.2f}\n% Inconclusive: {accuracy_metrics['fraction_inconclusive'].values[0]:.2f}",
-            #         transform=ax.transAxes,
-            #         fontsize=fontsize - 2,
-            #         verticalalignment="bottom",
-            #         horizontalalignment="left",
-            #     )
+            accuracy_metrics = accuracy_df[(accuracy_df["tool"] == tool) & (accuracy_df["ncells"] == ncells)]
+            if not accuracy_metrics.empty:
+                ax.text(
+                    0.03,
+                    0.03,
+                    f"F1: {accuracy_metrics['f1'].values[0]:.2f}\nRecall: {accuracy_metrics['recall'].values[0]:.2f}\nPrecision: {accuracy_metrics['precision'].values[0]:.2f}\n% Inconclusive: {accuracy_metrics['fraction_inconclusive'].values[0]:.2f}",
+                    transform=ax.transAxes,
+                    fontsize=fontsize - 2,
+                    verticalalignment="bottom",
+                    horizontalalignment="left",
+                )
 
     # Add text with tool name to the left of each row
     # Needed if there are missing data for some tools, so that the row labels are still aligned with the correct rows
@@ -678,34 +678,34 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
     #     )
 
     # one colorbar per column/tool
-    # for i, tool in enumerate(tools):
-    #     if not row_has_data[tool] or row_mappables[tool] is None:
-    #         continue
+    for i, tool in enumerate(tools):
+        if not row_has_data[tool] or row_mappables[tool] is None:
+            continue
 
-    #     # Determine the axes for the colorbar
-    #     if len(tools) == 1 and len(ncells_list) == 1:
-    #         col_axes = [axes]
-    #     elif len(ncells_list) == 1:
-    #         col_axes = axes  # 1D over columns
-    #     elif len(tools) == 1:
-    #         col_axes = [axes[i]]  # 1D over rows
-    #     else:
-    #         col_axes = axes[:, i]  # full column
+        # Determine the axes for the colorbar
+        if len(tools) == 1 and len(ncells_list) == 1:
+            col_axes = [axes]
+        elif len(ncells_list) == 1:
+            col_axes = axes  # 1D over columns
+        elif len(tools) == 1:
+            col_axes = [axes[i]]  # 1D over rows
+        else:
+            col_axes = axes[:, i]  # full column
 
-    #     row_mappable = row_mappables[tool]
-    #     if row_mappable is None:
-    #         continue
+        row_mappable = row_mappables[tool]
+        if row_mappable is None:
+            continue
 
-    #     cbar = fig.colorbar(
-    #         row_mappable,
-    #         ax=col_axes,
-    #         fraction=0.08,
-    #         pad=0.03,
-    #         shrink=0.8,
-    #         aspect=16,
-    #         location='bottom',
-    #     )
-    #     cbar.ax.tick_params(labelsize=fontsize)
+        cbar = fig.colorbar(
+            row_mappable,
+            ax=col_axes,
+            fraction=0.08,
+            pad=0.03,
+            shrink=0.8,
+            aspect=16,
+            location='bottom',
+        )
+        cbar.ax.tick_params(labelsize=fontsize)
 
     if save_fig:
         fig.savefig(
