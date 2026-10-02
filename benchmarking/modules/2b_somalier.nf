@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildModalityOutputContext } from './helpers/read_depth_utils'
+
 process SOMALIER_EXTRACT {
     conda "${params.conda}/somalier"
     publishDir "${params.outdir}/2b_somalier/extract", mode: 'copy'
@@ -9,11 +11,19 @@ process SOMALIER_EXTRACT {
     input:
         path(bam)
         path(bam_index)
+        val(modalities)
 
     output:
-        path("extracted/*.somalier")
+        path("${params.dataset}/**/somalier/*.somalier")
 
     script:
+        def outputContext = buildModalityOutputContext(
+            params.dataset,
+            params.pseudobulk,
+            params.ncells,
+            modalities
+        )
+
         """
         set -euo pipefail
 
@@ -117,6 +127,10 @@ process SOMALIER_EXTRACT {
             --fasta "${params.refGenome}/fasta/genome.fa" \
             -d extracted \
             ${bam}
+
+        output_location="${outputContext.experimentPath}/somalier"
+        mkdir -p "\$output_location"
+        cp extracted/*.somalier "\$output_location/"
         """
 }
 
@@ -135,18 +149,17 @@ process SOMALIER_RELATE {
         path("${params.dataset}/**/somalier/somalier*.html"), optional: true
 
     script:
+        def outputContext = buildModalityOutputContext(
+            params.dataset,
+            params.pseudobulk,
+            params.ncells,
+            [mod1, mod2]
+        )
+
         """
         set -euo pipefail
 
-        if [ ${params.pseudobulk} == true ]
-        then
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
-        elif [ "${params.dataset}" == "hgsoc" ]
-        then
-            output_location="${params.dataset}/real_data/${mod1}_vs_${mod2}/ncells_null"
-        else
-            output_location="${params.dataset}/real_data/ncells_null"
-        fi
+        output_location="${outputContext.experimentPath}"
         mkdir -p "\${output_location}/somalier"
 
         somalier relate \

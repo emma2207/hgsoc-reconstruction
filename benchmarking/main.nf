@@ -91,7 +91,7 @@ workflow {
     OMICSPRINT(filtered_vcfs.all_variants, modalities)
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
-    BAMIXCHECKER(filtered_bams.bam.collect())
+    BAMIXCHECKER(filtered_bams.bam.collect(), modalities)
     conpair_pairs = filtered_bams.bam.collect().flatMap { bams ->
             if (params.pseudobulk) {
                 def bams_1 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_1_filtered$/ }
@@ -130,6 +130,6 @@ workflow {
             }
     }
     CONPAIR(conpair_pairs)
-    somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index)
+    somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index, modalities)
     SOMALIER_RELATE(somalier_files.collect(), modalities[0], modalities.size() > 1 ? modalities[1] : modalities[0])
 }

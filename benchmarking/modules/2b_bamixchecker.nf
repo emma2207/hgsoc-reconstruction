@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildModalityOutputContext } from './helpers/read_depth_utils'
+
 process BAMIXCHECKER {
     conda "${params.conda}/bamixchecker"
     publishDir "${params.outdir}/2b_bamixchecker", mode: 'copy'
@@ -7,24 +9,28 @@ process BAMIXCHECKER {
     
     input:
         path(bam)
+        val(modalities)
     
     output:
-        path("${params.dataset}/*/*/BAMixChecker/BAMixChecker_Report.html")
-        path("${params.dataset}/*/*/BAMixChecker/BAMixChecker_Heatmap.pdf")
-        path("${params.dataset}/*/*/BAMixChecker/Total_result.txt")
-        path("${params.dataset}/*/*/BAMixChecker/Matched_samples.txt"), optional: true
-        path("${params.dataset}/*/*/BAMixChecker/Mismatched_samples.txt"), optional: true
+        path("${params.dataset}/**/BAMixChecker/BAMixChecker_Report.html")
+        path("${params.dataset}/**/BAMixChecker/BAMixChecker_Heatmap.pdf")
+        path("${params.dataset}/**/BAMixChecker/Total_result.txt")
+        path("${params.dataset}/**/BAMixChecker/Matched_samples.txt"), optional: true
+        path("${params.dataset}/**/BAMixChecker/Mismatched_samples.txt"), optional: true
 
     script:
+        def outputContext = buildModalityOutputContext(
+            params.dataset,
+            params.pseudobulk,
+            params.ncells,
+            modalities
+        )
+
         """
         set -euo pipefail
 
-        if [ ${params.pseudobulk} == true ]
-        then 
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
-        else
-            output_location="${params.dataset}/real_data/ncells_null" 
-        fi
+        output_location="${outputContext.experimentPath}/BAMixChecker"
+        mkdir -p "\$output_location"
 
         # Create config file for BAMixChecker
         echo "GATK=${params.conda}/bamixchecker/bin/gatk" > BAMixChecker.config

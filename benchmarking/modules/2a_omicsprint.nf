@@ -23,24 +23,18 @@ process OMICSPRINT {
             params.read_depth,
             params.dataset,
             params.pseudobulk,
-            modalities
+            modalities,
+            params.ncells
         )
 
-        def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
-        def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
-        def realDataNcellsPath = readDepthContext.realDataNcellsPath
+        def outputPath = "${readDepthContext.experimentPath}/read_depth_${params.pseudobulk ? readDepthContext.pseudobulkReadDepth : readDepthContext.modalityReadDepthTag}"
         def omicsprintCallRate = (params.omicsprint_call_rate != null) ? params.omicsprint_call_rate : 0.80
         def omicsprintCoverageRate = (params.omicsprint_coverage_rate != null) ? params.omicsprint_coverage_rate : 0.25
 
         """
         set -euo pipefail
 
-        if [ ${params.pseudobulk} == true ]
-        then
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
-        else
-            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}"
-        fi
+        output_location="${outputPath}"
         mkdir -p "\${output_location}/omicsprint"
 
         sample_file="\${output_location}/omicsprint/omicsprint_input_samples.txt"

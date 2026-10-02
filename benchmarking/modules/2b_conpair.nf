@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+include { buildModalityOutputContext } from './helpers/read_depth_utils'
+
 process CONPAIR {
     conda "${params.conda}/conpair"
     publishDir "${params.outdir}/2b_conpair", mode: 'copy'
@@ -17,19 +19,17 @@ process CONPAIR {
         def conpairMinCov = params.conpair_min_cov ?: 3
         def conpairMinMapQual = params.conpair_min_map_qual ?: 0
         def conpairMinBaseQual = params.conpair_min_base_qual ?: 10
+        def outputContext = buildModalityOutputContext(
+            params.dataset,
+            params.pseudobulk,
+            params.ncells,
+            [mod_1, mod_2]
+        )
 
         """
         set -euo pipefail
 
-        if [ ${params.pseudobulk} == true ]
-        then 
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}"
-        elif [ "${params.dataset}" == "hgsoc" ]
-        then
-            output_location="${params.dataset}/real_data/${mod_1}_vs_${mod_2}/ncells_null"
-        else
-            output_location="${params.dataset}/real_data/ncells_null"
-        fi
+        output_location="${outputContext.experimentPath}"
 
         export CONPAIR_DIR=/projects/\${USER}/software/conpair
         export GATK_JAR=/projects/\${USER}/software/anaconda/envs/conpair/opt/gatk-3.8/GenomeAnalysisTK.jar
