@@ -16,7 +16,15 @@ def _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2):
     """Return the default dataset-relative base folder used by analysis outputs."""
     if pseudobulk:
         return os.path.join(dataset, "pseudobulk", f"ncells_{ncells}")
-    return os.path.join(dataset, "real_data", "ncells_null")
+    return os.path.join(dataset, f"{mod1}_vs_{mod2}", "ncells_null")
+
+
+def _modality_path_aliases(modality):
+    aliases = {
+        "bulk_diss_polyA": "bulk_dissociated_polyA",
+        "bulk_dissociated_polyA": "bulk_diss_polyA",
+    }
+    return [modality, aliases[modality]] if modality in aliases else [modality]
 
 
 def _candidate_analysis_base_paths(DATA_PATH, tool, dataset, pseudobulk, ncells, mod1, mod2):
@@ -30,11 +38,15 @@ def _candidate_analysis_base_paths(DATA_PATH, tool, dataset, pseudobulk, ncells,
             )
         ]
 
-    candidate_rel_paths = [
-        os.path.join(dataset, "real_data", f"{mod1}_vs_{mod2}", "ncells_null"),
-        os.path.join(dataset, "real_data", f"{mod1}_vs_{mod2}_0", "ncells_null"),
-        _analysis_base_path(dataset, pseudobulk, ncells, mod1, mod2),
-    ]
+    candidate_rel_paths = []
+    for left in _modality_path_aliases(mod1):
+        for right in _modality_path_aliases(mod2):
+            candidate_rel_paths.extend(
+                [
+                    os.path.join(dataset, f"{left}_vs_{right}", "ncells_null"),
+                    os.path.join(dataset, f"{right}_vs_{left}", "ncells_null"),
+                ]
+            )
     candidate_paths = [
         os.path.join(DATA_PATH, tool, rel_path) for rel_path in candidate_rel_paths
     ]
@@ -46,6 +58,14 @@ def _candidate_analysis_base_paths(DATA_PATH, tool, dataset, pseudobulk, ncells,
             deduped_paths.append(path)
 
     return deduped_paths
+
+
+def _resolve_analysis_base_path(DATA_PATH, tool, dataset, pseudobulk, ncells, mod1, mod2):
+    """Return the first existing tool output base path for the requested modalities."""
+    candidate_paths = _candidate_analysis_base_paths(
+        DATA_PATH, tool, dataset, pseudobulk, ncells, mod1, mod2
+    )
+    return next((path for path in candidate_paths if os.path.isdir(path)), candidate_paths[0])
 
 
 def _normalize_read_depth_tag(rd):
@@ -678,7 +698,14 @@ def create_pseudobulk_submatrix_vireo(
 #####################################################
 ### Functions to parse tool outputs and create heatmap matrices
 #####################################################
-def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
+def parse_heatmap_matrix_bamixchecker(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_diss_polyA",
+):
     """
     Read BAMixChecker output and create a matrix for heatmap visualization.
 
@@ -698,10 +725,16 @@ def parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
             f"2b_bamixchecker/{dataset}/pseudobulk/ncells_{ncells}/BAMixChecker/Total_result.txt",
         )
     else:
-        file_path = os.path.join(
+        base_path = _resolve_analysis_base_path(
             DATA_PATH,
-            f"2b_bamixchecker/{dataset}/real_data/ncells_null/BAMixChecker/Total_result.txt",
+            "2b_bamixchecker",
+            dataset,
+            pseudobulk,
+            ncells,
+            mod1,
+            mod2,
         )
+        file_path = os.path.join(base_path, "BAMixChecker", "Total_result.txt")
 
     df = pd.read_csv(
         file_path,
@@ -754,15 +787,15 @@ def parse_heatmap_matrix_conpair(
             DATA_PATH,
             f"2b_conpair/{dataset}/pseudobulk/ncells_{ncells}",
         )
-    elif dataset == "hgsoc":
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2b_conpair/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null",
-        )
     else:
-        file_path = os.path.join(
+        file_path = _resolve_analysis_base_path(
             DATA_PATH,
-            f"2b_conpair/{dataset}/real_data/ncells_null",
+            "2b_conpair",
+            dataset,
+            pseudobulk,
+            ncells,
+            mod1,
+            mod2,
         )
     long_df = pd.DataFrame()
 
@@ -831,7 +864,10 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     if pseudobulk:
         rd_path = f"{DATA_PATH}/2a_fingerprints/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
     else:
-        rd_path = f"{DATA_PATH}/2a_fingerprints/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
+        rd_path = _resolve_read_depth_path(
+            DATA_PATH, "2a_fingerprints", dataset, pseudobulk, ncells,
+            f"{mod1}_0_{mod2}_0", mod1, mod2,
+        )
     file_path = os.path.join(rd_path, "crosscheck_metrics.txt")
     df = pd.read_csv(
         file_path,
@@ -889,7 +925,10 @@ def parse_heatmap_matrix_hysys(
     if pseudobulk:
         rd_path = f"{DATA_PATH}/2a_hysys/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
     else:
-        rd_path = f"{DATA_PATH}/2a_hysys/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
+        rd_path = _resolve_read_depth_path(
+            DATA_PATH, "2a_hysys", dataset, pseudobulk, ncells,
+            f"{mod1}_0_{mod2}_0", mod1, mod2,
+        )
     file_path = os.path.join(rd_path, "concordance_output.txt")
 
     df = pd.read_csv(
@@ -904,17 +943,11 @@ def parse_heatmap_matrix_hysys(
     else:
         regex_exp = ""
 
-    rd_tag = os.path.basename(rd_path).replace("read_depth_", "", 1)
     rename_dict = {
         x: re.sub(
             regex_exp,
             "",
-            x.replace(f"{dataset}/", "")
-            .replace("_individual_variants.snps", "")
-            .replace("pseudobulk/", "")
-            .replace("real_data/", "")
-            .replace(f"ncells_{ncells}/", "")
-            .replace(f"read_depth_{rd_tag}/", ""),
+            os.path.basename(x).replace("_individual_variants.snps", ""),
         )
         for x in list(set(df.index) | set(df[1]))
     }
@@ -953,7 +986,10 @@ def parse_heatmap_matrix_ngscheckmate(
     if pseudobulk:
         rd_path = f"{DATA_PATH}/2a_ngscheckmate/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
     else:
-        rd_path = f"{DATA_PATH}/2a_ngscheckmate/{dataset}/real_data/ncells_null/read_depth_{mod1}_0_{mod2}_0"
+        rd_path = _resolve_read_depth_path(
+            DATA_PATH, "2a_ngscheckmate", dataset, pseudobulk, ncells,
+            f"{mod1}_0_{mod2}_0", mod1, mod2,
+        )
     file_path = os.path.join(rd_path, "output_all.txt")
 
     df = pd.read_csv(
@@ -1113,15 +1149,20 @@ def parse_heatmap_matrix_omicsprint(
         - matrix: square dataframe with samples as rows and columns, values are the mean ibs (identity by state) values
     """
     if pseudobulk:
-        file_path = os.path.join(
+        rd_path = os.path.join(
             DATA_PATH,
-            f"2a_omicsprint/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/omicsprint_allele_sharing.tsv",
+            f"2a_omicsprint/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}",
         )
     else:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2a_omicsprint/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0/omicsprint_allele_sharing.tsv",
+        rd_path = _resolve_read_depth_path(
+            DATA_PATH, "2a_omicsprint", dataset, pseudobulk, ncells,
+            f"{mod1}_0_{mod2}_0", mod1, mod2,
         )
+    nested_file_path = os.path.join(
+        rd_path, "omicsprint", "omicsprint_allele_sharing.tsv"
+    )
+    flat_file_path = os.path.join(rd_path, "omicsprint_allele_sharing.tsv")
+    file_path = nested_file_path if os.path.exists(nested_file_path) else flat_file_path
     df = pd.read_csv(
         file_path,
         sep="\t",
@@ -1196,20 +1237,13 @@ def parse_heatmap_matrix_peddy(
         - df: long format dataframe with columns [sample_a, sample_b, rel_difference]
         - matrix: square dataframe with samples as rows and columns, values are the relative differences between samples
     """
-    # rd_path = _resolve_read_depth_path(
-    #     DATA_PATH,
-    #     "2a_peddy",
-    #     dataset,
-    #     pseudobulk,
-    #     ncells,
-    #     rd,
-    #     mod1,
-    #     mod2,
-    # )
     if pseudobulk:
         rd_path = f"{DATA_PATH}/2a_peddy/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
     else:
-        rd_path = f"{DATA_PATH}/2a_peddy/{dataset}/real_data/{mod1}_vs_{mod2}/ncells_null/read_depth_{mod1}_0_{mod2}_0"
+        rd_path = _resolve_read_depth_path(
+            DATA_PATH, "2a_peddy", dataset, pseudobulk, ncells,
+            f"{mod1}_0_{mod2}_0", mod1, mod2,
+        )
     file_path = os.path.join(rd_path, "output.ped_check.csv")
     df = pd.read_csv(
         file_path,
@@ -1276,15 +1310,20 @@ def parse_heatmap_matrix_somalier(
             DATA_PATH,
             f"2b_somalier/{dataset}/pseudobulk/ncells_{ncells}/somalier/somalier.pairs.tsv",
         )
-    elif dataset == "hgsoc":
-        file_path = os.path.join(
-            DATA_PATH,
-            f"2b_somalier/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null/somalier.pairs.tsv",
-        )
     else:
-        file_path = os.path.join(
+        base_path = _resolve_analysis_base_path(
             DATA_PATH,
-            f"2b_somalier/{dataset}/real_data/ncells_null/somalier/somalier.pairs.tsv",
+            "2b_somalier",
+            dataset,
+            pseudobulk,
+            ncells,
+            mod1,
+            mod2,
+        )
+        nested_file_path = os.path.join(base_path, "somalier", "somalier.pairs.tsv")
+        flat_file_path = os.path.join(base_path, "somalier.pairs.tsv")
+        file_path = (
+            nested_file_path if os.path.exists(nested_file_path) else flat_file_path
         )
     df = pd.read_csv(
         file_path,
@@ -1354,7 +1393,10 @@ def parse_heatmap_matrix_timeattackgencomp(
     if pseudobulk:
         rd_path = f"{DATA_PATH}/2a_timeattackgencomp/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}"
     else:
-        rd_path = f"{DATA_PATH}/2a_timeattackgencomp/{dataset}/real_data/{mod2}_vs_{mod1}/ncells_null/read_depth_{mod2}_0_{mod1}_0"
+        rd_path = _resolve_read_depth_path(
+            DATA_PATH, "2a_timeattackgencomp", dataset, pseudobulk, ncells,
+            f"{mod1}_0_{mod2}_0", mod1, mod2,
+        )
     file_path = os.path.join(rd_path, "timeattackgencomp.snv.out.txt")
 
     matrix = pd.read_csv(file_path, sep="\t", header=0, index_col=0)[:-1]
@@ -1411,7 +1453,10 @@ def parse_heatmap_matrix_vireo(
     if pseudobulk:
         rd_path = f"{DATA_PATH}/2a_vireo/{dataset}/pseudobulk/ncells_{ncells}/read_depth_{rd}/"
     else:
-        rd_path = f"{DATA_PATH}/2a_vireo/{dataset}/real_data/ncells_null/read_depth_{mod2}_0_{mod1}_0/"
+        rd_path = _resolve_read_depth_path(
+            DATA_PATH, "2a_vireo", dataset, pseudobulk, ncells,
+            f"{mod1}_0_{mod2}_0", mod1, mod2,
+        )
     file_path = os.path.join(rd_path, "similarity_matrix.csv")
     matrix = pd.read_csv(
         file_path,
@@ -1470,7 +1515,14 @@ def parse_heatmap_matrix_vireo(
 #######################################################
 ### Functions to parse tool outputs and create sample match dataframes
 #######################################################
-def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells):
+def parse_sample_matching_results_bamixchecker(
+    DATA_PATH,
+    pseudobulk,
+    dataset,
+    ncells,
+    mod1="bulk_chunk_ribo",
+    mod2="bulk_diss_polyA",
+):
     """
     Parse BAMixChecker Total_result.txt file to categorize sample relationships.
 
@@ -1489,7 +1541,9 @@ def parse_sample_matching_results_bamixchecker(DATA_PATH, pseudobulk, dataset, n
         "Unmatched": 0,
         "Matched": 1,
     }
-    df, _ = parse_heatmap_matrix_bamixchecker(DATA_PATH, pseudobulk, dataset, ncells)
+    df, _ = parse_heatmap_matrix_bamixchecker(
+        DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+    )
     sample_matches = long_df_to_matrix_bamixchecker(df, metric="Conclusion").replace(
         result_mapping
     )
@@ -2012,7 +2066,7 @@ def load_sample_matching_results(
     try:
         if tool == "BAMixChecker":
             sample_matches = parse_sample_matching_results_bamixchecker(
-                DATA_PATH, pseudobulk, dataset, ncells
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
             )
         elif tool == "Conpair":
             sample_matches = parse_sample_matching_results_conpair(
@@ -2092,7 +2146,7 @@ def load_heatmap_data(
         # Create heatmap matrix
         if tool == "BAMixChecker":
             _, matrix = parse_heatmap_matrix_bamixchecker(
-                DATA_PATH, pseudobulk, dataset, ncells
+                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
             )
         elif tool == "Conpair":
             _, matrix = parse_heatmap_matrix_conpair(

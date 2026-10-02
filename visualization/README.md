@@ -11,5 +11,8 @@ Analysis notebooks and supporting code to analyze the results coming out of the 
 - **analysis_shared_functions.py:** has mostly data loading and manipulation stuff functions.
 - **accuracy_functions.py:** has mostly functions to help calculate various accuracy metrics.
 - **visualization.py:** has functions that create figures.
+- **standardize_heatmap_data.py:** exports selected parsed heatmap matrices as labeled, sorted CSV files.
+
+Use `standardize_heatmap_data.py --help` for the available options. Exports are organized by dataset, modality pair (or pseudobulk cell count), and read depth when the selected tool uses read-depth-filtered results.
 
 A conda environment for everything is found in **analysis.yml**.
