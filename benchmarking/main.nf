@@ -22,7 +22,8 @@ include { PEDDY } from './modules/2a_peddy'
 include { TIMEATTACKGENCOMP } from './modules/2a_timeattackgencomp'
 include { OMICSPRINT } from './modules/2a_omicsprint'
 include { BAMIXCHECKER } from './modules/2b_bamixchecker'
-include { CONPAIR } from './modules/2b_conpair'
+include { CONPAIR_PILEUP } from './modules/2b_conpair'
+include { CONPAIR_VERIFY } from './modules/2b_conpair'
 include { SOMALIER_EXTRACT } from './modules/2b_somalier'
 include { SOMALIER_RELATE } from './modules/2b_somalier'
 
@@ -129,7 +130,46 @@ workflow {
                 }
             }
     }
-    CONPAIR(conpair_pairs)
+    conpair_all_pairs = conpair_pairs.collect()
+    conpair_pileup_inputs = conpair_all_pairs.flatMap { all_pairs ->
+        def bam_by_path = [:]
+        all_pairs.each { pair ->
+            bam_by_path[pair[1].toString()] = pair[1]
+            bam_by_path[pair[3].toString()] = pair[3]
+        }
+
+        bam_by_path.entrySet().toList().withIndex().collect { entry, index ->
+            tuple(entry.key, "bam_${index}", entry.value)
+        }
+    }
+
+    CONPAIR_PILEUP(conpair_pileup_inputs)
+
+    conpair_pileup_map = CONPAIR_PILEUP.out.pileup
+        .collect()
+        .map { records -> records.collectEntries { record -> [(record[0]): record[1]] } }
+
+    conpair_pair_contexts = conpair_all_pairs.flatMap { all_pairs ->
+        all_pairs.collect { pair ->
+            tuple(
+                pair[1].toString(), pair[0],
+                pair[3].toString(), pair[2],
+                pair[4], pair[5]
+            )
+        }
+    }
+
+    conpair_verification_inputs = conpair_pair_contexts
+        .combine(conpair_pileup_map)
+        .map { bam_key_1, sample_1, bam_key_2, sample_2, mod_1, mod_2, pileups_by_key ->
+            tuple(
+                sample_1, pileups_by_key[bam_key_1],
+                sample_2, pileups_by_key[bam_key_2],
+                mod_1, mod_2
+            )
+        }
+
+    CONPAIR_VERIFY(conpair_verification_inputs)
     somalier_files = SOMALIER_EXTRACT(filtered_bams.bam, filtered_bams.bam_index, modalities)
     SOMALIER_RELATE(somalier_files.collect(), modalities[0], modalities.size() > 1 ? modalities[1] : modalities[0])
 }
