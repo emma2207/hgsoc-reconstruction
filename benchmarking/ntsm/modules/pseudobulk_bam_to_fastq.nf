@@ -18,12 +18,7 @@ process PSEUDOBULK_BAM_TO_FASTQ {
     then
         # For BAM-derived pseudobulks, reads are often unpaired/alignment-only.
         # Keep all reads in R1 for single-end mode and emit an empty R2 placeholder.
-        samtools fastq -n \
-            -0 ${sample_name}.R1.fastq \
-            -1 /dev/null \
-            -2 /dev/null \
-            -s /dev/null \
-            ${bam}
+        samtools fastq -n ${bam} > ${sample_name}.R1.fastq
         : > ${sample_name}.R2.fastq
     else
         samtools fastq -n \

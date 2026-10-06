@@ -13,9 +13,9 @@ process TIMEATTACKGENCOMP {
         val(modalities)
 
     output:
-        path("${params.dataset}/**/timeattackgencomp/timeattackgencomp.snv.out.txt")
-        path("${params.dataset}/**/timeattackgencomp/timeattackgencomp.raw.out")
-        path("${params.dataset}/**/timeattackgencomp/timeattackgencomp.pdf"), optional: true
+        path("${params.dataset}/**/timeattackgencomp.snv.out.txt")
+        path("${params.dataset}/**/timeattackgencomp.raw.out")
+        path("${params.dataset}/**/timeattackgencomp.pdf"), optional: true
 
     script:
         def readDepthContext = buildReadDepthContext(

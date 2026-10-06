@@ -19,7 +19,7 @@ set -eo pipefail
 # Check if SLURM_SUBMIT_DIR is set (indicates Slurm environment)
 if [ -n "${SLURM_SUBMIT_DIR}" ]; then
     # Running on HPC via Slurm
-    PRJ_DIR="${SLURM_SUBMIT_DIR}"
+    PRJ_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     RUN_MODE="HPC"
     echo "Running on HPC (Slurm). Project directory: ${PRJ_DIR}"
 else
@@ -72,7 +72,7 @@ NEXTFLOW_WORK_DIR="${PRJ_DIR}/nextflow"
 if [ "${RUN_MODE}" == "HPC" ]; then
     nextflow run main.nf -profile slurm -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 else
-    nextflow run main.nf -profile local -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
+    nextflow run main.nf -w "${NEXTFLOW_WORK_DIR}" -process.echo -resume -with-trace
 fi
 
 echo "••• Pipeline finished 🎉"
