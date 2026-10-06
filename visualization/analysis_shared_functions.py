@@ -117,6 +117,23 @@ def _resolve_read_depth_path(
         if len(prefixed_matches) == 1:
             return prefixed_matches[0]
 
+        # A scalar read depth denotes that depth for both requested modalities.
+        # Prefer the exact modality-qualified folder before trying ambiguous token matches.
+        if rd_tag.isdigit():
+            exact_depth_paths = [
+                os.path.join(
+                    base_path,
+                    f"read_depth_{left}_{rd_tag}_{right}_{rd_tag}",
+                )
+                for left in _modality_path_aliases(mod1)
+                for right in _modality_path_aliases(mod2)
+            ]
+            exact_depth_matches = [
+                path for path in exact_depth_paths if os.path.isdir(path)
+            ]
+            if len(exact_depth_matches) == 1:
+                return exact_depth_matches[0]
+
         all_matches = sorted(glob.glob(os.path.join(base_path, "read_depth_*")))
 
         # Support modality-specific tags when rd is scalar, e.g.
@@ -208,319 +225,113 @@ def matches_matrix_to_pair_df(matrix):
 ####################################################
 ### Functions to convert long dataframes to matrices
 ####################################################
-def long_df_to_matrix_bamixchecker(df, metric="Concordance Rate"):
-    """
-    Convert long BAMixChecker dataframe to a square matrix format for heatmap visualization.
+def _long_df_to_matrix(
+    df,
+    row_column,
+    column_column,
+    value_column,
+    *,
+    symmetric=True,
+    diagonal_value=None,
+    value_scale: float = 1.0,
+    lexical_sort=False,
+):
+    """Build a labeled square matrix from pairwise long-form data."""
+    row_labels = df.index if row_column is None else df[row_column]
+    column_labels = df[column_column]
+    samples = sorted(set(row_labels) | set(column_labels))
 
-    input:
-        - df: long format dataframe with columns [index (sample), Sample, Concordance Rate, Conclusion]
-        - metric: which column to use for the values in the matrix
-            (default "Concordance Rate", can also be "Conclusion" for match/no match)
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the specified metric
-    """
-    matrix = df.pivot_table(
-        index=0,
-        columns="Sample",
-        values=metric,
-        aggfunc="first",
+    long_data = pd.DataFrame(
+        {
+            "_row": row_labels.to_numpy(),
+            "_column": column_labels.to_numpy(),
+            "_value": df[value_column].to_numpy(),
+        }
     )
+    matrix = long_data.pivot_table(
+        index="_row",
+        columns="_column",
+        values="_value",
+        aggfunc="first",
+    ).reindex(index=samples, columns=samples)
+    if value_scale != 1:
+        matrix = matrix * value_scale
+    if diagonal_value is not None:
+        values = matrix.to_numpy(copy=True)
+        np.fill_diagonal(values, diagonal_value)
+        matrix = pd.DataFrame(values, index=matrix.index, columns=matrix.columns)
+    if symmetric:
+        matrix = matrix.combine_first(matrix.T)
 
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df.index) | set(df["Sample"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns
-    matrix = matrix[matrix.columns.sort_values()]
-    matrix = matrix.reindex(sorted(matrix.index))
-
+    ordered_labels = (
+        sorted(matrix.index)
+        if lexical_sort
+        else _sorted_sample_labels(matrix.index)
+    )
+    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
+    matrix.index.name = df.index.name if row_column is None else row_column
+    matrix.columns.name = column_column
     return matrix
+
+
+def long_df_to_matrix_bamixchecker(df, metric="Concordance Rate"):
+    return _long_df_to_matrix(
+        df, None, "Sample", metric, lexical_sort=True
+    )
 
 
 def long_df_to_matrix_conpair(df, metric="concordance"):
-    """
-    Convert long Conpair dataframe to a square matrix format for heatmap visualization.
-
-    input:
-        - df: long format dataframe with columns [sample1, sample2, concordance]
-        - metric: which column to use for the values in the matrix
-            (default "concordance", can also be "match" for binary values)
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the concordance values
-    """
-
-    matrix = df.pivot_table(
-        index="sample1",
-        columns="sample2",
-        values=metric,
-        aggfunc="first",
-    )
-
-    all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
+    return _long_df_to_matrix(df, "sample1", "sample2", metric)
 
 
 def long_df_to_matrix_crosscheckfingerprints(df, metric="LOD_SCORE"):
-    """
-    Convert long CrosscheckFingerprints dataframe to a square matrix format for heatmap visualization.
-
-    input:
-        - df: long format dataframe with columns [LEFT_SAMPLE, RIGHT_SAMPLE, LOD_SCORE, RESULT]
-        - metric: which column to use for the values in the matrix
-            (default "LOD_SCORE", can also be "RESULT" for match/no match)
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the specified metric
-    """
-    matrix = df.pivot_table(
-        index="LEFT_SAMPLE",
-        columns="RIGHT_SAMPLE",
-        values=metric,
-        aggfunc="first",
-    )
-
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df["LEFT_SAMPLE"]) | set(df["RIGHT_SAMPLE"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
+    return _long_df_to_matrix(df, "LEFT_SAMPLE", "RIGHT_SAMPLE", metric)
 
 
 def long_df_to_matrix_hysys(df):
-    """
-    Convert long HYSYS dataframe to a square matrix format for heatmap visualization.
-
-    input:
-        - df: long format dataframe with columns [index (sample), Sample, Concordance]
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the concordance values
-    """
-    matrix = df.pivot_table(
-        index=0,
-        columns="Sample",
-        values="Concordance",
-        aggfunc="first",
+    return _long_df_to_matrix(
+        df, None, "Sample", "Concordance"
     )
-
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df.index) | set(df["Sample"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
 
 
 def long_df_to_matrix_ngscheckmate(df, metric="Correlation"):
-    """
-    Convert long NGSCheckMate dataframe to a square matrix format for heatmap visualization.
-
-    input:
-        - df: long format dataframe with columns [index (sample), Sample, Correlation, Matched]
-        - metric: which column to use for the values in the matrix
-            (default "Correlation", can also be "Matched" for match/no match)
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the specified metric
-    """
-    matrix = df.pivot_table(
-        index=0,
-        columns="Sample",
-        values=metric,
-        aggfunc="first",
+    value_scale = 0.01 if metric == "Correlation" else 1
+    return _long_df_to_matrix(
+        df, None, "Sample", metric, value_scale=value_scale
     )
-
-    # Convert correlation values to percentage (divide by 100)
-    if metric == "Correlation":
-        matrix = matrix / 100
-
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df.index) | set(df["Sample"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
 
 
 def long_df_to_matrix_ntsm(df):
-    """
-    Convert long NTSM dataframe to a square matrix format for heatmap visualization.
-
-    input:
-        - df: long format dataframe with columns [sample1, sample2, score]
-    
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the concordance values
-    """
-
-    matrix = df.pivot_table(
-        index="sample1",
-        columns="sample2",
-        values="relate",
-        aggfunc="first",
+    return _long_df_to_matrix(
+        df, "sample1", "sample2", "relate", symmetric=False
     )
-
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Make matrix symmetric by filling NaN values, matching the behavior of the
-    # other long_df_to_matrix_* functions.
-    # matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
 
 
 def long_df_to_matrix_omicsprint(df):
-    """
-    Convert long omicsPrint dataframe to a square matrix format for heatmap visualization.
-
-    input:
-        - df: long format dataframe with columns [sample1, sample2, mean]
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the concordance values
-    """
-    matrix = df.pivot_table(
-        index="sample1",
-        columns="sample2",
-        values="mean",
-        aggfunc="first",
-    )
-
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df["sample1"]) | set(df["sample2"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
+    return _long_df_to_matrix(df, "sample1", "sample2", "mean")
 
 
 def long_df_to_matrix_peddy(df, metric="rel_difference"):
-    """
-    Convert long Peddy dataframe to a square matrix format for heatmap visualization.
-
-    input:
-        - df: long format dataframe with columns [sample_a, sample_b, rel_difference]
-        - metric: which column to use for the values in the matrix (rel_difference or match)
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the specified metric
-    """
-
-    matrix = df.pivot_table(
-        index="sample_a", 
-        columns="sample_b", 
-        values=metric, 
-        aggfunc="first",
+    diagonal_values = {"rel_difference": 0, "match": 1}
+    if metric not in diagonal_values:
+        raise ValueError(f"Unsupported Peddy matrix metric: {metric}")
+    return _long_df_to_matrix(
+        df,
+        "sample_a",
+        "sample_b",
+        metric,
+        diagonal_value=diagonal_values[metric],
     )
-
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df["sample_a"]) | set(df["sample_b"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Fill matrix diagonal with 0s because peddy does not test samples against themselves.
-    # Use a writable copy since matrix.values can be a read-only view in newer pandas/numpy combos.
-    matrix_values = matrix.to_numpy(copy=True)
-    if metric == "rel_difference":
-        fill_value = 0
-    elif metric == "match":
-        fill_value = 1
-    np.fill_diagonal(matrix_values, fill_value)
-    matrix = pd.DataFrame(matrix_values, index=matrix.index, columns=matrix.columns)
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
 
 
 def long_df_to_matrix_somalier(df, metric="relatedness"):
-    """
-    Convert long Somalier dataframe to a square matrix format for heatmap visualization.
-    
-    input:
-        - df: long format dataframe with columns [sample_a, sample_b, relatedness]
-        - metric: which column to use for the values in the matrix (relatedness or match)
-
-    output:
-        - matrix: square dataframe with samples as rows and columns, values are the specified metric
-    """
-
-    matrix = df.pivot_table(
-        index="sample_a", 
-        columns="sample_b", 
-        values=metric, 
-        aggfunc="first",
+    return _long_df_to_matrix(
+        df,
+        "sample_a",
+        "sample_b",
+        metric,
+        diagonal_value=0,
     )
-
-    # Get all unique samples to create a square matrix
-    all_samples = sorted(set(df["sample_a"]) | set(df["sample_b"]))
-    matrix = matrix.reindex(index=all_samples, columns=all_samples)
-
-    # Fill matrix diagonal with 0s because peddy does not test samples against themselves.
-    # Use a writable copy since matrix.values can be a read-only view in newer pandas/numpy combos.
-    matrix_values = matrix.to_numpy(copy=True)
-    if metric == "relatedness":
-        fill_value = 0
-    elif metric == "match":
-        fill_value = 1
-    np.fill_diagonal(matrix_values, 0)
-    matrix = pd.DataFrame(matrix_values, index=matrix.index, columns=matrix.columns)
-    # Make matrix symmetric by filling NaN values
-    matrix = matrix.combine_first(matrix.T)
-
-    # Order rows and columns by sample label while handling labels without underscores.
-    ordered_labels = _sorted_sample_labels(matrix.index)
-    matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
-
-    return matrix
 
 
 ######################################################
@@ -818,8 +629,37 @@ def parse_heatmap_matrix_conpair(
             # filtering/ordering can distinguish mod1 (A) from mod2 (B) samples.
             # Pseudobulk sample names keep their "_1"/"_2" suffix untouched.
             if not pseudobulk:
-                sample1 = f"{sample1}_{mod1}"
-                sample2 = f"{sample2}_{mod2}"
+                def collapse_modality_suffix(sample_name):
+                    for modality in (mod1, mod2):
+                        variants = list(dict.fromkeys((
+                            modality,
+                            modality.replace("-", "_"),
+                            modality.replace("_", "-"),
+                        )))
+                        for first in variants:
+                            for second in variants:
+                                repeated = f"_{first}_{second}"
+                                while repeated in sample_name:
+                                    sample_name = sample_name.replace(
+                                        repeated, f"_{first}"
+                                    )
+                    return sample_name
+
+                sample1 = collapse_modality_suffix(sample1)
+                sample2 = collapse_modality_suffix(sample2)
+                modality_suffixes = {
+                    f"_{variant}"
+                    for modality in (mod1, mod2)
+                    for variant in (
+                        modality,
+                        modality.replace("-", "_"),
+                        modality.replace("_", "-"),
+                    )
+                }
+                if not sample1.endswith(tuple(modality_suffixes)):
+                    sample1 = f"{sample1}_{mod1}"
+                if not sample2.endswith(tuple(modality_suffixes)):
+                    sample2 = f"{sample2}_{mod2}"
 
             # Read the concordance value from the file
             INPUT_FILE = os.path.join(file_path, filename)
@@ -991,6 +831,9 @@ def parse_heatmap_matrix_ngscheckmate(
             f"{mod1}_0_{mod2}_0", mod1, mod2,
         )
     file_path = os.path.join(rd_path, "output_all.txt")
+    correlation_matrix_path = os.path.join(
+        rd_path, "output_output_corr_matrix.txt"
+    )
 
     df = pd.read_csv(
         file_path,
@@ -1018,8 +861,19 @@ def parse_heatmap_matrix_ngscheckmate(
     # Rename columns
     df.columns = ["Matched", "Sample", "Binary", "Correlation"]
 
-    # Create heatmap matrix
+    # Prefer the full-precision correlation matrix over rounded values in output_all.txt.
     matrix = long_df_to_matrix_ngscheckmate(df)
+    if os.path.exists(correlation_matrix_path):
+        matrix = pd.read_csv(correlation_matrix_path, sep="\t", index_col=0)
+        clean_sample_name = lambda sample: re.sub(
+            regex_exp,
+            "",
+            str(sample).replace(".vcf", "").replace("_individual_variants", ""),
+        )
+        matrix.index = matrix.index.map(clean_sample_name)
+        matrix.columns = matrix.columns.map(clean_sample_name)
+        ordered_labels = _sorted_sample_labels(matrix.index)
+        matrix = matrix.reindex(index=ordered_labels, columns=ordered_labels)
 
     return df, matrix
 
@@ -1053,15 +907,20 @@ def parse_heatmap_matrix_ntsm(
             DATA_PATH,
             f"ntsm_eval/ntsm_pairwise_pseudobulk_{dataset}_ncells_{ncells}.tsv",
         )
-    elif dataset == "low_grade_glioma" or dataset == "hgsoc":
-        file_path = os.path.join(
-            DATA_PATH,
-            f"ntsm_eval/ntsm_pairwise_{mod2}_{mod1}_{dataset}.tsv",
-        )
     else:
-        file_path = os.path.join(
-            DATA_PATH,
-            f"ntsm_eval/ntsm_pairwise_{mod1}_{mod2}_{dataset}.tsv",
+        modality_orders = [(mod1, mod2)]
+        if dataset in {"low_grade_glioma", "hgsoc", "hgsoc-new"}:
+            modality_orders.insert(0, (mod2, mod1))
+        candidate_paths = [
+            os.path.join(
+                DATA_PATH,
+                f"ntsm_eval/ntsm_pairwise_{left}_{right}_{dataset}.tsv",
+            )
+            for left, right in modality_orders
+        ]
+        file_path = next(
+            (candidate for candidate in candidate_paths if os.path.exists(candidate)),
+            candidate_paths[0],
         )
     ntsm_df = pd.read_csv(
         file_path,
@@ -1098,6 +957,28 @@ def parse_heatmap_matrix_ntsm(
         mod2=mod2,
     )
 
+    sample_label_by_id = {}
+    crosscheck_sample_labels = set(crosscheck_df["LEFT_SAMPLE"]) | set(
+        crosscheck_df["RIGHT_SAMPLE"]
+    )
+    for sample_label in crosscheck_sample_labels:
+        for modality in (mod1, mod2):
+            suffix = f"_{modality}"
+            if sample_label.endswith(suffix):
+                sample_label_by_id[sample_label[: -len(suffix)]] = sample_label
+
+    def canonical_sample_label(sample_id):
+        sample_id = str(sample_id)
+        for modality in (mod1, mod2):
+            prefix = f"{modality}_"
+            if sample_id.startswith(prefix):
+                sample_id = sample_id.removeprefix(prefix)
+                break
+        return sample_label_by_id.get(sample_id, sample_id)
+
+    ntsm_df["sample1"] = ntsm_df["sample1"].map(canonical_sample_label)
+    ntsm_df["sample2"] = ntsm_df["sample2"].map(canonical_sample_label)
+
     crosscheck_pairs = set()
     for _, row in crosscheck_df.iterrows():
         left, right = row["LEFT_SAMPLE"], row["RIGHT_SAMPLE"]
@@ -1113,8 +994,8 @@ def parse_heatmap_matrix_ntsm(
                     ntsm_df,
                     pd.DataFrame(
                         [
-                            {"sample1": pair[0], "sample2": pair[1], "relate": 0},
-                            {"sample1": pair[1], "sample2": pair[0], "relate": 0},
+                            {"sample1": pair[0], "sample2": pair[1], "relate": np.nan},
+                            {"sample1": pair[1], "sample2": pair[0], "relate": np.nan},
                         ]
                     ),
                 ],
@@ -1515,6 +1396,52 @@ def parse_heatmap_matrix_vireo(
 #######################################################
 ### Functions to parse tool outputs and create sample match dataframes
 #######################################################
+def _load_standardized_heatmap_matrix(
+    tool,
+    dataset,
+    ncells,
+    read_depth,
+    mod1,
+    mod2,
+    pseudobulk,
+    standardized_heatmaps_path=None,
+):
+    """Load a numeric heatmap matrix previously exported by standardize_heatmap_data.py."""
+    if standardized_heatmaps_path is None:
+        standardized_heatmaps_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "benchmarking",
+                "data",
+                "standardized_heatmaps",
+            )
+        )
+
+    if pseudobulk:
+        if ncells is None:
+            raise ValueError("ncells is required for pseudobulk heatmap loading")
+        relative_path = os.path.join(dataset, "pseudobulk", f"ncells_{ncells}")
+    else:
+        relative_path = os.path.join(
+            dataset, f"{mod1}_vs_{mod2}", "ncells_null"
+        )
+
+    if tool not in {"BAMixChecker", "Conpair", "Somalier", "ntsm"}:
+        read_depth_component = str(read_depth).removeprefix("read_depth_")
+        relative_path = os.path.join(
+            relative_path, f"read_depth_{read_depth_component}"
+        )
+
+    file_path = os.path.join(standardized_heatmaps_path, relative_path, f"{tool}.csv")
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(
+            f"Standardized heatmap not found for {tool}: {file_path}. "
+            "Run standardize_heatmap_data.py first."
+        )
+    return pd.read_csv(file_path, index_col=0)
+
+
 def parse_sample_matching_results_bamixchecker(
     DATA_PATH,
     pseudobulk,
@@ -1544,9 +1471,9 @@ def parse_sample_matching_results_bamixchecker(
     df, _ = parse_heatmap_matrix_bamixchecker(
         DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
     )
-    sample_matches = long_df_to_matrix_bamixchecker(df, metric="Conclusion").replace(
-        result_mapping
-    )
+    sample_matches = long_df_to_matrix_bamixchecker(
+        df, metric="Conclusion"
+    ).apply(lambda column: column.map(result_mapping))
     return sample_matches
 
 
@@ -1558,6 +1485,7 @@ def parse_sample_matching_results_conpair(
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
     threshold=0.8,
+    standardized_heatmaps_path=None,
 ):
     """
     Parse Conpair output to determine sample match predictions.
@@ -1575,10 +1503,22 @@ def parse_sample_matching_results_conpair(
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
 
-    _, matrix = parse_heatmap_matrix_conpair(
-        DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+    matrix = _load_standardized_heatmap_matrix(
+        "Conpair",
+        dataset,
+        ncells,
+        "0",
+        mod1,
+        mod2,
+        pseudobulk,
+        standardized_heatmaps_path,
     )
-    sample_matches = (matrix.astype(float) >= threshold*100).astype(int)
+    sample_matches = (
+        matrix.astype(float)
+        .ge(threshold * 100)
+        .where(matrix.notna())
+        .astype("Int64")
+    )
 
     return sample_matches
 
@@ -1616,7 +1556,9 @@ def parse_sample_matching_results_crosscheckfingerprints(
         DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
     )
     sample_matches = long_df_to_matrix_crosscheckfingerprints(df, metric="RESULT")
-    sample_matches = sample_matches.replace(result_mapping)
+    sample_matches = sample_matches.apply(
+        lambda column: column.map(result_mapping)
+    )
 
     return sample_matches
 
@@ -1658,7 +1600,7 @@ def parse_sample_matching_results_hysys(
         content = file.read()
 
     # Initialize collections
-    matching_pairs = set()
+    related_pairs = set()
     inconclusive_pairs = set()
     all_samples = set()
 
@@ -1708,7 +1650,7 @@ def parse_sample_matching_results_hysys(
             all_samples.add(sample2)
             if sample1 != sample2:  # Don't include self-relationships
                 pair = tuple(sorted([sample1, sample2]))  # Sort to avoid duplicates
-                matching_pairs.add(pair)
+                related_pairs.add(pair)
 
     # Create all possible pairs from all samples
     all_pairs = [(s1, s2) for s1 in all_samples for s2 in all_samples]
@@ -1716,12 +1658,12 @@ def parse_sample_matching_results_hysys(
     # Create DataFrame with all pairs
     pair_data = []
     for pair in all_pairs:
-        if pair in matching_pairs or pair[::-1] in matching_pairs:
-            match_status = 1  # matching
-        elif pair in inconclusive_pairs:
+        if pair in inconclusive_pairs:
             match_status = float("nan")  # inconclusive
+        elif pair in related_pairs or pair[::-1] in related_pairs:
+            match_status = 1  # related pairs are predicted matches
         else:
-            match_status = 0  # not matching
+            match_status = 0  # omitted pairs are predicted non-matches
 
         pair_data.append(
             {"sample1": pair[0], "sample2": pair[1], "match": match_status}
@@ -1729,7 +1671,7 @@ def parse_sample_matching_results_hysys(
 
     # Create matrix with sample1 as index and sample2 as columns
     df = pd.DataFrame(pair_data)
-    matrix = df.pivot_table(index="sample1", columns="sample2", values="match")
+    matrix = df.pivot(index="sample1", columns="sample2", values="match")
 
     return matrix
 
@@ -1763,9 +1705,9 @@ def parse_sample_matching_results_ngscheckmate(
     df, _ = parse_heatmap_matrix_ngscheckmate(
         DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
     )
-    sample_matches = long_df_to_matrix_ngscheckmate(df, "Matched").replace(
-        result_mapping
-    )
+    sample_matches = long_df_to_matrix_ngscheckmate(
+        df, "Matched"
+    ).apply(lambda column: column.map(result_mapping))
 
     return sample_matches
 
@@ -1777,6 +1719,7 @@ def parse_sample_matching_results_ntsm(
     ncells,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
+    standardized_heatmaps_path=None,
 ):
     """
     Parse NTSM results to categorize sample relationships.
@@ -1790,8 +1733,15 @@ def parse_sample_matching_results_ntsm(
     output:
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
-    _, matrix = parse_heatmap_matrix_ntsm(
-        DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+    matrix = _load_standardized_heatmap_matrix(
+        "ntsm",
+        dataset,
+        ncells,
+        "0",
+        mod1,
+        mod2,
+        pseudobulk,
+        standardized_heatmaps_path,
     )
     # If the ntsm relatedness is greater than zero, then samples are considered a match (1), otherwise not a match (0)
     sample_matches = (matrix > 0).astype(int)
@@ -1808,6 +1758,7 @@ def parse_sample_matching_results_omicsprint(
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
     threshold=1.7,
+    standardized_heatmaps_path=None,
 ):
     """
     Parse OmicsPrint output to determine sample match predictions.
@@ -1825,8 +1776,15 @@ def parse_sample_matching_results_omicsprint(
     output:
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
-    _, matrix = parse_heatmap_matrix_omicsprint(
-        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+    matrix = _load_standardized_heatmap_matrix(
+        "OmicsPrint",
+        dataset,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+        pseudobulk,
+        standardized_heatmaps_path,
     )
     # If the omicsprint value is >= threshold, then samples are considered a match (1), otherwise not a match (0).
     # NaNs are preserved
@@ -1848,6 +1806,7 @@ def parse_sample_matching_results_peddy(
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
     threshold=0,
+    standardized_heatmaps_path=None,
 ):
     """
     Parse Peddy output to categorize sample relationships.
@@ -1866,8 +1825,15 @@ def parse_sample_matching_results_peddy(
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
 
-    _, matrix = parse_heatmap_matrix_peddy(
-        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2,
+    matrix = _load_standardized_heatmap_matrix(
+        "Peddy",
+        dataset,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+        pseudobulk,
+        standardized_heatmaps_path,
     )
     # If peddy values are <= threshold, then samples are considered a match (1), otherwise not a match (0)
     # NaNs are preserved
@@ -1888,6 +1854,7 @@ def parse_sample_matching_results_somalier(
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
     threshold=1,
+    standardized_heatmaps_path=None,
 ):
     """
     Parse Somalier output to categorize sample relationships.
@@ -1904,8 +1871,15 @@ def parse_sample_matching_results_somalier(
     output:
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
-    _, matrix = parse_heatmap_matrix_somalier(
-        DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2,
+    matrix = _load_standardized_heatmap_matrix(
+        "Somalier",
+        dataset,
+        ncells,
+        "0",
+        mod1,
+        mod2,
+        pseudobulk,
+        standardized_heatmaps_path,
     )
     # If somalier value is >= threshold, then samples are considered a match (1), otherwise not a match (0)
     # NaNs are preserved
@@ -1927,6 +1901,7 @@ def parse_sample_matching_results_timeattackgencomp(
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
     threshold=0.05,
+    standardized_heatmaps_path=None,
 ):  
     """
     Parse TimeAttackGenComp output to categorize sample relationships.
@@ -1944,8 +1919,15 @@ def parse_sample_matching_results_timeattackgencomp(
         - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
     """
 
-    _, matrix = parse_heatmap_matrix_timeattackgencomp(
-        DATA_PATH, pseudobulk, dataset, ncells, read_depth, mod1, mod2,
+    matrix = _load_standardized_heatmap_matrix(
+        "TimeAttackGenComp",
+        dataset,
+        ncells,
+        read_depth,
+        mod1,
+        mod2,
+        pseudobulk,
+        standardized_heatmaps_path,
     )
     # If timeattackgencomp value is 0, then samples are considered a match (1), otherwise not a match (0)
     # NaNs are preserved
@@ -1966,19 +1948,47 @@ def parse_sample_matching_results_vireo(
     rd,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
+    standardized_heatmaps_path=None,
 ):
     """
-    Parse Vireo's matched_samples.csv to categorize sample relationships.
+    Parse Vireo predictions using the standardized heatmap sample universe.
 
-    input:
-        - DATA_PATH: base path to the data directory
-        - pseudobulk: boolean indicating if the data is pseudobulk
-        - dataset: the dataset name
-        - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
+    Real-data matches come from matched_samples.csv. Pseudobulk matches are
+    inferred by minimizing the standardized Vireo similarity matrix with the
+    linear sum assignment algorithm.
 
     output:
-        - df: square dataframe with binary values indicating sample matches (1 for match, 0 for no match)
+        - rectangular dataframe with 1 for matches, 0 for non-matches, and NaN
+          wherever the standardized heatmap has an unknown score
     """
+    heatmap = _load_standardized_heatmap_matrix(
+        "Vireo",
+        dataset,
+        ncells,
+        rd,
+        mod1,
+        mod2,
+        pseudobulk,
+        standardized_heatmaps_path,
+    ).astype(float)
+
+    predictions = pd.DataFrame(
+        0.0, index=heatmap.index.copy(), columns=heatmap.columns.copy()
+    )
+
+    if pseudobulk:
+        predictions = predictions.where(heatmap.notna())
+        scores = heatmap.to_numpy(dtype=float)
+        finite = np.isfinite(scores)
+        if finite.any():
+            penalty = max(1.0, float(np.max(np.abs(scores[finite])))) * 1e9
+            assignment_cost = np.where(finite, scores, penalty)
+            row_indices, column_indices = linear_sum_assignment(assignment_cost)
+            for row_index, column_index in zip(row_indices, column_indices):
+                if finite[row_index, column_index]:
+                    predictions.iat[row_index, column_index] = 1.0
+        return predictions
+
     rd_path = _resolve_read_depth_path(
         DATA_PATH,
         "2a_vireo",
@@ -1990,55 +2000,39 @@ def parse_sample_matching_results_vireo(
         mod2,
     )
     file_path = os.path.join(rd_path, "matched_samples.csv")
-    sample_matches = pd.read_csv(
-        file_path,
-        index_col=0,
-    ).reset_index()
+    matched_pairs = pd.read_csv(file_path)
+    regex_exp = dataset_regex_dict.get(dataset, "") if dataset == "hgsoc-new" else ""
 
-    if pseudobulk:
-        regex_exp = dataset_regex_dict.get(dataset, "")
-    else:
-        regex_exp = ""
-    for col in sample_matches.columns:
-        sample_matches[col] = [
-            re.sub(regex_exp, "", sample.replace(".bam", "").replace("ds.", ""))
-            for sample in sample_matches[col]
-        ]
-    sample_matches = sample_matches.sort_values(by=["sample_id_0"]).reset_index(
-        drop=True
-    )
+    def normalize_sample_label(sample):
+        normalized = re.sub(
+            regex_exp,
+            "",
+            str(sample).replace(".bam", ""),
+        )
+        normalized = normalized.replace("ds.", "")
+        return normalized.replace("-", "_")
 
-    # Vireo will not include all samples in the results if we're comparing two sets of samples of unequal length
-    # We have to get a list of all samples from another tool's results
-    hysys_df, _ = parse_heatmap_matrix_hysys(
-        DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
-    )
-    all_mod1_samples = sorted(set([s for s in hysys_df.index if mod1 in s]))
-    all_mod2_samples = sorted(set([s for s in hysys_df["Sample"] if mod2 in s]))
+    matched_pairs = {
+        (
+            normalize_sample_label(sample0),
+            normalize_sample_label(sample1),
+        )
+        for sample0, sample1 in matched_pairs[["sample_id_0", "sample_id_1"]].itertuples(
+            index=False, name=None
+        )
+    }
+    normalized_columns = {
+        column: normalize_sample_label(column) for column in predictions.columns
+    }
+    for row_label in predictions.index:
+        normalized_row = normalize_sample_label(row_label)
+        for column_label, normalized_column in normalized_columns.items():
+            pair = (normalized_row, normalized_column)
+            reverse_pair = (normalized_column, normalized_row)
+            if pair in matched_pairs or reverse_pair in matched_pairs:
+                predictions.loc[row_label, column_label] = 1.0
 
-    # Create all possible pairs of samples
-    all_pairs = [(s1, s2) for s1 in all_mod1_samples for s2 in all_mod2_samples]
-    all_pairs_df = pd.DataFrame(all_pairs, columns=["sample_id_0", "sample_id_1"])
-
-    # Add a "match" column: 1 if pair is in sample_matches, 0 otherwise
-    sample_matches_set = set(
-        zip(sample_matches["sample_id_0"], sample_matches["sample_id_1"])
-    )
-    all_pairs_df["match"] = all_pairs_df.apply(
-        lambda row: (
-            1 if (row["sample_id_1"], row["sample_id_0"]) in sample_matches_set else 0
-        ),
-        axis=1,
-    )
-    # Turn long data into matrix
-    sample_matches = all_pairs_df.pivot_table(
-        index="sample_id_0",
-        columns="sample_id_1",
-        values="match",
-        aggfunc="first",
-    )
-
-    return sample_matches
+    return predictions
 
 
 def load_sample_matching_results(
@@ -2051,6 +2045,8 @@ def load_sample_matching_results(
     rd2=None,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
+    threshold=None,
+    standardized_heatmaps_path=None,
 ):
 
     if rd2 is not None:
@@ -2069,8 +2065,25 @@ def load_sample_matching_results(
                 DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
             )
         elif tool == "Conpair":
-            sample_matches = parse_sample_matching_results_conpair(
-                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            parser_args = (
+                DATA_PATH,
+                pseudobulk,
+                dataset,
+                ncells,
+                mod1,
+                mod2,
+            )
+            sample_matches = (
+                parse_sample_matching_results_conpair(
+                    *parser_args,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
+                if threshold is None
+                else parse_sample_matching_results_conpair(
+                    *parser_args,
+                    threshold=threshold,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
             )
         elif tool == "CrosscheckFingerprints":
             sample_matches = parse_sample_matching_results_crosscheckfingerprints(
@@ -2086,27 +2099,80 @@ def load_sample_matching_results(
             )
         elif tool == "ntsm":
             sample_matches = parse_sample_matching_results_ntsm(
-                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+                DATA_PATH,
+                pseudobulk,
+                dataset,
+                ncells,
+                mod1,
+                mod2,
+                standardized_heatmaps_path=standardized_heatmaps_path,
             )
         elif tool == "OmicsPrint":
-            sample_matches = parse_sample_matching_results_omicsprint(
-                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            parser_args = (DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2)
+            sample_matches = (
+                parse_sample_matching_results_omicsprint(
+                    *parser_args,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
+                if threshold is None
+                else parse_sample_matching_results_omicsprint(
+                    *parser_args,
+                    threshold=threshold,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
             )
         elif tool == "Peddy":
-            sample_matches = parse_sample_matching_results_peddy(
-                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            parser_args = (DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2)
+            sample_matches = (
+                parse_sample_matching_results_peddy(
+                    *parser_args,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
+                if threshold is None
+                else parse_sample_matching_results_peddy(
+                    *parser_args,
+                    threshold=threshold,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
             )
         elif tool == "Somalier":
-            sample_matches = parse_sample_matching_results_somalier(
-                DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2
+            parser_args = (DATA_PATH, pseudobulk, dataset, ncells, mod1, mod2)
+            sample_matches = (
+                parse_sample_matching_results_somalier(
+                    *parser_args,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
+                if threshold is None
+                else parse_sample_matching_results_somalier(
+                    *parser_args,
+                    threshold=threshold,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
             )
         elif tool == "TimeAttackGenComp":
-            sample_matches = parse_sample_matching_results_timeattackgencomp(
-                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+            parser_args = (DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2)
+            sample_matches = (
+                parse_sample_matching_results_timeattackgencomp(
+                    *parser_args,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
+                if threshold is None
+                else parse_sample_matching_results_timeattackgencomp(
+                    *parser_args,
+                    threshold=threshold,
+                    standardized_heatmaps_path=standardized_heatmaps_path,
+                )
             )
         elif tool == "Vireo":
             sample_matches = parse_sample_matching_results_vireo(
-                DATA_PATH, pseudobulk, dataset, ncells, rd, mod1, mod2
+                DATA_PATH,
+                pseudobulk,
+                dataset,
+                ncells,
+                rd,
+                mod1,
+                mod2,
+                standardized_heatmaps_path=standardized_heatmaps_path,
             )
         else:
             print(f"Error! Do not recognize tool {tool}")
