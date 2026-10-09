@@ -1,20 +1,84 @@
 import os
 import re
+from pathlib import Path
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.cm import ScalarMappable
 
 from analysis_shared_functions import (
-    load_heatmap_data,
     order_matrix_by_expected_matches,
 )
-from accuracy_functions import (
+from visualization.accuracy_calculations import (
     load_expected_matches_real_data,
     accuracy_metrics_averaged_over_iterations,
     count_matches_real_data,
-    loop_accuracy_calculations,
 )
+
+
+_READ_DEPTH_INDEPENDENT_TOOLS = {"BAMixChecker", "Conpair", "Somalier", "ntsm"}
+
+
+def _standardized_heatmap_path(
+    tool, dataset, ncells, read_depth, mod1, mod2, pseudobulk
+):
+    root = (
+        Path(__file__).resolve().parent.parent
+        / "benchmarking"
+        / "data"
+        / "standardized_heatmaps"
+    )
+    if pseudobulk:
+        relative_path = Path(dataset) / "pseudobulk" / f"ncells_{ncells}"
+    else:
+        relative_path = Path(dataset) / f"{mod1}_vs_{mod2}" / "ncells_null"
+    if tool not in _READ_DEPTH_INDEPENDENT_TOOLS:
+        depth = str(read_depth).removeprefix("read_depth_")
+        read_depth_path = relative_path / f"read_depth_{depth}"
+        path = root / read_depth_path / f"{tool}.csv"
+        if path.is_file():
+            return path
+
+        # Some exports were standardized with a shared scalar depth (e.g. 0)
+        # even when plot callers pass the modality-qualified depth tag.
+        mod2_marker = f"_{mod2}_"
+        if depth.startswith(f"{mod1}_") and mod2_marker in depth:
+            mod1_depth, mod2_depth = depth[len(mod1) + 1 :].split(
+                mod2_marker, maxsplit=1
+            )
+            if mod1_depth == mod2_depth:
+                return root / relative_path / f"read_depth_{mod1_depth}" / f"{tool}.csv"
+        return path
+    return root / relative_path / f"{tool}.csv"
+
+
+def _load_standardized_heatmap(
+    data_path, pseudobulk, tool, dataset, ncells, read_depth, mod1, mod2
+):
+    path = _standardized_heatmap_path(
+        tool, dataset, ncells, read_depth, mod1, mod2, pseudobulk
+    )
+    if not path.is_file():
+        print(f"No standardized heatmap found for {tool}: {path}")
+        return None
+    return pd.read_csv(path, index_col=0)
+
+
+def _load_saved_pseudobulk_accuracy(accuracy_path=None):
+    if accuracy_path is None:
+        accuracy_path = (
+            Path(__file__).resolve().parent.parent
+            / "benchmarking"
+            / "data"
+            / "pseudobulk_accuracy.csv"
+        )
+    path = Path(accuracy_path)
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Saved pseudobulk accuracy calculations not found: {path}"
+        )
+    return pd.read_csv(path)
 
 
 METRIC_LABELS = {
@@ -214,7 +278,7 @@ def bulk_vs_singlecell_matrix_viz(
         fig_name = f"{dataset}_{tool}_rd{rd_to_load}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
-    matrix_df = load_heatmap_data(
+    matrix_df = _load_standardized_heatmap(
         DATA_PATH, pseudobulk, tool, dataset, ncells, rd_to_load, mod1, mod2
     )
     if matrix_df is None:
@@ -329,7 +393,7 @@ def all_samples_matrix_viz(
     else:
         fig_name = f"{dataset}_{tool}_rd{rd}_all_samples_similarity_matrix"
 
-    matrix_df = load_heatmap_data(
+    matrix_df = _load_standardized_heatmap(
         DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1, mod2
     )
     if matrix_df is not None:
@@ -397,7 +461,7 @@ def super_plot_heatmaps_pseudobulk(
     for dataset in datasets:
         for tool in tools:
             crosscheck_extreme_point = None
-            matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd, "_1", "_2")
+            matrix = _load_standardized_heatmap(DATA_PATH, True, tool, dataset, ncells, rd, "_1", "_2")
 
             if matrix is not None:
                 if experiment == "pseudobulk_vs_sc":
@@ -519,6 +583,7 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
     rd,
     experiment,
     save_fig=False,
+    accuracy_path=None,
 ):
 
     fig_name = f"superplot_pseudobulk_{dataset}_rd_{rd}_similarity_matrix_accuracy"
@@ -532,7 +597,7 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
     # Find all the sample similarity data for the plots
     for ncells in ncells_list:
         for tool in tools:
-            matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd)
+            matrix = _load_standardized_heatmap(DATA_PATH, True, tool, dataset, ncells, rd, "_1", "_2")
 
             if matrix is not None:
                 if experiment == "pseudobulk_vs_sc":
@@ -563,14 +628,13 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                     tool_extreme_points[tool] = extreme_point
 
     # Calculate accuracy metrics for all heatmaps in the grid
-    accuracy_df = loop_accuracy_calculations(
-        DATA_PATH=DATA_PATH,
-        experiment="pseudobulk",
-        tools=tools,
-        datasets=[dataset],
-        ncells_list=ncells_list,
-        read_depths=[rd],
-    )
+    accuracy_df = _load_saved_pseudobulk_accuracy(accuracy_path)
+    accuracy_df = accuracy_df.loc[
+        accuracy_df["dataset"].eq(dataset)
+        & accuracy_df["ncells"].isin(ncells_list)
+        & accuracy_df["read depth"].eq(rd)
+        & accuracy_df["tool"].isin(tools)
+    ]
 
     # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
@@ -807,7 +871,7 @@ def super_plot_heatmaps_real_data(
     # Find all the data for the plots
     for i, tool in enumerate(tools):
         for rd1, rd2, rd_to_load in rd_pairs:
-            matrix = load_heatmap_data(
+            matrix = _load_standardized_heatmap(
                 DATA_PATH, False, tool, dataset, "null", rd_to_load, mod1, mod2
             )
             if matrix is not None:
@@ -1075,12 +1139,12 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
     for i, mod1 in enumerate(mod_list1):
         for j, mod2 in enumerate(mod_list2):
 
-            matrix = load_heatmap_data(
+            matrix = _load_standardized_heatmap(
                 DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2
             )
             if matrix is None:
                 # Try loading the transposed matrix in case of swapped axes in the output
-                matrix = load_heatmap_data(
+                matrix = _load_standardized_heatmap(
                     DATA_PATH, False, tool, dataset, "null", rd, mod2, mod1
                 )
 
@@ -1406,7 +1470,12 @@ def accuracy_metrics_errorbar_plot_missing_samples(
     """
     fig_name = f"pseudobulk_{dataset}_accuracy_metrics_errorbar_plot_{experiment}_rd{rd}_ncells{ncells}"
     df = accuracy_metrics_averaged_over_iterations(
-        DATA_PATH, n_iterations, dataset, ncells, rd, n_samples_removed, experiment
+        n_iterations,
+        dataset,
+        ncells,
+        rd,
+        n_samples_removed,
+        experiment,
     )
     # Get unique tools and n_samples_removed values
     tools = df["tool"].unique()
@@ -1609,13 +1678,15 @@ def super_plot_heatmaps_uneven_pseudobulk(
     # Find all the data for the plots
     for ncells_2 in ncells_2_list:
         for rd in read_depths:
-            matrix = load_heatmap_data(
-                DATA_PATH + f"uneven_pseudobulk_sizes/ncells_{ncells_2}/",
+            matrix = _load_standardized_heatmap(
+                DATA_PATH,
                 True,
                 tool,
                 dataset,
                 ncells_1,
                 rd,
+                "_1",
+                "_2",
             )
 
             if matrix is not None:
@@ -1827,7 +1898,7 @@ def barplot_matches_nonmatches_na(
     fig_name = f"barplot_matches_{dataset}_{mod1}_vs_{mod2}"
 
     results_df = count_matches_real_data(
-        DATA_PATH=DATA_PATH,
+        expected_matches_path=DATA_PATH,
         tools=tools,
         dataset=dataset,
         read_depths_mod1=read_depths_mod1,
@@ -1944,7 +2015,7 @@ def plot_combined_heatmaps_datasets(
     # Load and prepare Wilms' tumor heatmap
     mod1_wt = "bulk"
     mod2_wt = "single-nucleus"
-    matrix_wt = load_heatmap_data(
+    matrix_wt = _load_standardized_heatmap(
         DATA_PATH,
         False,
         "Conpair",
@@ -1974,7 +2045,7 @@ def plot_combined_heatmaps_datasets(
     # Load and prepare HGSOC heatmap
     mod2_hgsoc = "bulk_dissociated_ribo"
     mod1_hgsoc = "single-cell"
-    matrix_hgsoc = load_heatmap_data(
+    matrix_hgsoc = _load_standardized_heatmap(
         DATA_PATH,
         False,
         "Conpair",
@@ -2006,7 +2077,7 @@ def plot_combined_heatmaps_datasets(
     # Load and prepare low-grade glioma heatmap
     mod1_lgg = "bulk"
     mod2_lgg = "single-cell"
-    matrix_lgg = load_heatmap_data(
+    matrix_lgg = _load_standardized_heatmap(
         DATA_PATH,
         False,
         "Conpair",
@@ -2144,7 +2215,7 @@ def row_heatmap_plot_real_data(
     prepared_matrices: list = []
     width_ratios = []
     for tool in tools:
-        matrix = load_heatmap_data(
+        matrix = _load_standardized_heatmap(
             DATA_PATH,
             False,
             tool,
@@ -2317,7 +2388,7 @@ def double_row_heatmap_plot_real_data(
     prepared_matrices: list = []
     width_ratios = []
     for tool in tools:
-        matrix = load_heatmap_data(
+        matrix = _load_standardized_heatmap(
             DATA_PATH,
             False,
             tool,
