@@ -3,6 +3,7 @@ import unittest
 import pandas as pd
 
 from accuracy_calculations import calculate_accuracy_metrics_pseudobulk
+from analysis_shared_functions import true_matches_pseudobulk
 
 
 class CalculateAccuracyMetricsPseudobulkTests(unittest.TestCase):
@@ -14,6 +15,27 @@ class CalculateAccuracyMetricsPseudobulkTests(unittest.TestCase):
         self.assertEqual(len(actual), len(expected))
         for actual_value, expected_value in zip(actual, expected):
             self.assertAlmostEqual(float(str(actual_value)), expected_value)
+
+    def test_true_matches_uses_sample_prefix_and_preserves_axes(self):
+        rows = [
+            "GSM7305260_pseudobulk_n_barcodes_10000_1",
+            "GSM7305261_pseudobulk_n_barcodes_10000_1",
+        ]
+        columns = [
+            "GSM7305260_pseudobulk_n_barcodes_10000_2",
+            "GSM7305261_pseudobulk_n_barcodes_10000_2",
+        ]
+        matrix = pd.DataFrame([[0, 0], [0, 0]], index=rows, columns=columns)
+
+        true_matches = true_matches_pseudobulk(matrix)
+
+        self.assertEqual(true_matches.shape, matrix.shape)
+        self.assertEqual(true_matches.index.tolist(), rows)
+        self.assertEqual(true_matches.columns.tolist(), columns)
+        self.assertEqual(
+            true_matches.to_numpy().tolist(),
+            [[1.0, 0.0], [0.0, 1.0]],
+        )
 
     def test_perfect_matches_and_nonmatches(self):
         inferred = pd.DataFrame(
