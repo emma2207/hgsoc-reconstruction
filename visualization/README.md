@@ -20,3 +20,5 @@ By default, standardized heatmaps are stored in `../benchmarking/data/standardiz
 Run `python accuracy_calculations.py --help` for pseudobulk accuracy options. For example: `python accuracy_calculations.py --experiment basic --tools Conpair HYSYS Vireo --datasets high_grade_glioma --ncells-list 10000 50000 --read-depths 0 10 --output accuracy_results.csv`. It reads prediction CSVs from `../benchmarking/data/standardized_predictions` by default; override that root with `--standardized-predictions-path`.
 
 A conda environment for everything is found in **analysis.yml**.
+
+Run the heatmap parser/export integration tests from this directory with `python -m unittest discover -s tests -v`.

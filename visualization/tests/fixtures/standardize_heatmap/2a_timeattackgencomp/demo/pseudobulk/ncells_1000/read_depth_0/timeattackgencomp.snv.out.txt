@@ -1,0 +1,6 @@
+	GSM0000001_pseudobulk_n_barcodes_1000_1_individual_variants	GSM0000001_pseudobulk_n_barcodes_1000_2_individual_variants	GSM0000002_pseudobulk_n_barcodes_1000_1_individual_variants	GSM0000002_pseudobulk_n_barcodes_1000_2_individual_variants
+GSM0000001_pseudobulk_n_barcodes_1000_1_individual_variants	0.0	0.01	0.3	0.4
+GSM0000001_pseudobulk_n_barcodes_1000_2_individual_variants	0.01	0.0	0.35	0.45
+GSM0000002_pseudobulk_n_barcodes_1000_1_individual_variants	0.3	0.35	0.0	0.02
+GSM0000002_pseudobulk_n_barcodes_1000_2_individual_variants	0.4	0.45	0.02	0.0
+footer	0	0	0	0

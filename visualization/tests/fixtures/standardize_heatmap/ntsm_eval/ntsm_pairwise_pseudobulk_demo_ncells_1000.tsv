@@ -1,0 +1,3 @@
+sample1	sample2	score	same	dist	relate	ibs0	ibs2	homConcord	het1	het2	sharedHet	hom1	hom2	sharedHom	n
+counts_GSM0000001_pseudobulk_n_barcodes_1000_1.txt	counts_GSM0000001_pseudobulk_n_barcodes_1000_2.txt	0.91	1	-1	0.42	2	20	0.8	10	11	8	20	19	17	25
+counts_GSM0000002_pseudobulk_n_barcodes_1000_1.txt	counts_GSM0000002_pseudobulk_n_barcodes_1000_2.txt	0.88	1	-1	0.33	3	19	0.9	11	12	9	19	18	16	24

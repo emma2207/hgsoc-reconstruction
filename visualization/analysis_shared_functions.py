@@ -1658,7 +1658,7 @@ def parse_sample_matching_results_hysys(
     # Create DataFrame with all pairs
     pair_data = []
     for pair in all_pairs:
-        if pair in inconclusive_pairs:
+        if pair in inconclusive_pairs or pair[::-1] in inconclusive_pairs:
             match_status = float("nan")  # inconclusive
         elif pair in related_pairs or pair[::-1] in related_pairs:
             match_status = 1  # related pairs are predicted matches

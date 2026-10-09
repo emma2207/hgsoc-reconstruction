@@ -1,0 +1,4 @@
+sample_a,sample_b,rel_difference
+GSM0000001_pseudobulk_n_barcodes_1000_1.bam,GSM0000001_pseudobulk_n_barcodes_1000_2.bam,0.0
+GSM0000002_pseudobulk_n_barcodes_1000_1.bam,GSM0000001_pseudobulk_n_barcodes_1000_2.bam,0.125
+GSM0000002_pseudobulk_n_barcodes_1000_1.bam,GSM0000002_pseudobulk_n_barcodes_1000_2.bam,0.0

@@ -1,0 +1,4 @@
+#sample_a	sample_b	concordance	relatedness
+GSM0000001_pseudobulk_n_barcodes_1000_1	GSM0000001_pseudobulk_n_barcodes_1000_2	1.0	0.91
+GSM0000002_pseudobulk_n_barcodes_1000_1	GSM0000001_pseudobulk_n_barcodes_1000_2	0.12	0.08
+GSM0000002_pseudobulk_n_barcodes_1000_1	GSM0000002_pseudobulk_n_barcodes_1000_2	1.0	0.89

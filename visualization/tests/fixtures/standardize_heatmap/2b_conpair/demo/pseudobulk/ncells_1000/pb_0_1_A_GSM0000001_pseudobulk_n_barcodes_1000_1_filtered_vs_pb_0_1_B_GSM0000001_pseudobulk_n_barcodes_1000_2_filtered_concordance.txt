@@ -1,0 +1,4 @@
+Concordance: 97.25%
+Based on 41/7353 markers (coverage per marker threshold : 3 reads)
+Minimum mapping quality: 0
+Minimum base quality: 10
