@@ -1360,6 +1360,10 @@ def parse_heatmap_matrix_vireo(
         matrix.columns = matrix.columns.str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
         matrix.index = matrix.index.str.replace(f"_{mod1}", "", 1).str.replace(f"_{mod2}", "", 1)
 
+    # Symmetrize the similarity matrix across pairs so comparisons are available
+    # in both (mod1, mod2) and (mod2, mod1) orientations.
+    matrix = matrix.combine_first(matrix.T)
+
     # Vireo does not always return rows/columns for all samples, so we may have missing entries in the matrix
     # We add missing rows and columns with NaN values to ensure all samples are represented
     # Missing samples are identified using CrosscheckFingerprints
