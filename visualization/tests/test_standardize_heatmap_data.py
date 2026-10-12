@@ -261,6 +261,32 @@ class StandardizeHeatmapParsingTests(unittest.TestCase):
             0.02,
         )
 
+    def test_vireo_similarity_matrix_supports_transposed_modality_order(self):
+        output_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(output_dir.cleanup)
+        paths = export_heatmap_matrices(
+            data_path=FIXTURE_DATA,
+            output_dir=output_dir.name,
+            dataset="demo",
+            tools=["Vireo"],
+            read_depth="0",
+            mod1="_2",
+            mod2="_1",
+            pseudobulk=True,
+            ncells=1000,
+        )
+        self.assertEqual(len(paths), 1)
+        result = pd.read_csv(paths[0], index_col=0)
+        self.assertEqual(result.shape, (2, 2))
+        self.assertAlmostEqual(
+            float(str(result.loc["GSM0000001_pseudobulk_n_barcodes_1000_2", "GSM0000001_pseudobulk_n_barcodes_1000_1"])),
+            0.01,
+        )
+        self.assertAlmostEqual(
+            float(str(result.loc["GSM0000002_pseudobulk_n_barcodes_1000_2", "GSM0000002_pseudobulk_n_barcodes_1000_1"])),
+            0.02,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
