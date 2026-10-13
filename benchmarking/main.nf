@@ -93,7 +93,7 @@ workflow {
 
     // 2b. Run similarity analysis tools in parallel on filtered BAMs
     BAMIXCHECKER(filtered_bams.bam.collect(), modalities)
-    conpair_pairs = filtered_bams.bam.collect().flatMap { bams ->
+    conpair_pairs = filtered_bams.bam.collect(flat: false).flatMap { bams ->
             if (params.pseudobulk) {
                 def bams_1 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_1_filtered$/ }
                 def bams_2 = bams.findAll { bam -> bam.baseName.toString() ==~ /.*_2_filtered$/ }
@@ -130,7 +130,7 @@ workflow {
                 }
             }
     }
-    conpair_all_pairs = conpair_pairs.collect()
+    conpair_all_pairs = conpair_pairs.collect(flat: false)
     conpair_pileup_inputs = conpair_all_pairs.flatMap { all_pairs ->
         def bam_by_path = [:]
         all_pairs.each { pair ->
@@ -146,7 +146,7 @@ workflow {
     CONPAIR_PILEUP(conpair_pileup_inputs)
 
     conpair_pileup_map = CONPAIR_PILEUP.out.pileup
-        .collect()
+        .collect(flat: false)
         .map { records -> records.collectEntries { record -> [(record[0]): record[1]] } }
 
     conpair_pair_contexts = conpair_all_pairs.flatMap { all_pairs ->
