@@ -706,7 +706,7 @@ def parse_heatmap_matrix_crosscheckfingerprints(
     else:
         rd_path = _resolve_read_depth_path(
             DATA_PATH, "2a_fingerprints", dataset, pseudobulk, ncells,
-            f"{mod1}_0_{mod2}_0", mod1, mod2,
+            rd, mod1, mod2,
         )
     file_path = os.path.join(rd_path, "crosscheck_metrics.txt")
     df = pd.read_csv(
@@ -767,7 +767,7 @@ def parse_heatmap_matrix_hysys(
     else:
         rd_path = _resolve_read_depth_path(
             DATA_PATH, "2a_hysys", dataset, pseudobulk, ncells,
-            f"{mod1}_0_{mod2}_0", mod1, mod2,
+            rd, mod1, mod2,
         )
     file_path = os.path.join(rd_path, "concordance_output.txt")
 
@@ -828,7 +828,7 @@ def parse_heatmap_matrix_ngscheckmate(
     else:
         rd_path = _resolve_read_depth_path(
             DATA_PATH, "2a_ngscheckmate", dataset, pseudobulk, ncells,
-            f"{mod1}_0_{mod2}_0", mod1, mod2,
+            rd, mod1, mod2,
         )
     file_path = os.path.join(rd_path, "output_all.txt")
     correlation_matrix_path = os.path.join(
@@ -994,8 +994,8 @@ def parse_heatmap_matrix_ntsm(
                     ntsm_df,
                     pd.DataFrame(
                         [
-                            {"sample1": pair[0], "sample2": pair[1], "relate": np.nan},
-                            {"sample1": pair[1], "sample2": pair[0], "relate": np.nan},
+                            {"sample1": pair[0], "sample2": pair[1], "relate": 0},
+                            {"sample1": pair[1], "sample2": pair[0], "relate": 0},
                         ]
                     ),
                 ],
@@ -1037,7 +1037,7 @@ def parse_heatmap_matrix_omicsprint(
     else:
         rd_path = _resolve_read_depth_path(
             DATA_PATH, "2a_omicsprint", dataset, pseudobulk, ncells,
-            f"{mod1}_0_{mod2}_0", mod1, mod2,
+            rd, mod1, mod2,
         )
     nested_file_path = os.path.join(
         rd_path, "omicsprint", "omicsprint_allele_sharing.tsv"
@@ -1123,7 +1123,7 @@ def parse_heatmap_matrix_peddy(
     else:
         rd_path = _resolve_read_depth_path(
             DATA_PATH, "2a_peddy", dataset, pseudobulk, ncells,
-            f"{mod1}_0_{mod2}_0", mod1, mod2,
+            rd, mod1, mod2,
         )
     file_path = os.path.join(rd_path, "output.ped_check.csv")
     df = pd.read_csv(
@@ -1276,7 +1276,7 @@ def parse_heatmap_matrix_timeattackgencomp(
     else:
         rd_path = _resolve_read_depth_path(
             DATA_PATH, "2a_timeattackgencomp", dataset, pseudobulk, ncells,
-            f"{mod1}_0_{mod2}_0", mod1, mod2,
+            rd, mod1, mod2,
         )
     file_path = os.path.join(rd_path, "timeattackgencomp.snv.out.txt")
 
@@ -1336,7 +1336,7 @@ def parse_heatmap_matrix_vireo(
     else:
         rd_path = _resolve_read_depth_path(
             DATA_PATH, "2a_vireo", dataset, pseudobulk, ncells,
-            f"{mod1}_0_{mod2}_0", mod1, mod2,
+            rd, mod1, mod2,
         )
     file_path = os.path.join(rd_path, "similarity_matrix.csv")
     matrix = pd.read_csv(
@@ -1372,7 +1372,7 @@ def parse_heatmap_matrix_vireo(
         pseudobulk,
         dataset,
         ncells,
-        rd=0,
+        rd=rd,
         mod1=mod1,
         mod2=mod2,
     )
@@ -1400,6 +1400,39 @@ def parse_heatmap_matrix_vireo(
 #######################################################
 ### Functions to parse tool outputs and create sample match dataframes
 #######################################################
+_READ_DEPTH_INDEPENDENT_TOOLS = {"BAMixChecker", "Conpair", "Somalier", "ntsm"}
+
+
+def _standardized_heatmap_file(
+    root, tool, dataset, ncells, read_depth, mod1, mod2, pseudobulk
+):
+    if pseudobulk:
+        if ncells is None:
+            raise ValueError("ncells is required for pseudobulk heatmap loading")
+        relative_path = os.path.join(dataset, "pseudobulk", f"ncells_{ncells}")
+    else:
+        relative_path = os.path.join(dataset, f"{mod1}_vs_{mod2}", "ncells_null")
+
+    if tool in _READ_DEPTH_INDEPENDENT_TOOLS:
+        return os.path.join(root, relative_path, f"{tool}.csv")
+
+    depth = str(read_depth).removeprefix("read_depth_")
+    path = os.path.join(root, relative_path, f"read_depth_{depth}", f"{tool}.csv")
+    if os.path.isfile(path):
+        return path
+
+    # Exports with a shared scalar depth (e.g. 0) may be requested with the
+    # modality-qualified tag "<mod1>_<rd>_<mod2>_<rd>".
+    marker = f"_{mod2}_"
+    if depth.startswith(f"{mod1}_") and marker in depth:
+        rd1, rd2 = depth[len(mod1) + 1 :].split(marker, maxsplit=1)
+        if rd1 == rd2:
+            return os.path.join(
+                root, relative_path, f"read_depth_{rd1}", f"{tool}.csv"
+            )
+    return path
+
+
 def _load_standardized_heatmap_matrix(
     tool,
     dataset,
@@ -1409,8 +1442,14 @@ def _load_standardized_heatmap_matrix(
     mod2,
     pseudobulk,
     standardized_heatmaps_path=None,
+    missing_ok=False,
 ):
-    """Load a numeric heatmap matrix previously exported by standardize_heatmap_data.py."""
+    """Load a heatmap exported by standardize_heatmap_data.py.
+
+    Real-data exports are stored in one modality order; if only the opposite
+    order exists, it is loaded and transposed. If missing_ok, a missing file
+    prints a warning and returns None instead of raising.
+    """
     if standardized_heatmaps_path is None:
         standardized_heatmaps_path = os.path.abspath(
             os.path.join(
@@ -1422,28 +1461,46 @@ def _load_standardized_heatmap_matrix(
             )
         )
 
-    if pseudobulk:
-        if ncells is None:
-            raise ValueError("ncells is required for pseudobulk heatmap loading")
-        relative_path = os.path.join(dataset, "pseudobulk", f"ncells_{ncells}")
-    else:
-        relative_path = os.path.join(
-            dataset, f"{mod1}_vs_{mod2}", "ncells_null"
-        )
+    file_path = _standardized_heatmap_file(
+        standardized_heatmaps_path,
+        tool,
+        dataset,
+        ncells,
+        read_depth,
+        mod1,
+        mod2,
+        pseudobulk,
+    )
+    if os.path.isfile(file_path):
+        return pd.read_csv(file_path, index_col=0)
 
-    if tool not in {"BAMixChecker", "Conpair", "Somalier", "ntsm"}:
-        read_depth_component = str(read_depth).removeprefix("read_depth_")
-        relative_path = os.path.join(
-            relative_path, f"read_depth_{read_depth_component}"
+    if not pseudobulk:
+        swapped_depth = str(read_depth)
+        marker = f"_{mod2}_"
+        if swapped_depth.startswith(f"{mod1}_") and marker in swapped_depth:
+            rd1, rd2 = swapped_depth[len(mod1) + 1 :].split(marker, maxsplit=1)
+            swapped_depth = f"{mod2}_{rd2}_{mod1}_{rd1}"
+        swapped_file = _standardized_heatmap_file(
+            standardized_heatmaps_path,
+            tool,
+            dataset,
+            ncells,
+            swapped_depth,
+            mod2,
+            mod1,
+            pseudobulk,
         )
+        if os.path.isfile(swapped_file):
+            return pd.read_csv(swapped_file, index_col=0).T
 
-    file_path = os.path.join(standardized_heatmaps_path, relative_path, f"{tool}.csv")
-    if not os.path.isfile(file_path):
-        raise FileNotFoundError(
-            f"Standardized heatmap not found for {tool}: {file_path}. "
-            "Run standardize_heatmap_data.py first."
-        )
-    return pd.read_csv(file_path, index_col=0)
+    message = (
+        f"Standardized heatmap not found for {tool}: {file_path}. "
+        "Run standardize_heatmap_data.py first."
+    )
+    if missing_ok:
+        print(message)
+        return None
+    raise FileNotFoundError(message)
 
 
 def parse_sample_matching_results_bamixchecker(

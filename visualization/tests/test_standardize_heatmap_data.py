@@ -1,3 +1,8 @@
+"""
+Run from visualization/ with:
+python -m unittest discover -s tests -p 'test_standardize_heatmap_data.py'
+"""
+
 import tempfile
 import unittest
 from pathlib import Path
@@ -185,7 +190,7 @@ class StandardizeHeatmapParsingTests(unittest.TestCase):
             float(str(result.loc["GSM0000002_pseudobulk_n_barcodes_1000_1", "GSM0000002_pseudobulk_n_barcodes_1000_2"])),
             0.33,
         )
-        self.assertTrue(pd.isna(result.loc["GSM0000002_pseudobulk_n_barcodes_1000_1", "GSM0000001_pseudobulk_n_barcodes_1000_2"]))
+        self.assertEqual(pd.isna(result.loc["GSM0000002_pseudobulk_n_barcodes_1000_1", "GSM0000001_pseudobulk_n_barcodes_1000_2"]), 0)
 
     def test_omicsprint_allele_sharing_table_is_parsed(self):
         result = self._export_tool("OmicsPrint")
