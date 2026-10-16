@@ -6,14 +6,19 @@ process NTSM_EVAL {
 
     input:
     path(count_files)
+    val(modalities)
 
     output:
-    path('ntsm_pairwise.tsv', optional: true)
+    path('ntsm_pairwise_*.tsv', optional: true)
 
     script:
+    def modalitiesStr = (modalities instanceof Collection) ? modalities.join('_') : modalities.toString()
+    def outputFile = params.pseudobulk
+        ? "ntsm_pairwise_pseudobulk_${params.dataset}_ncells_${params.ncells}.tsv"
+        : "ntsm_pairwise_${modalitiesStr}_${params.dataset}.tsv"
     """
     set -euo pipefail
 
-    ntsmEval ${count_files} > ntsm_pairwise.tsv
+    ntsmEval ${count_files} > ${outputFile}
     """
 }

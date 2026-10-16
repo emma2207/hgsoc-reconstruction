@@ -3,6 +3,7 @@
 nextflow.enable.dsl = 2
 
 include { PROCESS_METADATA } from './modules/process_metadata.nf'
+include { PSEUDOBULK_BAM_TO_FASTQ } from './modules/pseudobulk_bam_to_fastq.nf'
 include { NTSM_COUNT } from './modules/ntsm_count.nf'
 include { NTSM_EVAL } from './modules/ntsm_eval.nf'
 
@@ -16,38 +17,76 @@ def collectRunsDynamic(row, prefix) {
     def sorted = matched.sort { a, b ->
         (a =~ /\d+$/)[0].toInteger() <=> (b =~ /\d+$/)[0].toInteger()
     }
-    def values = sorted.collect { k -> row[k]?.toString()?.trim() }.findAll { it }
-    def files = values.collect { file(it) }
+    def values = sorted.collect { k -> row[k]?.toString()?.trim() }.findAll { value -> value }
+    def files = values.collect { value -> file(value) }
 
     return files
 }
 
+// Single-end runs have no real R2 files; lazily create an empty gzipped
+// placeholder so NTSM_COUNT's required R2 path input is always satisfied.
+def emptyR2Placeholder() {
+    def placeholder = file("${workDir}/ntsm_empty_R2.fastq.gz")
+    if (!placeholder.exists()) {
+        placeholder.parent.mkdirs()
+        new java.util.zip.GZIPOutputStream(new FileOutputStream(placeholder.toString())).close()
+    }
+    return placeholder
+}
+
 workflow {
-    modalities = ["bulk_dissociated_polyA", "bulk_chunk_ribo"]
-    metadata_patterns = modalities.collect { mod ->
-        "${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${mod}_${params.dataset}_${params.read_type}.csv" 
-    }
-    fastq_patterns = modalities.collect { mod -> 
-        "${params.petaLibrary}/raw_reads/${params.dataset}/${mod}"
-    }
+    if (!params.pseudobulk) {
+        modalities = ["bulk", "single-nucleus"]
 
-    metadata_ch = channel.fromPath(metadata_patterns)
-    fastq_dir_ch = channel.fromPath(fastq_patterns, type: 'dir')
-    metadata_ch.view { x -> "Metadata files: ${x}"}
-    fastq_dir_ch.view { x -> "Fastq files: ${x}" }
-
-    mapping_csv = PROCESS_METADATA(metadata_ch, fastq_dir_ch)
-
-    sample_fastqs = mapping_csv.splitCsv(header: true)
-            .map { row ->
-                tuple(
-                    row.'Sample Name',
-                    collectRunsDynamic(row, 'R1_path'),
-                    collectRunsDynamic(row, 'R2_path')
-                )
+        // Key metadata and fastq dir channels by modality, then join so each
+        // metadata file is always paired with its own modality's fastq dir.
+        metadata_ch = channel.fromList(modalities)
+            .map { mod ->
+                tuple(mod, file("${params.petaLibrary}/metadata/sra_run_tables/SraRunTable_${mod}_${params.dataset}_${params.read_type}.csv"))
             }
-        .view { row -> "Sample fastq dirs: ${row}" }
+        fastq_dir_ch = channel.fromList(modalities)
+            .map { mod ->
+                tuple(mod, file("${params.petaLibrary}/raw_reads/${params.dataset}/${mod}", type: 'dir'))
+            }
+        metadata_ch.view { x -> "Metadata files: ${x}"}
+        fastq_dir_ch.view { x -> "Fastq files: ${x}" }
+
+        // join on modality so each metadata file is paired with its own fastq dir
+        // in a single 3-element tuple, matching PROCESS_METADATA's input declaration
+        process_metadata_ch = metadata_ch.join(fastq_dir_ch)
+
+        mapping_csv = PROCESS_METADATA(process_metadata_ch)
+
+        // elem: 1 tells splitCsv the CSV path lives at tuple index 1, keeping modality at index 0
+        sample_fastqs = mapping_csv.splitCsv(header: true, elem: 1)
+                .map { mod, row ->
+                    def r2_paths = params.read_type == 'single' ? [emptyR2Placeholder()] : collectRunsDynamic(row, 'R2_path')
+                    tuple(
+                        mod,
+                        row.'Sample Name',
+                        collectRunsDynamic(row, 'R1_path'),
+                        r2_paths
+                    )
+                }
+            .view { row -> "Sample fastq dirs: ${row}" }
+    } 
+    else {
+        modalities = ["pseudobulk"]
+        pseudobulk_bam_pattern = "${params.prepared_bam_dir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.bam"
+        pseudobulk_bams = channel
+            .fromPath(pseudobulk_bam_pattern)
+            .map { bam -> tuple(bam.baseName.toString(), bam) }
+            .view { x -> "Pseudobulk BAM files: ${x}" }
+
+        pseudobulk_fastqs = PSEUDOBULK_BAM_TO_FASTQ(pseudobulk_bams)
+
+        sample_fastqs = pseudobulk_fastqs
+            .map { sample_name, r1_fastq, r2_fastq ->
+                tuple('pseudobulk', sample_name, [r1_fastq], [r2_fastq])
+            }
+            .view { row -> "Pseudobulk sample fastqs: ${row}" }
+    }
 
     sample_counts = NTSM_COUNT(sample_fastqs)
-    NTSM_EVAL(sample_counts.collect())
+    NTSM_EVAL(sample_counts.collect(), modalities.collect())
 }

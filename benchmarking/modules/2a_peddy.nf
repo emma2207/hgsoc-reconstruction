@@ -20,23 +20,24 @@ process PEDDY {
             params.read_depth,
             params.dataset,
             params.pseudobulk,
-            modalities
+            modalities,
+            params.ncells
         )
 
-        def modalityReadDepthTag = readDepthContext.modalityReadDepthTag
-        def pseudobulkReadDepth = readDepthContext.pseudobulkReadDepth
-        def realDataNcellsPath = readDepthContext.realDataNcellsPath
+        def outputPath = "${readDepthContext.experimentPath}/read_depth_${params.pseudobulk ? readDepthContext.pseudobulkReadDepth : readDepthContext.modalityReadDepthTag}"
 
         """
         set -euo pipefail
 
-        if [ ${params.pseudobulk} == true ]
-        then
-            output_location="${params.dataset}/pseudobulk/ncells_${params.ncells}/read_depth_${pseudobulkReadDepth}"
-        else
-            output_location="${params.dataset}/${realDataNcellsPath}/read_depth_${modalityReadDepthTag}"
-        fi
+        output_location="${outputPath}"
         mkdir -p \$output_location
+
+        input_vcf=\$(realpath "${all_variants_vcf}")
+        input_index=\$(realpath "${all_variants_vcf_index}")
+        ln -sf "\$input_vcf" peddy.vcf.gz
+        ln -sf "\$input_index" peddy.vcf.gz.csi
+        peddy_vcf="\$PWD/peddy.vcf.gz"
+        output_location="\$PWD/\$output_location"
 
         # Create a PED file for peddy analysis from VCF sample IDs.
         peddy_ped_file="\${output_location}/peddy.ped"
@@ -46,9 +47,10 @@ process PEDDY {
             echo -e "\${sample_id}\t\${sample_id}\t0\t0\t0\t-9" >> "\$peddy_ped_file"
         done
 
+        cd "\$output_location"
         python -m peddy -p 4 \\
             --sites hg38 \\
-            ${all_variants_vcf} \\
+            "\$peddy_vcf" \\
             \${peddy_ped_file} 
         """
 }

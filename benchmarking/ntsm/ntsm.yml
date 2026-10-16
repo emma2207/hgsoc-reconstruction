@@ -8,3 +8,4 @@ dependencies:
   - ntsm
   - bcftools
   - pandas
+  - samtools

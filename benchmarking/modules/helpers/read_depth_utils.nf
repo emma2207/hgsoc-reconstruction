@@ -1,4 +1,13 @@
-def buildReadDepthContext(readDepthParam, dataset, isPseudobulk, modalities) {
+def buildModalityOutputContext(dataset, isPseudobulk, ncells, modalities) {
+    def modalityGroup = isPseudobulk ? 'pseudobulk' : modalities.join('_vs_')
+    def experimentPath = isPseudobulk
+        ? "${dataset}/pseudobulk/ncells_${ncells}"
+        : "${dataset}/${modalityGroup}/ncells_null"
+
+    [modalityGroup: modalityGroup, experimentPath: experimentPath]
+}
+
+def buildReadDepthContext(readDepthParam, dataset, isPseudobulk, modalities, ncells = null) {
     def resolvedReadDepth =
         (readDepthParam instanceof Map)
             ? (readDepthParam[dataset] ?: readDepthParam.default ?: ["default": 0])
@@ -40,6 +49,8 @@ def buildReadDepthContext(readDepthParam, dataset, isPseudobulk, modalities) {
             ? "real_data/${modalities[0]}_vs_${modalities[1]}/ncells_null"
             : "real_data/ncells_null"
 
+    def modalityOutputContext = buildModalityOutputContext(dataset, isPseudobulk, ncells, modalities)
+
     [
         resolvedReadDepth: resolvedReadDepth,
         resolvedDefault: resolvedDefault,
@@ -49,5 +60,7 @@ def buildReadDepthContext(readDepthParam, dataset, isPseudobulk, modalities) {
         readDepthPairs: readDepthPairs,
         pseudobulkReadDepth: pseudobulkReadDepth,
         realDataNcellsPath: realDataNcellsPath,
+        modalityGroup: modalityOutputContext.modalityGroup,
+        experimentPath: modalityOutputContext.experimentPath,
     ]
 }
