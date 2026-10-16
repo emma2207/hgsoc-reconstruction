@@ -1,0 +1,9 @@
+name: somalier
+
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - somalier
+  - bcftools
+  - tabix

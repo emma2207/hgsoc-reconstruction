@@ -1,0 +1,10 @@
+name: TimeAttackGenComp
+
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - cromwell
+  - snap-aligner
+  - bcftools
+  - R

@@ -4,8 +4,8 @@
 #SBATCH --output=experiment_nf_%J.log
 #SBATCH --error=experiment_nf_%J.err
 #SBATCH --time=08:00:00
-#SBATCH --partition=amilan
-#SBATCH --qos=long
+#SBATCH --partition=acpu
+#SBATCH --qos=cpu-normal
 #SBATCH --mem=4G
 #SBATCH --nodes=1 
 #SBATCH --mail-user=emma.lathouwers@cuanschutz.edu
