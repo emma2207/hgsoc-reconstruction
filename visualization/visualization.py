@@ -1894,8 +1894,8 @@ def plot_combined_heatmaps_datasets(
         vmax=extreme_point,
     )
     ax[2].set_title("Low-Grade Glioma", fontsize=fontsize + 2)
-    ax[2].set_xlabel("Single-cell", fontsize=fontsize)
-    ax[2].set_ylabel("Bulk", fontsize=fontsize)
+    ax[2].set_ylabel("Single-cell", fontsize=fontsize)
+    ax[2].set_xlabel("Bulk", fontsize=fontsize)
     ax[2].set_xticks(np.arange(len(filtered_matrix_lgg.T.columns)))
     ax[2].set_yticks(np.arange(len(filtered_matrix_lgg.T.index)))
     ax[2].set_xticklabels([""] * len(filtered_matrix_lgg.T.columns))

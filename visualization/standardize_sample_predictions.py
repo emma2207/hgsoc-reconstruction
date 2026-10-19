@@ -180,12 +180,16 @@ def export_sample_predictions(
         ]
         matrix = _standardize_matrix(matrix)
 
+        output_read_depth = read_depth
+        if read_depth_mod2 is not None:
+            output_read_depth = f"{mod1}_{read_depth}_{mod2}_{read_depth_mod2}"
+
         tool_output_dir = _matrix_output_directory(
             output_dir,
             dataset,
             pseudobulk,
             ncells,
-            read_depth,
+            output_read_depth,
             mod1,
             mod2,
             tool,
