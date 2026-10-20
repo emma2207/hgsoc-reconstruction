@@ -35,7 +35,45 @@ def emptyR2Placeholder() {
 }
 
 workflow {
-    if (!params.pseudobulk) {
+    if (params.pseudobulk) {
+        // For pseudobulk experiments, we need to convert pseudobulk bams to fastqs
+        modalities = ["pseudobulk"]
+        pseudobulk_bam_pattern = "${params.prepared_bam_dir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.bam"
+        pseudobulk_bams = channel
+            .fromPath(pseudobulk_bam_pattern)
+            .map { bam -> tuple(bam.baseName.toString(), bam) }
+            .view { x -> "Pseudobulk BAM files: ${x}" }
+
+        pseudobulk_fastqs = PSEUDOBULK_BAM_TO_FASTQ(pseudobulk_bams)
+
+        sample_fastqs = pseudobulk_fastqs
+            .map { sample_name, r1_fastq, r2_fastq ->
+                tuple('pseudobulk', sample_name, [r1_fastq], [r2_fastq])
+            }
+            .view { row -> "Pseudobulk sample fastqs: ${row}" }
+    }
+    else if (params.dataset == "hgsoc-new") {
+        // For the new HGSOC, we do not need to process metadata CSVs, as the fastq files are already organized in a simple directory structure.
+        modalities = ["bulk_chunk_ribo", "bulk_diss_polyA"]
+        fastq_r1_samples = channel
+            .fromPath("${params.petaLibrary}/*/*/HGSOC-*_R1_001.fastq.gz")
+            .map { r1_fastq ->
+                tuple(r1_fastq.parent.parent.name, r1_fastq.parent.name.take(10), r1_fastq)
+            }
+            .groupTuple(by: [0, 1], sort: true)
+
+        fastq_r2_samples = channel
+            .fromPath("${params.petaLibrary}/*/*/HGSOC-*_R2_001.fastq.gz")
+            .map { r2_fastq ->
+                tuple(r2_fastq.parent.parent.name, r2_fastq.parent.name.take(10), r2_fastq)
+            }
+            .groupTuple(by: [0, 1], sort: true)
+
+        sample_fastqs = fastq_r1_samples
+            .join(fastq_r2_samples, by: [0, 1])
+    }
+    else {
+        // For other datasets, we need to process metadata and fastq files.
         modalities = ["bulk", "single-nucleus"]
 
         // Key metadata and fastq dir channels by modality, then join so each
@@ -70,23 +108,7 @@ workflow {
                 }
             .view { row -> "Sample fastq dirs: ${row}" }
     } 
-    else {
-        modalities = ["pseudobulk"]
-        pseudobulk_bam_pattern = "${params.prepared_bam_dir}/${params.dataset}/pseudobulk/ncells_${params.ncells}/*.bam"
-        pseudobulk_bams = channel
-            .fromPath(pseudobulk_bam_pattern)
-            .map { bam -> tuple(bam.baseName.toString(), bam) }
-            .view { x -> "Pseudobulk BAM files: ${x}" }
-
-        pseudobulk_fastqs = PSEUDOBULK_BAM_TO_FASTQ(pseudobulk_bams)
-
-        sample_fastqs = pseudobulk_fastqs
-            .map { sample_name, r1_fastq, r2_fastq ->
-                tuple('pseudobulk', sample_name, [r1_fastq], [r2_fastq])
-            }
-            .view { row -> "Pseudobulk sample fastqs: ${row}" }
-    }
-
+    
     sample_counts = NTSM_COUNT(sample_fastqs)
     NTSM_EVAL(sample_counts.collect(), modalities.collect())
 }
