@@ -29,5 +29,6 @@ Run the tests from this directory with `python -m unittest discover -s tests -v`
 ## Supporting code
 - **analysis_shared_functions.py:** has mostly data loading and manipulation stuff functions.
 - **visualization.py:** has functions that create figures.
+- **parameters.py:** contains shared parameters.
 
 A conda environment for everything is found in **analysis.yml**.
