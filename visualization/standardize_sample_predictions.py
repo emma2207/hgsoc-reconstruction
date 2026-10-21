@@ -42,33 +42,12 @@ from typing import Mapping, Sequence
 import pandas as pd
 
 from analysis_shared_functions import load_sample_matching_results
+from parameters import PREDICTION_THRESHOLDS, TOOLS, format_threshold as _format_threshold
 from standardize_heatmap_data import (
     _deduplicate_modality_label,
     _matrix_output_directory,
     _standardize_matrix,
 )
-
-
-TOOLS = (
-    "Conpair",
-    "CrosscheckFingerprints",
-    "HYSYS",
-    "NGSCheckmate",
-    "ntsm",
-    "OmicsPrint",
-    "Peddy",
-    "Somalier",
-    "TimeAttackGenComp",
-    "Vireo",
-)
-
-PREDICTION_THRESHOLDS = {
-    "Conpair": ("ge", 0.8),
-    "OmicsPrint": ("ge", 1.7),
-    "Peddy": ("le", 0.0),
-    "Somalier": ("ge", 1.0),
-    "TimeAttackGenComp": ("le", 0.05),
-}
 
 
 def _modality_mask(labels: pd.Index, modality: str) -> list[bool]:
@@ -104,10 +83,6 @@ def _parse_threshold_overrides(
             raise ValueError(f"Threshold for {tool} was specified more than once")
         overrides[tool] = value
     return overrides
-
-
-def _format_threshold(value: float) -> str:
-    return format(value, "g")
 
 
 def export_sample_predictions(

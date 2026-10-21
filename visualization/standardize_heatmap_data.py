@@ -34,23 +34,7 @@ from typing import Sequence
 import pandas as pd
 
 from analysis_shared_functions import load_heatmap_data
-
-
-TOOLS = (
-    "Conpair",
-    "CrosscheckFingerprints",
-    "HYSYS",
-    "NGSCheckmate",
-    "ntsm",
-    "OmicsPrint",
-    "Peddy",
-    "Somalier",
-    "TimeAttackGenComp",
-    "Vireo",
-)
-
-# These result sources do not have a read-depth directory in the output layout.
-READ_DEPTH_INDEPENDENT_TOOLS = {"BAMixChecker", "Conpair", "Somalier", "ntsm"}
+from parameters import READ_DEPTH_INDEPENDENT_TOOLS, TOOLS
 
 
 def _read_depth_component(read_depth: str) -> str:

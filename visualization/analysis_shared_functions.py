@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
+from parameters import PREDICTION_THRESHOLDS, READ_DEPTH_INDEPENDENT_TOOLS
+
 dataset_regex_dict = {
     "hgsoc": r"[a-zA-Z0-9]{32}_",
     "hgsoc-new": r"ds.[a-zA-Z0-9]{32}_",
@@ -1400,7 +1402,6 @@ def parse_heatmap_matrix_vireo(
 #######################################################
 ### Functions to parse tool outputs and create sample match dataframes
 #######################################################
-_READ_DEPTH_INDEPENDENT_TOOLS = {"BAMixChecker", "Conpair", "Somalier", "ntsm"}
 
 
 def _standardized_heatmap_file(
@@ -1413,7 +1414,7 @@ def _standardized_heatmap_file(
     else:
         relative_path = os.path.join(dataset, f"{mod1}_vs_{mod2}", "ncells_null")
 
-    if tool in _READ_DEPTH_INDEPENDENT_TOOLS:
+    if tool in READ_DEPTH_INDEPENDENT_TOOLS:
         return os.path.join(root, relative_path, f"{tool}.csv")
 
     depth = str(read_depth).removeprefix("read_depth_")
@@ -1545,7 +1546,7 @@ def parse_sample_matching_results_conpair(
     ncells,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
-    threshold=0.8,
+    threshold=PREDICTION_THRESHOLDS["Conpair"][1],
     standardized_heatmaps_path=None,
 ):
     """
@@ -1818,7 +1819,7 @@ def parse_sample_matching_results_omicsprint(
     rd,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
-    threshold=1.7,
+    threshold=PREDICTION_THRESHOLDS["OmicsPrint"][1],
     standardized_heatmaps_path=None,
 ):
     """
@@ -1866,7 +1867,7 @@ def parse_sample_matching_results_peddy(
     rd,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
-    threshold=0,
+    threshold=PREDICTION_THRESHOLDS["Peddy"][1],
     standardized_heatmaps_path=None,
 ):
     """
@@ -1914,7 +1915,7 @@ def parse_sample_matching_results_somalier(
     ncells,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
-    threshold=1,
+    threshold=PREDICTION_THRESHOLDS["Somalier"][1],
     standardized_heatmaps_path=None,
 ):
     """
@@ -1961,7 +1962,7 @@ def parse_sample_matching_results_timeattackgencomp(
     read_depth,
     mod1="bulk_chunk_ribo",
     mod2="bulk_diss_polyA",
-    threshold=0.05,
+    threshold=PREDICTION_THRESHOLDS["TimeAttackGenComp"][1],
     standardized_heatmaps_path=None,
 ):  
     """

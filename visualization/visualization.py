@@ -11,6 +11,7 @@ from analysis_shared_functions import (
     _load_standardized_heatmap_matrix,
     order_matrix_by_expected_matches,
 )
+from parameters import PSEUDOBULK_TOOLS, TOOL_LABELS
 from accuracy_calculations import (
     load_expected_matches_real_data,
     accuracy_metrics_averaged_over_iterations,
@@ -41,19 +42,6 @@ METRIC_LABELS = {
     "recall": "Recall",
 }
 
-TOOL_LABELS = {
-    "Conpair": "Conpair",
-    "CrosscheckFingerprints": "Crosscheck",
-    "HYSYS": "HYSYS",
-    "NGSCheckmate": "NGSCheckMate",
-    "ntsm": "ntsm",
-    "OmicsPrint": "OmicsPrint",
-    "Peddy": "Peddy",
-    "Somalier": "Somalier",
-    "TimeAttackGenComp": "TimeAttack",
-    "Vireo": "Vireo",
-}
-
 DATASET_LABELS_SHORT = {
     "hgsoc": "HGSOC",
     "hgsoc-new": "HGSOC (New)",
@@ -63,8 +51,8 @@ DATASET_LABELS_SHORT = {
 }
 
 DATASET_LABELS = {
-    "hgsoc": "HGSOC",
-    "hgsoc-new": "High-Grade Serous Ovarian Cancer (New)",
+    "hgsoc": "HGSOC (Pilot)",
+    "hgsoc-new": "HGSOC (New)",
     "high_grade_glioma": "High-Grade Glioma",
     "low_grade_glioma": "Low-Grade Glioma",
     "wilms_tumor": "Wilms Tumor",
@@ -1333,7 +1321,7 @@ def heatmap_plot_accuracy_metrics_uneven_pseudobulk(
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
-    tools = ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]
+    tools = list(PSEUDOBULK_TOOLS)
     for i, tool in enumerate(tools):
         sub_matrix = df[(df["dataset"] == dataset) & (df["tool"] == tool)].pivot_table(
             index=["read depth"], columns="ncells_2", values=metric

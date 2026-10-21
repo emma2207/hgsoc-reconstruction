@@ -20,15 +20,13 @@ from analysis_shared_functions import (
     _modality_in_label,
 )
 
-
-_PREDICTION_THRESHOLDS = {
-    "Conpair": ("ge", "0.8"),
-    "OmicsPrint": ("ge", "1.7"),
-    "Peddy": ("le", "0"),
-    "Somalier": ("ge", "1"),
-    "TimeAttackGenComp": ("le", "0.05"),
-}
-_READ_DEPTH_INDEPENDENT_TOOLS = {"BAMixChecker", "Conpair", "Somalier", "ntsm"}
+from parameters import (
+    ALL_TOOLS,
+    PREDICTION_THRESHOLDS,
+    PSEUDOBULK_TOOLS,
+    READ_DEPTH_INDEPENDENT_TOOLS,
+    format_threshold,
+)
 
 
 def _standardized_data_root(path, folder_name):
@@ -55,14 +53,14 @@ def _standardized_prediction_path(
     else:
         relative_path = Path(dataset) / f"{mod1}_vs_{mod2}" / "ncells_null"
 
-    if tool not in _READ_DEPTH_INDEPENDENT_TOOLS:
+    if tool not in READ_DEPTH_INDEPENDENT_TOOLS:
         depth = str(read_depth).removeprefix("read_depth_")
         relative_path /= f"read_depth_{depth}"
 
     threshold_suffix = ""
-    if tool in _PREDICTION_THRESHOLDS:
-        operator, threshold = _PREDICTION_THRESHOLDS[tool]
-        threshold_suffix = f"_threshold_{operator}_{threshold}"
+    if tool in PREDICTION_THRESHOLDS:
+        operator, threshold = PREDICTION_THRESHOLDS[tool]
+        threshold_suffix = f"_threshold_{operator}_{format_threshold(threshold)}"
     return root / relative_path / f"{tool}{threshold_suffix}.csv"
 
 
@@ -192,7 +190,7 @@ def loop_accuracy_calculations(
             for ncells in ncells_list:
                 for rd in read_depths:
                     try:
-                        if tool in _READ_DEPTH_INDEPENDENT_TOOLS and rd != 0:
+                        if tool in READ_DEPTH_INDEPENDENT_TOOLS and rd != 0:
                             print(
                                 f"Skipping {tool} for read depth {rd}; its predictions do not vary with read depth."
                             )
@@ -425,7 +423,7 @@ def accuracy_metrics_averaged_over_iterations(
         )
         return final_df
     for n in n_samples_removed:
-        for tool in ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]:
+        for tool in PSEUDOBULK_TOOLS:
             accuracy_df = pd.DataFrame()
             for i in range(1, n_iterations + 1):
                 iteration_root = (
@@ -845,19 +843,7 @@ def _build_parser():
         "--tools",
         nargs="+",
         required=True,
-        choices=(
-            "BAMixChecker",
-            "Conpair",
-            "CrosscheckFingerprints",
-            "HYSYS",
-            "NGSCheckmate",
-            "ntsm",
-            "OmicsPrint",
-            "Peddy",
-            "Somalier",
-            "TimeAttackGenComp",
-            "Vireo",
-        ),
+        choices=ALL_TOOLS,
     )
     parser.add_argument("--datasets", nargs="+", required=True)
     parser.add_argument("--ncells-list", nargs="+", required=True, type=int)
