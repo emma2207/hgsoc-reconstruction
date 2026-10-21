@@ -1,0 +1,5 @@
+,GSM0000001_pseudobulk_n_barcodes_1000_1.bam,GSM0000001_pseudobulk_n_barcodes_1000_2.bam,GSM0000002_pseudobulk_n_barcodes_1000_1.bam,GSM0000002_pseudobulk_n_barcodes_1000_2.bam
+GSM0000001_pseudobulk_n_barcodes_1000_1.bam,0.9,0.01,0.8,0.7
+GSM0000001_pseudobulk_n_barcodes_1000_2.bam,0.01,0.9,0.6,0.8
+GSM0000002_pseudobulk_n_barcodes_1000_1.bam,0.8,0.7,0.9,0.02
+GSM0000002_pseudobulk_n_barcodes_1000_2.bam,0.7,0.8,0.02,0.9

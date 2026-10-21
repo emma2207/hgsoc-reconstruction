@@ -1,20 +1,38 @@
 import os
 import re
+from pathlib import Path
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.cm import ScalarMappable
 
 from analysis_shared_functions import (
-    load_heatmap_data,
+    _load_standardized_heatmap_matrix,
     order_matrix_by_expected_matches,
 )
-from accuracy_functions import (
+from parameters import PSEUDOBULK_TOOLS, TOOL_LABELS
+from accuracy_calculations import (
     load_expected_matches_real_data,
     accuracy_metrics_averaged_over_iterations,
     count_matches_real_data,
-    loop_accuracy_calculations,
 )
+
+
+def _load_saved_pseudobulk_accuracy(accuracy_path=None):
+    if accuracy_path is None:
+        accuracy_path = (
+            Path(__file__).resolve().parent.parent
+            / "benchmarking"
+            / "data"
+            / "pseudobulk_accuracy.csv"
+        )
+    path = Path(accuracy_path)
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Saved pseudobulk accuracy calculations not found: {path}"
+        )
+    return pd.read_csv(path)
 
 
 METRIC_LABELS = {
@@ -24,15 +42,8 @@ METRIC_LABELS = {
     "recall": "Recall",
 }
 
-TOOL_LABELS = {
-    "CrosscheckFingerprints": "CrosscheckFingerprints",
-    "HYSYS": "HYSYS",
-    "NGSCheckmate": "NGSCheckMate",
-    "Vireo": "Vireo",
-}
-
 DATASET_LABELS_SHORT = {
-    "hgsoc": "HGSOC (Pilot)",
+    "hgsoc": "HGSOC",
     "hgsoc-new": "HGSOC (New)",
     "high_grade_glioma": "HGG",
     "low_grade_glioma": "LGG",
@@ -40,8 +51,8 @@ DATASET_LABELS_SHORT = {
 }
 
 DATASET_LABELS = {
-    "hgsoc": "High-Grade Serous Ovarian Cancer (Pilot)",
-    "hgsoc-new": "High-Grade Serous Ovarian Cancer (New)",
+    "hgsoc": "HGSOC (Pilot)",
+    "hgsoc-new": "HGSOC (New)",
     "high_grade_glioma": "High-Grade Glioma",
     "low_grade_glioma": "Low-Grade Glioma",
     "wilms_tumor": "Wilms Tumor",
@@ -52,7 +63,7 @@ MODALITY_LABELS = {
     "single-cell": "Single-Cell",
     "single-nucleus": "Single-Nucleus",
     "bulk_chunk_ribo": "rRNA- Chunk Bulk",
-    "bulk_diss_polyA": "Poly A+ Dissociated Bulk",
+    "bulk_diss_polyA": "Poly A+ Diss. Bulk",
     "bulk_diss_ribo": "rRNA- Dissociated Bulk",
     "bulk_dissociated_polyA": "Poly A+ Dissociated Bulk",
     "bulk_dissociated_ribo": "rRNA- Dissociated Bulk",
@@ -163,7 +174,7 @@ def _plot_tool_heatmap(ax, matrix, tool, method="imshow", symmetric_limit=None):
     plotter = getattr(ax, method)
     if tool == "CrosscheckFingerprints" and symmetric_limit is not None:
         return plotter(matrix, cmap=cmap, vmin=-symmetric_limit, vmax=symmetric_limit)
-    return plotter(matrix, cmap=cmap)
+    return plotter(matrix, cmap=cmap, vmin=0)
 
 
 def bulk_vs_singlecell_matrix_viz(
@@ -208,8 +219,8 @@ def bulk_vs_singlecell_matrix_viz(
         fig_name = f"{dataset}_{tool}_rd{rd_to_load}_similarity_matrix"
 
     # Visualize bulk against single-cell or single-nucleus samples
-    matrix_df = load_heatmap_data(
-        DATA_PATH, pseudobulk, tool, dataset, ncells, rd_to_load, mod1, mod2
+    matrix_df = _load_standardized_heatmap_matrix(
+        tool, dataset, ncells, rd_to_load, mod1, mod2, pseudobulk, missing_ok=True
     )
     if matrix_df is None:
         print(
@@ -253,11 +264,11 @@ def bulk_vs_singlecell_matrix_viz(
     # ax.set_xticklabels([""] * len(sub_matrix.columns))
     # ax.set_yticklabels([""] * len(sub_matrix.index))
     xlabels = [
-        f"{col.replace('HGSOC-', '').replace(f'_{mod2}', '')}"
+        f"{col.replace('HGSOC-', '').replace(f'_{mod1}', '').replace(f'_{mod2}', '')}"
         for col in sub_matrix.columns
     ]
     ylabels = [
-        f"{idx.replace('HGSOC-', '').replace(f'_{mod1}', '')}"
+        f"{idx.replace('HGSOC-', '').replace(f'_{mod2}', '').replace(f'_{mod1}', '')}"
         for idx in sub_matrix.index
     ]
     ax.set_xticklabels(xlabels, rotation=90, ha="center")
@@ -292,86 +303,6 @@ def bulk_vs_singlecell_matrix_viz(
     return
 
 
-def all_samples_matrix_viz(
-    DATA_PATH,
-    pseudobulk,
-    tool,
-    dataset,
-    ncells,
-    rd,
-    save_fig=False,
-    FIGURES_PATH="",
-    mod1="bulk",
-    mod2="single-cell",
-):
-    """
-    Docstring for all_samples_matrix_viz
-
-    :param matrix_df: Dataframe containing a heatmap / matrix of similarity measures of all samples against all samples
-    :param pseudobulk: True / False
-    :param tool: BAMixChecker / CrosscheckFingerprints / HYSYS / NGSCheckmate / Vireo
-    :param dataset: dataset name
-    :param ncells: number of cells in pseudobulk, "null" in real data
-    :param rd: read depth filter cut-off
-    :param sc: single-cell / single-nucleus
-    :param save_fig: True / False
-    :param FIGURES_PATH: path that figures get saved to
-    """
-
-    if pseudobulk:
-        fig_name = f"pseudobulk_{dataset}_{tool}_rd{rd}_ncells{ncells}_all_samples_similarity_matrix"
-    else:
-        fig_name = f"{dataset}_{tool}_rd{rd}_all_samples_similarity_matrix"
-
-    matrix_df = load_heatmap_data(
-        DATA_PATH, pseudobulk, tool, dataset, ncells, rd, mod1, mod2
-    )
-    if matrix_df is not None:
-        # Visualize ALL samples against ALL samples
-        extreme_point = max(abs(matrix_df.min().min()), abs(matrix_df.max().max()))
-
-        fig, ax = plt.subplots(figsize=(10, 10))
-        cax = _plot_tool_heatmap(
-            ax,
-            matrix_df,
-            tool,
-            method="matshow",
-            symmetric_limit=extreme_point,
-        )
-
-        ax.set_xticks(np.arange(len(matrix_df.columns)))
-        ax.set_yticks(np.arange(len(matrix_df.index)))
-        ax.set_xticklabels(
-            matrix_df.columns, rotation=45, ha="left", fontdict={"fontsize": 10}
-        )
-        ax.set_yticklabels(matrix_df.index, fontdict={"fontsize": 10})
-        ax.xaxis.set_label_position("top")
-        ax.set_title(f"{tool} similarity matrix", pad=20)
-
-        fig.colorbar(cax, fraction=0.046, pad=0.04, shrink=0.5)
-
-        if save_fig:
-            fig.savefig(
-                os.path.join(
-                    FIGURES_PATH,
-                    f"{fig_name}.png",
-                ),
-                bbox_inches="tight",
-                dpi=300,
-            )
-            fig.savefig(
-                os.path.join(
-                    FIGURES_PATH,
-                    f"{fig_name}.pdf",
-                ),
-                bbox_inches="tight",
-                dpi=300,
-            )
-        plt.close()
-
-    return
-
-
 def super_plot_heatmaps_pseudobulk(
     DATA_PATH,
     FIGURES_PATH,
@@ -391,7 +322,9 @@ def super_plot_heatmaps_pseudobulk(
     for dataset in datasets:
         for tool in tools:
             crosscheck_extreme_point = None
-            matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd)
+            matrix = _load_standardized_heatmap_matrix(
+                tool, dataset, ncells, rd, "_1", "_2", True, missing_ok=True
+            )
 
             if matrix is not None:
                 if experiment == "pseudobulk_vs_sc":
@@ -423,13 +356,13 @@ def super_plot_heatmaps_pseudobulk(
     fig, axes = plt.subplots(
         len(tools),
         len(datasets),
-        figsize=(3 * len(datasets), 3 * len(tools)),
+        figsize=(2* len(datasets), 2 * len(tools)),
     )
-    fig.subplots_adjust(hspace=0.05, wspace=0.05, top=0.95)
+    fig.subplots_adjust(hspace=0.05, wspace=0.05)
     if len(tools) == 1:
         yval = 1.1
     else:
-        yval = 1.
+        yval = 0.91
     fig.suptitle(
         f"Pseudobulk Sample Similarity Matrices", fontsize=fontsize+2, y=yval
     )
@@ -513,6 +446,7 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
     rd,
     experiment,
     save_fig=False,
+    accuracy_path=None,
 ):
 
     fig_name = f"superplot_pseudobulk_{dataset}_rd_{rd}_similarity_matrix_accuracy"
@@ -526,7 +460,9 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
     # Find all the sample similarity data for the plots
     for ncells in ncells_list:
         for tool in tools:
-            matrix = load_heatmap_data(DATA_PATH, True, tool, dataset, ncells, rd)
+            matrix = _load_standardized_heatmap_matrix(
+                tool, dataset, ncells, rd, "_1", "_2", True, missing_ok=True
+            )
 
             if matrix is not None:
                 if experiment == "pseudobulk_vs_sc":
@@ -557,25 +493,24 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                     tool_extreme_points[tool] = extreme_point
 
     # Calculate accuracy metrics for all heatmaps in the grid
-    accuracy_df = loop_accuracy_calculations(
-        DATA_PATH=DATA_PATH,
-        experiment="pseudobulk",
-        tools=tools,
-        datasets=[dataset],
-        ncells_list=ncells_list,
-        read_depths=[rd],
-    )
+    accuracy_df = _load_saved_pseudobulk_accuracy(accuracy_path)
+    accuracy_df = accuracy_df.loc[
+        accuracy_df["dataset"].eq(dataset)
+        & accuracy_df["ncells"].isin(ncells_list)
+        & accuracy_df["read depth"].eq(rd)
+        & accuracy_df["tool"].isin(tools)
+    ]
 
     # Loop through the data again to create the super plot
     fig, axes = plt.subplots(
-        len(tools),
         len(ncells_list),
-        figsize=(5 * len(ncells_list), 4 * len(tools)),
+        len(tools),
+        figsize=(4 * len(tools), 4 * len(ncells_list)),
         sharex=True,
         sharey=True,
     )
-    fig.subplots_adjust(hspace=0.05, wspace=0.05, top=0.95)
-    if len(tools) == 1:
+    fig.subplots_adjust(hspace=0.1, wspace=0.1, top=0.95)
+    if len(ncells_list) == 1:
         yval = 1.1
     else:
         yval = 1.0
@@ -599,8 +534,8 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                 ax = axes[tools.index(tool)]
                 row_left_ax = axes[tools.index(tool)]
             else:
-                ax = axes[tools.index(tool), ncells_list.index(ncells)]
-                row_left_ax = axes[tools.index(tool), 0]
+                ax = axes[ncells_list.index(ncells), tools.index(tool)]
+                row_left_ax = axes[ncells_list.index(ncells), 0]
             matrix_list = [
                 info["matrix"]
                 for info in all_matrices
@@ -627,7 +562,7 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             cmap = _tool_colormap(tool)
             norm = _tool_norm(tool, tool_extreme_points[tool])
 
-            ax.imshow(matrix, cmap=cmap, norm=norm)
+            ax.imshow(matrix, cmap=cmap, norm=norm, aspect=1)
             row_has_data[tool] = True
             tool_mappable = ScalarMappable(norm=norm, cmap=cmap)
             tool_mappable.set_array([])
@@ -636,9 +571,11 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             ax.set_yticks(np.arange(len(matrix.index)))
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
-            # Add title with ncells to the top row
             if tool == tools[0]:
-                ax.set_title(f"{ncells:,.0f} UMIs", pad=10, fontsize=fontsize)
+                ax.set_ylabel(f"{ncells:,.0f} UMIs", fontsize=fontsize, rotation=90, labelpad=10)
+            # Add title with ncells to the top row
+            if ncells == ncells_list[0]:
+                ax.set_title(f"{TOOL_LABELS[tool]}", pad=10, fontsize=fontsize)
 
 
             # Add text with accuracy metrics to each subplot
@@ -655,32 +592,34 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
                 )
 
     # Add text with tool name to the left of each row
-    for itool, tool in enumerate(reversed(tools)):
-        row_bbox = row_left_ax.get_position()
-        fig.text(
-            row_bbox.x0 - 0.02,
-            row_bbox.y0 * (itool * 1.93 + 1) + row_bbox.height / 2,
-            f"{tool}",
-            transform=fig.transFigure,
-            fontsize=fontsize,
-            rotation=90,
-            va="center",
-            ha="right",
-        )
+    # Needed if there are missing data for some tools, so that the row labels are still aligned with the correct rows
+    # for itool, tool in enumerate(tools):
+    #     row_bbox = row_left_ax.get_position()
+    #     fig.text(
+    #         row_bbox.y0 * (itool * 0.66 + 0.6) + row_bbox.height/2,
+    #         row_bbox.x0 + 0.84,
+    #         f"{tool}",
+    #         transform=fig.transFigure,
+    #         fontsize=fontsize,
+    #         rotation=0,
+    #         va="center",
+    #         ha="center",
+    #     )
 
-    # one colorbar per row/tool
+    # one colorbar per column/tool
     for i, tool in enumerate(tools):
         if not row_has_data[tool] or row_mappables[tool] is None:
             continue
 
+        # Determine the axes for the colorbar
         if len(tools) == 1 and len(ncells_list) == 1:
-            row_axes = [axes]
-        elif len(tools) == 1:
-            row_axes = axes  # 1D over columns
+            col_axes = [axes]
         elif len(ncells_list) == 1:
-            row_axes = [axes[i]]  # 1D over rows
+            col_axes = axes  # 1D over columns
+        elif len(tools) == 1:
+            col_axes = [axes[i]]  # 1D over rows
         else:
-            row_axes = axes[i, :]  # full row
+            col_axes = axes[:, i]  # full column
 
         row_mappable = row_mappables[tool]
         if row_mappable is None:
@@ -688,11 +627,12 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
 
         cbar = fig.colorbar(
             row_mappable,
-            ax=row_axes,
+            ax=col_axes,
             fraction=0.08,
             pad=0.03,
-            shrink=0.75,
-            aspect=18,
+            shrink=0.8,
+            aspect=16,
+            location='bottom',
         )
         cbar.ax.tick_params(labelsize=fontsize)
 
@@ -713,57 +653,10 @@ def super_plot_heatmaps_fixed_rd_pseudobulk(
             bbox_inches="tight",
             dpi=300,
         )
-
+    plt.show()
     plt.close(fig)
 
     return
-
-
-def loop_heatmap_plots_real_data(
-    DATA_PATH,
-    FIGURES_PATH,
-    tools,
-    datasets,
-    read_depths_mod1,
-    read_depths_mod2,
-    mod1="bulk",
-    mod2="single-cell",
-):
-    if len(read_depths_mod1) != len(read_depths_mod2):
-        raise ValueError(
-            "read_depths_mod1 and read_depths_mod2 must have the same length."
-        )
-
-    original_mod1 = mod1
-    original_mod2 = mod2
-    for tool in tools:
-        for dataset in datasets:
-            if dataset == "hgsoc-new":
-                mod1 = "bulk_chunk_ribo"
-                mod2 = "bulk_diss_polyA"
-            elif dataset == "wilms_tumor":
-                mod2 = "single-nucleus"
-            else:
-                mod1 = original_mod1
-                mod2 = original_mod2
-            rd_pairs = list(zip(read_depths_mod1, read_depths_mod2))
-
-            for rd1, rd2 in rd_pairs:
-
-                # Create plots
-                bulk_vs_singlecell_matrix_viz(
-                    DATA_PATH,
-                    pseudobulk=False,
-                    tool=tool,
-                    dataset=dataset,
-                    ncells="null",
-                    rd_mod1=rd1,
-                    rd_mod2=rd2,
-                    mod1=mod1,
-                    mod2=mod2,
-                    save_fig=True,
-                    FIGURES_PATH=FIGURES_PATH,
-                )
 
 
 def super_plot_heatmaps_real_data(
@@ -796,8 +689,8 @@ def super_plot_heatmaps_real_data(
     # Find all the data for the plots
     for i, tool in enumerate(tools):
         for rd1, rd2, rd_to_load in rd_pairs:
-            matrix = load_heatmap_data(
-                DATA_PATH, False, tool, dataset, "null", rd_to_load, mod1, mod2
+            matrix = _load_standardized_heatmap_matrix(
+                tool, dataset, "null", rd_to_load, mod1, mod2, False, missing_ok=True
             )
             if matrix is not None:
                 matrix = _modality_submatrix(matrix, mod1, mod2)
@@ -831,14 +724,23 @@ def super_plot_heatmaps_real_data(
                 if extreme_point > tool_extreme_points[i]:
                     tool_extreme_points[i] = extreme_point
 
-    fig, axes = plt.subplots(
-        len(tools),
-        len(rd_pairs),
-        figsize=(2.5 * len(rd_pairs), 2 * len(tools)),
-        sharex="col",
-        sharey="row",
+    fig = plt.figure(
+        figsize=(2.5 * len(tools), 2.5 * len(rd_pairs) + 0.5),
     )
-    fig.subplots_adjust(wspace=0.10, hspace=0.1)
+    grid = fig.add_gridspec(
+        nrows=len(rd_pairs) + 1,
+        ncols=len(tools),
+        height_ratios=[1] * len(rd_pairs) + [0.08],
+        wspace=0.10,
+        hspace=0.1,
+    )
+    axes = np.empty((len(rd_pairs), len(tools)), dtype=object)
+    colorbar_axes = []
+    for row in range(len(rd_pairs)):
+        for col in range(len(tools)):
+            axes[row, col] = fig.add_subplot(grid[row, col])
+    for col in range(len(tools)):
+        colorbar_axes.append(fig.add_subplot(grid[-1, col]))
     fig.suptitle(f"{dataset.replace('_', ' ')} similarity matrices".title(), fontsize=fontsize + 4, y=0.95)
     # fig.suptitle("Wilms Tumor Similarity Matrices", fontsize=16, y=0.93)
 
@@ -856,14 +758,10 @@ def super_plot_heatmaps_real_data(
             else:
                 rd_label = f"{rd_to_load}"
             print(f"Processing read depth {rd_label} and tool {tool} for plotting...")
-            if len(rd_pairs) == 1 and len(tools) == 1:
-                ax = axes
-            elif len(rd_pairs) == 1:
-                ax = axes[tools.index(tool)]
-            elif len(tools) == 1:
-                ax = axes[rd_pairs.index((rd1, rd2, rd_to_load))]
-            else:
-                ax = axes[tools.index(tool), rd_pairs.index((rd1, rd2, rd_to_load))]
+            ax = axes[
+                rd_pairs.index((rd1, rd2, rd_to_load)),
+                tools.index(tool),
+            ]
 
             matrix_list = [
                 info["matrix"]
@@ -910,33 +808,34 @@ def super_plot_heatmaps_real_data(
             ax.set_xticklabels([""] * len(matrix.columns))
             ax.set_yticklabels([""] * len(matrix.index))
             if tool == tools[0]:
-                ax.yaxis.set_label_position("left")
-                ax.set_title(
-                    f"Read depth {rd_label}", fontsize=fontsize, pad=10
+                # ax.xaxis.set_label_position("left")
+                ax.set_ylabel(
+                    f"Read depth {rd_label}", fontsize=fontsize
                 )
             if (rd1, rd2, rd_to_load) == rd_pairs[0]:
-                ax.set_ylabel(f"{tool}", fontsize=fontsize, rotation=90, labelpad=10, va="center")
+                ax.set_title(f"{tool}", fontsize=fontsize, va="center")
 
         if row_has_data:
-            if len(rd_pairs) == 1 and len(tools) == 1:
-                row_axes = [axes]
-            elif len(tools) == 1:
-                row_axes = axes
-            elif len(rd_pairs) == 1:
-                row_axes = [axes[i]]
-            else:
-                row_axes = axes[i, :]
-
             if tool_mappable is not None:
                 cbar = fig.colorbar(
                     tool_mappable,
-                    ax=row_axes,
-                    orientation="vertical",
-                    pad=0.03,
-                    fraction=0.08,
-                    shrink=0.75,
+                    cax=colorbar_axes[i],
+                    orientation="horizontal",
+                )
+                colorbar_bbox = cbar.ax.get_position()
+                colorbar_width = colorbar_bbox.width * 0.8
+                cbar.ax.set_position(
+                    [
+                        colorbar_bbox.x0
+                        + (colorbar_bbox.width - colorbar_width) / 2,
+                        colorbar_bbox.y0,
+                        colorbar_width,
+                        colorbar_bbox.height,
+                    ]
                 )
                 cbar.ax.tick_params(labelsize=fontsize)
+        else:
+            colorbar_axes[i].set_axis_off()
 
     if save_fig:
         fig.savefig(
@@ -950,91 +849,6 @@ def super_plot_heatmaps_real_data(
             dpi=300,
         )
 
-    return
-
-
-def heatmap_plot_accuracy_metrics_pseudobulk(
-    df, dataset, metric, save_fig=False, FIGURES_PATH=""
-):
-
-    fig_name = f"pseudobulk_{dataset}_{metric}_heatmap"
-
-    fig, axes = plt.subplots(2, 2, figsize=(8, 10))
-    fig.subplots_adjust(hspace=0.2)
-    fig.suptitle(f"{metric} Heatmaps - {dataset} pseudobulks", fontsize=14, y=0.94)
-    cmap = plt.get_cmap("Blues")
-    cmap.set_bad(color="lightgrey")
-
-    tools = ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]
-    for i, tool in enumerate(tools):
-        sub_matrix = df[(df["dataset"] == dataset) & (df["tool"] == tool)].pivot_table(
-            index=["read depth"], columns="ncells", values=metric
-        )
-
-        ax = axes[i // 2, i % 2]
-
-        cax = ax.imshow(sub_matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
-
-        # Add text annotations with F1 values
-        for row in range(len(sub_matrix.index)):
-            for col in range(len(sub_matrix.columns)):
-                value = sub_matrix.iloc[row, col]
-                if not np.isnan(value):
-                    text_color = "white" if value > 0.5 else "black"
-                    ax.text(
-                        col,
-                        row,
-                        f"{value:.2f}",
-                        ha="center",
-                        va="center",
-                        color=text_color,
-                        fontsize=10,
-                    )
-
-        ax.set_xticks(np.arange(len(sub_matrix.columns)))
-        ax.set_yticks(np.arange(len(sub_matrix.index)))
-
-        # Format x-tick labels in scientific notation
-        xticklabels = []
-        for x in sub_matrix.columns:
-            exponent = int(np.log10(x))
-            mantissa = x / (10**exponent)
-            if mantissa == 1.0:
-                xticklabels.append(f"$10^{{{exponent}}}$")
-            else:
-                xticklabels.append(f"${int(mantissa)} \\times 10^{{{exponent}}}$")
-
-        ax.set_xticklabels(xticklabels, ha="center")
-        ax.set_yticklabels(sub_matrix.index)
-
-        # Only show x-label on bottom row
-        if i // 2 == 1:
-            ax.set_xlabel("# of cells")
-
-        # Only show y-label on left column
-        if i % 2 == 0:
-            ax.set_ylabel("Read depth cut-off")
-
-        ax.set_title(f"{tool}", pad=10)
-
-    if save_fig:
-        fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.png",
-            ),
-            bbox_inches="tight",
-            dpi=300,
-        )
-        fig.savefig(
-            os.path.join(
-                FIGURES_PATH,
-                f"{fig_name}.pdf",
-            ),
-            bbox_inches="tight",
-            dpi=300,
-        )
-    # fig.colorbar(cax, ax=axes.ravel().tolist(), fraction=0.046, pad=0.05, shrink=0.5)
     return
 
 
@@ -1058,14 +872,9 @@ def super_plot_heatmaps_real_data_multimodal_hgsoc(
     for i, mod1 in enumerate(mod_list1):
         for j, mod2 in enumerate(mod_list2):
 
-            matrix = load_heatmap_data(
-                DATA_PATH, False, tool, dataset, "null", rd, mod1, mod2
+            matrix = _load_standardized_heatmap_matrix(
+                tool, dataset, "null", rd, mod1, mod2, False, missing_ok=True
             )
-            if matrix is None:
-                # Try loading the transposed matrix in case of swapped axes in the output
-                matrix = load_heatmap_data(
-                    DATA_PATH, False, tool, dataset, "null", rd, mod2, mod1
-                )
 
             if matrix is not None:
                 print(f"Processing modalities {mod1} vs {mod2} for plotting...")
@@ -1283,23 +1092,29 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0(
 
 
 def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
-    df, save_fig=False, FIGURES_PATH=""
+    tools,
+    datasets,
+    accuracy_path=None,
+    save_fig=False, 
+    FIGURES_PATH=""
 ):
-    metrics = ["fraction_inconclusive", "f1", "precision", "recall"]
+    metrics = ["f1", "precision", "recall"]
 
     fig_name = f"pseudobulk_accuracy_metrics_heatmap_rd0_ncells500k"
-    fontsize = 12
+    fontsize = 10
 
-    fig, ax = plt.subplots(2, 2, figsize=(8, 8))
+    fig, ax = plt.subplots(1, 3, figsize=(16, 3))
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
-    for i, metric in enumerate(metrics):
-        matrix = df[(df["read depth"] == 0) & (df["ncells"] == 500000)].pivot_table(
-            index=["tool"], columns="dataset", values=metric
-        )
+    df = _load_saved_pseudobulk_accuracy(accuracy_path)
+    df = df[df["tool"].isin(tools) & df["dataset"].isin(datasets) & (df["read depth"] == 0) & (df["ncells"] == 500000)]
 
-        ax[i // 2, i % 2].imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect=1)
+    for i, metric in enumerate(metrics):
+        matrix = df.pivot_table(
+            index=["tool"], columns="dataset", values=metric, sort=False
+        )
+        ax[i].imshow(matrix.T, cmap=cmap, vmin=0, vmax=1, aspect='auto')
 
         # Add text annotations with F1 values
         for row in range(len(matrix.index)):
@@ -1307,9 +1122,9 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                 value = matrix.iloc[row, col]
                 if not np.isnan(value):
                     text_color = "white" if value > 0.5 else "black"
-                    ax[i // 2, i % 2].text(
-                        col,
+                    ax[i].text(
                         row,
+                        col,
                         f"{value:.2f}",
                         ha="center",
                         va="center",
@@ -1317,28 +1132,24 @@ def heatmap_plot_accuracy_metrics_pseudobulk_rd0_ncells500k(
                         fontsize=fontsize - 2,
                     )
 
-        ax[i // 2, i % 2].set_title(
+        ax[i].set_title(
             f"{METRIC_LABELS.get(metric, metric)}", fontsize=fontsize
         )
-        ax[i // 2, i % 2].set_yticks(np.arange(len(matrix.index)))
-        
-        # Only show x-label on bottom row
-        if i // 2 == 1:
-            ax[i // 2, i % 2].set_xticks(np.arange(len(matrix.columns)))
-            ax[i // 2, i % 2].set_xlabel("Datasets", fontsize=fontsize)
-            ax[i // 2, i % 2].set_xticklabels(
-                [DATASET_LABELS_SHORT.get(label, label) for label in matrix.columns], ha="right", fontsize=fontsize, rotation=45
+        ax[i].set_yticks(np.arange(len(matrix.columns)))
+        ax[i].set_xticks(np.arange(len(matrix.index)))
+        if i == 0:
+            ax[i].set_ylabel("Datasets", fontsize=fontsize)
+            ax[i].set_yticklabels(
+                [DATASET_LABELS_SHORT.get(label, label) for label in matrix.columns], fontsize=fontsize,
             )
         else:
-            ax[i // 2, i % 2].tick_params(axis="x", labelbottom=False)
+            ax[i].tick_params(axis="y", labelleft=False)
 
         # Only show y-label on left column
-        if i % 2 == 0:
-            ax[i // 2, i % 2].set_ylabel("Tools", fontsize=fontsize)
-            ax[i // 2, i % 2].set_yticklabels([TOOL_LABELS.get(label, label) for label in matrix.index], fontsize=fontsize)
-        else:
-            ax[i // 2, i % 2].tick_params(axis="y", labelleft=False)
-    fig.suptitle(f"pseudobulks - performance metrics".title(), fontsize=fontsize + 4)
+        ax[i].set_xlabel("Tools", fontsize=fontsize)
+        ax[i].set_xticklabels([TOOL_LABELS.get(label, label) for label in matrix.index], fontsize=fontsize, rotation=45, ha="right")
+        # ax[i].tick_params(axis="x", labelleft=False)
+    fig.suptitle(f"pseudobulks - performance metrics".title(), fontsize=fontsize + 4, y=1.05)
 
     if save_fig:
         fig.savefig(
@@ -1393,7 +1204,12 @@ def accuracy_metrics_errorbar_plot_missing_samples(
     """
     fig_name = f"pseudobulk_{dataset}_accuracy_metrics_errorbar_plot_{experiment}_rd{rd}_ncells{ncells}"
     df = accuracy_metrics_averaged_over_iterations(
-        DATA_PATH, n_iterations, dataset, ncells, rd, n_samples_removed, experiment
+        n_iterations,
+        dataset,
+        ncells,
+        rd,
+        n_samples_removed,
+        experiment,
     )
     # Get unique tools and n_samples_removed values
     tools = df["tool"].unique()
@@ -1505,7 +1321,7 @@ def heatmap_plot_accuracy_metrics_uneven_pseudobulk(
     cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="lightgrey")
 
-    tools = ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]
+    tools = list(PSEUDOBULK_TOOLS)
     for i, tool in enumerate(tools):
         sub_matrix = df[(df["dataset"] == dataset) & (df["tool"] == tool)].pivot_table(
             index=["read depth"], columns="ncells_2", values=metric
@@ -1596,13 +1412,15 @@ def super_plot_heatmaps_uneven_pseudobulk(
     # Find all the data for the plots
     for ncells_2 in ncells_2_list:
         for rd in read_depths:
-            matrix = load_heatmap_data(
-                DATA_PATH + f"uneven_pseudobulk_sizes/ncells_{ncells_2}/",
-                True,
+            matrix = _load_standardized_heatmap_matrix(
                 tool,
                 dataset,
                 ncells_1,
                 rd,
+                "_1",
+                "_2",
+                True,
+                missing_ok=True,
             )
 
             if matrix is not None:
@@ -1814,7 +1632,7 @@ def barplot_matches_nonmatches_na(
     fig_name = f"barplot_matches_{dataset}_{mod1}_vs_{mod2}"
 
     results_df = count_matches_real_data(
-        DATA_PATH=DATA_PATH,
+        expected_matches_path=DATA_PATH,
         tools=tools,
         dataset=dataset,
         read_depths_mod1=read_depths_mod1,
@@ -1931,15 +1749,15 @@ def plot_combined_heatmaps_datasets(
     # Load and prepare Wilms' tumor heatmap
     mod1_wt = "bulk"
     mod2_wt = "single-nucleus"
-    matrix_wt = load_heatmap_data(
-        DATA_PATH,
-        False,
-        "HYSYS",
+    matrix_wt = _load_standardized_heatmap_matrix(
+        "Conpair",
         "wilms_tumor",
         "null",
         "bulk_0_single-nucleus_0",
         mod1_wt,
         mod2_wt,
+        False,
+        missing_ok=True,
     )
     assert matrix_wt is not None, "Matrix for Wilms' tumor is None"
     matrix_wt = _modality_submatrix(matrix_wt, mod1_wt, mod2_wt)
@@ -1961,15 +1779,15 @@ def plot_combined_heatmaps_datasets(
     # Load and prepare HGSOC heatmap
     mod1_hgsoc = "bulk_dissociated_ribo"
     mod2_hgsoc = "single-cell"
-    matrix_hgsoc = load_heatmap_data(
-        DATA_PATH,
-        False,
-        "HYSYS",
+    matrix_hgsoc = _load_standardized_heatmap_matrix(
+        "Conpair",
         "hgsoc",
         "null",
-        "bulk_dissociated_ribo_0_single-cell_0",
+        "single-cell_0_bulk_dissociated_ribo_0",
         mod1_hgsoc,
         mod2_hgsoc,
+        False,
+        missing_ok=True,
     )
     assert matrix_hgsoc is not None, "Matrix for HGSOC is None"
     matrix_hgsoc = _modality_submatrix(matrix_hgsoc, mod1_hgsoc, mod2_hgsoc)
@@ -1993,15 +1811,15 @@ def plot_combined_heatmaps_datasets(
     # Load and prepare low-grade glioma heatmap
     mod1_lgg = "bulk"
     mod2_lgg = "single-cell"
-    matrix_lgg = load_heatmap_data(
-        DATA_PATH,
-        False,
-        "CrosscheckFingerprints",
+    matrix_lgg = _load_standardized_heatmap_matrix(
+        "Conpair",
         "low_grade_glioma",
         "null",
         "bulk_0_single-cell_0",
         mod1_lgg,
         mod2_lgg,
+        False,
+        missing_ok=True,
     )
     assert matrix_lgg is not None, "Matrix for low-grade glioma is None"
     matrix_lgg = _modality_submatrix(matrix_lgg, mod1_lgg, mod2_lgg)
@@ -2026,61 +1844,50 @@ def plot_combined_heatmaps_datasets(
     extreme_point = max(
         abs(filtered_matrix_lgg.min().min()), abs(filtered_matrix_lgg.max().max())
     )
-    cmap_rd_bu = plt.get_cmap("RdBu")
-    cmap_rd_bu.set_bad(color="lightgrey")
 
-    # Keep image aspect ratios and enforce same bottom-row height by scaling bottom column widths.
-    # width ratio is proportional to each matrix aspect (n_cols / n_rows).
-    hgsoc_aspect = filtered_matrix_hgsoc.shape[1] / max(filtered_matrix_hgsoc.shape[0], 1)
-    lgg_aspect = filtered_matrix_lgg.shape[1] / max(filtered_matrix_lgg.shape[0], 1)
+    fig, ax = plt.subplots(1, 3, figsize=(8, 4))
+    fig.subplots_adjust(wspace=0.3)
 
-    fig = plt.figure(figsize=(10, 12))
-    gs = fig.add_gridspec(
-        2,
-        2,
-        height_ratios=[1, 1],
-        width_ratios=[hgsoc_aspect, lgg_aspect],
-        hspace=-0.1,
-        wspace=0.2,
-    )
+    # Force each axes box to match its data's row/column aspect so imshow
+    # fills the full box height instead of letterboxing, keeping all panels the same height.
+    ax[0].set_box_aspect(filtered_matrix_wt.shape[0] / filtered_matrix_wt.shape[1])
+    ax[1].set_box_aspect(filtered_matrix_hgsoc.shape[0] / filtered_matrix_hgsoc.shape[1])
+    ax[2].set_box_aspect(filtered_matrix_lgg.T.shape[0] / filtered_matrix_lgg.T.shape[1])
 
     # Plot Wilms' tumor heatmap
-    ax1 = fig.add_subplot(gs[0, :])
-    ax1.imshow(filtered_matrix_wt, cmap=cmap_oranges)
-    ax1.set_title("Wilms' Tumor", fontsize=fontsize + 2)
-    ax1.set_xlabel("Single-nucleus", fontsize=fontsize)
-    ax1.set_ylabel("Bulk", fontsize=fontsize)
-    ax1.set_xticks(np.arange(len(filtered_matrix_wt.columns)))
-    ax1.set_yticks(np.arange(len(filtered_matrix_wt.index)))
-    ax1.set_xticklabels([""] * len(filtered_matrix_wt.columns))
-    ax1.set_yticklabels([""] * len(filtered_matrix_wt.index))
+    ax[0].imshow(filtered_matrix_wt, cmap=cmap_oranges)
+    ax[0].set_title("Wilms' Tumor", fontsize=fontsize + 2)
+    ax[0].set_xlabel("Single-nucleus", fontsize=fontsize)
+    ax[0].set_ylabel("Bulk", fontsize=fontsize)
+    ax[0].set_xticks(np.arange(len(filtered_matrix_wt.columns)))
+    ax[0].set_yticks(np.arange(len(filtered_matrix_wt.index)))
+    ax[0].set_xticklabels([""] * len(filtered_matrix_wt.columns))
+    ax[0].set_yticklabels([""] * len(filtered_matrix_wt.index))
 
     # Plot HGSOC heatmap
-    ax2 = fig.add_subplot(gs[1, 0])
-    ax2.imshow(filtered_matrix_hgsoc, cmap=cmap_oranges)
-    ax2.set_title("HGSOC", fontsize=fontsize + 2)
-    ax2.set_xlabel("Single-cell", fontsize=fontsize)
-    ax2.set_ylabel("rRNA- dissociated bulk", fontsize=fontsize)
-    ax2.set_xticks(np.arange(len(filtered_matrix_hgsoc.columns)))
-    ax2.set_yticks(np.arange(len(filtered_matrix_hgsoc.index)))
-    ax2.set_xticklabels([""] * len(filtered_matrix_hgsoc.columns))
-    ax2.set_yticklabels([""] * len(filtered_matrix_hgsoc.index))
+    ax[1].imshow(filtered_matrix_hgsoc, cmap=cmap_oranges)
+    ax[1].set_title("HGSOC", fontsize=fontsize + 2)
+    ax[1].set_xlabel("Single-cell", fontsize=fontsize)
+    ax[1].set_ylabel("rRNA- dissociated bulk", fontsize=fontsize)
+    ax[1].set_xticks(np.arange(len(filtered_matrix_hgsoc.columns)))
+    ax[1].set_yticks(np.arange(len(filtered_matrix_hgsoc.index)))
+    ax[1].set_xticklabels([""] * len(filtered_matrix_hgsoc.columns))
+    ax[1].set_yticklabels([""] * len(filtered_matrix_hgsoc.index))
 
     # Plot low-grade glioma heatmap
-    ax3 = fig.add_subplot(gs[1, 1])
-    ax3.imshow(
-        filtered_matrix_lgg,
-        cmap=cmap_rd_bu,
-        vmin=-extreme_point,
+    ax[2].imshow(
+        filtered_matrix_lgg.T,
+        cmap=cmap_oranges,
+        vmin=0,
         vmax=extreme_point,
     )
-    ax3.set_title("Low-Grade Glioma", fontsize=fontsize + 2)
-    ax3.set_xlabel("Single-cell", fontsize=fontsize)
-    ax3.set_ylabel("Bulk", fontsize=fontsize)
-    ax3.set_xticks(np.arange(len(filtered_matrix_lgg.columns)))
-    ax3.set_yticks(np.arange(len(filtered_matrix_lgg.index)))
-    ax3.set_xticklabels([""] * len(filtered_matrix_lgg.columns))
-    ax3.set_yticklabels([""] * len(filtered_matrix_lgg.index))
+    ax[2].set_title("Low-Grade Glioma", fontsize=fontsize + 2)
+    ax[2].set_ylabel("Single-cell", fontsize=fontsize)
+    ax[2].set_xlabel("Bulk", fontsize=fontsize)
+    ax[2].set_xticks(np.arange(len(filtered_matrix_lgg.T.columns)))
+    ax[2].set_yticks(np.arange(len(filtered_matrix_lgg.T.index)))
+    ax[2].set_xticklabels([""] * len(filtered_matrix_lgg.T.columns))
+    ax[2].set_yticklabels([""] * len(filtered_matrix_lgg.T.index))
 
     if save_fig:
         fig.savefig(
@@ -2142,15 +1949,15 @@ def row_heatmap_plot_real_data(
     prepared_matrices: list = []
     width_ratios = []
     for tool in tools:
-        matrix = load_heatmap_data(
-            DATA_PATH,
-            False,
+        matrix = _load_standardized_heatmap_matrix(
             tool,
             dataset,
             "null",
             f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}",
             mod1,
             mod2,
+            False,
+            missing_ok=True,
         )
         if matrix is None:
             prepared_matrices.append(None)
@@ -2184,9 +1991,9 @@ def row_heatmap_plot_real_data(
             abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
         )
         if hide_missing_samples:
-            matrix_filtered = matrix_filtered.dropna(axis=0, how="all").dropna(
-                axis=1, how="all"
-            )
+            matrix_filtered = matrix_filtered.dropna(axis=1, how="all")#.dropna(
+            #     axis=0, how="all"
+            # )
 
         prepared_matrices.append(
             {
@@ -2201,6 +2008,8 @@ def row_heatmap_plot_real_data(
 
     fig_height = 4
     fig_width = max(4 * len(tools), fig_height * sum(width_ratios))
+    if dataset == "low_grade_glioma":
+        fig_width *= 0.5
     fig, axes = plt.subplots(
         1,
         len(tools),
@@ -2246,6 +2055,174 @@ def row_heatmap_plot_real_data(
         ax.set_yticklabels([""] * len(matrix_filtered.index))
         ax.set_xlabel(f"{MODALITY_LABELS.get(mod2, mod2)}", fontsize=fontsize)
         if i == 0:
+            ax.set_ylabel(f"{MODALITY_LABELS.get(mod1, mod1)}", fontsize=fontsize)
+
+    if save_fig:
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.png",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+        fig.savefig(
+            os.path.join(
+                FIGURES_PATH,
+                f"{fig_name}.pdf",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
+
+    return
+
+
+def double_row_heatmap_plot_real_data(
+    DATA_PATH,
+    FIGURES_PATH,
+    tools,
+    dataset,
+    rd_mod1,
+    rd_mod2=None,
+    mod1="bulk",
+    mod2="single-cell",
+    hide_missing_samples=False,
+    save_fig=False,
+):
+    """
+    Create two rows of heatmaps for each tool, showing the similarity matrices for the given dataset and modalities.
+    Each heatmap corresponds to a different tool.
+
+    input:
+        - DATA_PATH: path to data
+        - FIGURES_PATH: path to save figures
+        - tools: list of tools to plot
+        - dataset: name of dataset
+        - rd_mod1: read depth for modality 1
+        - rd_mod2: read depth for modality 2 (if None, use rd_mod1)
+        - mod1: name of modality 1
+        - mod2: name of modality 2
+        - save_fig: whether to save the figure
+
+    output:
+        - two rows of heatmaps are shown (or saved if save_fig=True)
+    """
+    if rd_mod2 is None:
+        rd_mod2 = rd_mod1
+
+    if len(tools) % 2 == 0:
+        n_cols = len(tools) // 2
+    else:
+        n_cols = (len(tools) + 1) // 2
+
+    fig_name = f"row_heatmaps_{dataset}_{mod1}_rd_{rd_mod1}_vs_{mod2}_rd_{rd_mod2}"
+    fontsize = 10
+
+    prepared_matrices: list = []
+    width_ratios = []
+    for tool in tools:
+        matrix = _load_standardized_heatmap_matrix(
+            tool,
+            dataset,
+            "null",
+            f"{mod1}_{rd_mod1}_{mod2}_{rd_mod2}",
+            mod1,
+            mod2,
+            False,
+            missing_ok=True,
+        )
+        if matrix is None:
+            prepared_matrices.append(None)
+            width_ratios.append(1)
+            continue
+
+        # Filter matrix to only include the requested modalities
+        matrix_filtered = _subset_matrix_by_modalities(matrix, mod1, mod2)
+
+        # Order the matrix by expected matches if available
+        expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+        try:
+            matrix_filtered = order_matrix_by_expected_matches(
+                matrix_filtered,
+                expected_matches,
+                mod1,
+                mod2,
+            )
+        except ValueError as exc:
+            print(
+                "Could not order by expected matches for requested modalities "
+                f"({mod1} vs {mod2}): {exc}. Falling back to direct modality filtering."
+            )
+
+        if matrix_filtered.empty:
+            prepared_matrices.append(None)
+            width_ratios.append(1)
+            continue
+
+        crosscheck_extreme_point = max(
+            abs(matrix_filtered.min().min()), abs(matrix_filtered.max().max())
+        )
+        if hide_missing_samples:
+            matrix_filtered = matrix_filtered.dropna(axis=1, how="all")#.dropna(
+            #     axis=0, how="all"
+            # )
+
+        prepared_matrices.append(
+            {
+                "tool": tool,
+                "matrix": matrix_filtered,
+                "symmetric_limit": crosscheck_extreme_point,
+            }
+        )
+
+    fig, axes = plt.subplots(
+        2,
+        n_cols,
+        figsize=(2 * n_cols, 4),
+        sharey=True,
+        sharex=True,
+    )
+
+    fig.subplots_adjust(wspace=0.05)
+    fig.suptitle(f"{DATASET_LABELS.get(dataset, dataset)} Similarity Matrices", fontsize=fontsize+2, y=1)
+
+    for i, tool in enumerate(tools):
+        if len(tools) == 1:
+            print("Only one tool provided, use different function")
+            return
+        ax = axes[i // n_cols, i % n_cols]
+        prepared = prepared_matrices[i]
+        if prepared is None:
+            ax.axis("off")
+            ax.text(
+                0.5,
+                0.5,
+                "No data",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=fontsize,
+            )
+            continue
+
+        matrix_filtered = prepared["matrix"]
+        cax = _plot_tool_heatmap(
+            ax,
+            matrix_filtered,
+            tool,
+            method="imshow",
+            symmetric_limit=prepared["symmetric_limit"],
+        )
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title(f"{TOOL_LABELS.get(tool, tool)}", fontsize=fontsize)
+        ax.set_xticks(np.arange(len(matrix_filtered.columns)))
+        ax.set_yticks(np.arange(len(matrix_filtered.index)))
+        ax.set_xticklabels([""] * len(matrix_filtered.columns))
+        ax.set_yticklabels([""] * len(matrix_filtered.index))
+        if i // n_cols == 1:
+            ax.set_xlabel(f"{MODALITY_LABELS.get(mod2, mod2)}", fontsize=fontsize)
+        if i % n_cols == 0:
             ax.set_ylabel(f"{MODALITY_LABELS.get(mod1, mod1)}", fontsize=fontsize)
 
     if save_fig:

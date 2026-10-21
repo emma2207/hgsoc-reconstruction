@@ -1,0 +1,4 @@
+colnames.x	colnames.y	mean	relation
+GSM0000001_pseudobulk_n_barcodes_1000_1.bam	GSM0000001_pseudobulk_n_barcodes_1000_2.bam	1.75	match
+GSM0000002_pseudobulk_n_barcodes_1000_1.bam	GSM0000001_pseudobulk_n_barcodes_1000_2.bam	0.25	mismatch
+GSM0000002_pseudobulk_n_barcodes_1000_1.bam	GSM0000002_pseudobulk_n_barcodes_1000_2.bam	1.2	match

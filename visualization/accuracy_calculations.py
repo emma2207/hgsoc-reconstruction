@@ -1,6 +1,10 @@
 import numpy as np
 import pandas as pd
 import os
+import argparse
+import re
+from pathlib import Path
+from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -10,18 +14,86 @@ from sklearn.metrics import (
 )
 
 from analysis_shared_functions import (
-    parse_sample_matching_results_bamixchecker,
-    parse_sample_matching_results_crosscheckfingerprints,
-    parse_sample_matching_results_hysys,
-    parse_sample_matching_results_ngscheckmate,
-    parse_heatmap_matrix_vireo,
-    parse_heatmap_matrix_hysys,
+    _load_standardized_heatmap_matrix,
     true_matches_pseudobulk,
-    create_pseudobulk_submatrix_vireo,
-    load_sample_matching_results,
     matches_matrix_to_pair_df,
     _modality_in_label,
 )
+
+from parameters import (
+    ALL_TOOLS,
+    PREDICTION_THRESHOLDS,
+    PSEUDOBULK_TOOLS,
+    READ_DEPTH_INDEPENDENT_TOOLS,
+    format_threshold,
+)
+
+
+def _standardized_data_root(path, folder_name):
+    if path is None:
+        return Path(__file__).resolve().parent.parent / "benchmarking" / "data" / folder_name
+    return Path(path)
+
+
+def _standardized_prediction_path(
+    tool,
+    dataset,
+    ncells,
+    read_depth,
+    mod1,
+    mod2,
+    pseudobulk,
+    root=None,
+):
+    root = _standardized_data_root(root, "standardized_predictions")
+    if pseudobulk:
+        if ncells is None:
+            raise ValueError("ncells is required for pseudobulk predictions")
+        relative_path = Path(dataset) / "pseudobulk" / f"ncells_{ncells}"
+    else:
+        relative_path = Path(dataset) / f"{mod1}_vs_{mod2}" / "ncells_null"
+
+    if tool not in READ_DEPTH_INDEPENDENT_TOOLS:
+        depth = str(read_depth).removeprefix("read_depth_")
+        relative_path /= f"read_depth_{depth}"
+
+    threshold_suffix = ""
+    if tool in PREDICTION_THRESHOLDS:
+        operator, threshold = PREDICTION_THRESHOLDS[tool]
+        threshold_suffix = f"_threshold_{operator}_{format_threshold(threshold)}"
+    return root / relative_path / f"{tool}{threshold_suffix}.csv"
+
+
+def _load_standardized_prediction_matrix(
+    tool,
+    dataset,
+    ncells,
+    read_depth,
+    mod1,
+    mod2,
+    pseudobulk,
+    root=None,
+):
+    path = _standardized_prediction_path(
+        tool, dataset, ncells, read_depth, mod1, mod2, pseudobulk, root
+    )
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Standardized predictions not found for {tool}: {path}. "
+            "Run standardize_sample_predictions.py first."
+        )
+    return pd.read_csv(path, index_col=0)
+
+
+def _prediction_threshold_metadata(prediction_path):
+    match = re.search(
+        r"_threshold_(ge|le)_([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\.csv$",
+        Path(prediction_path).name,
+    )
+    if match is None:
+        return np.nan, np.nan
+    operator = {"ge": ">=", "le": "<="}[match.group(1)]
+    return float(match.group(2)), operator
 
 
 def _mark_duplicate_value_patterns_inconclusive(inferred_matches):
@@ -88,7 +160,12 @@ def calculate_accuracy_metrics_pseudobulk(inferred_matches):
 
 
 def loop_accuracy_calculations(
-    DATA_PATH, experiment, tools, datasets, ncells_list, read_depths
+    experiment,
+    tools,
+    datasets,
+    ncells_list,
+    read_depths,
+    standardized_predictions_path=None,
 ):
     """
     Loop through all combinations of tools, datasets, number of cells, and read depths to calculate
@@ -101,6 +178,7 @@ def loop_accuracy_calculations(
         - datasets: list of datasets to evaluate
         - ncells_list: list of number of cells to evaluate
         - read_depths: list of read depths to evaluate
+        - standardized_predictions_path: optional path to the directory containing standardized prediction matrices
 
     output:
         - results_df: dataframe with accuracy metrics for each combination of tool, dataset, number of cells, and read depth
@@ -112,51 +190,30 @@ def loop_accuracy_calculations(
             for ncells in ncells_list:
                 for rd in read_depths:
                     try:
-                        if tool == "BAMixChecker" and rd == 0:
-                            inferred_matches = (
-                                parse_sample_matching_results_bamixchecker(
-                                    DATA_PATH, True, dataset, ncells
-                                )
-                            )
-                        elif tool == "BAMixChecker" and rd != 0:
+                        if tool in READ_DEPTH_INDEPENDENT_TOOLS and rd != 0:
                             print(
-                                f"Skipping BAMixChecker for read depth {rd} since it does not vary with read depth. "
+                                f"Skipping {tool} for read depth {rd}; its predictions do not vary with read depth."
                             )
                             continue
-                        elif tool == "CrosscheckFingerprints":
-                            inferred_matches = (
-                                parse_sample_matching_results_crosscheckfingerprints(
-                                    DATA_PATH, True, dataset, ncells, rd
-                                )
-                            )
-                        elif tool == "HYSYS":
-                            inferred_matches = parse_sample_matching_results_hysys(
-                                DATA_PATH, True, dataset, ncells, rd
-                            )
-                        elif tool == "NGSCheckmate":
-                            inferred_matches = (
-                                parse_sample_matching_results_ngscheckmate(
-                                    DATA_PATH, True, dataset, ncells, rd
-                                )
-                            )
-                        elif tool == "Vireo":
-                            matrix = parse_heatmap_matrix_vireo(
-                                DATA_PATH, True, dataset, ncells, rd
-                            )
-                            _, hysys_matrix = parse_heatmap_matrix_hysys(
-                                DATA_PATH, True, dataset, ncells, rd
-                            )
-                            inferred_matches = create_pseudobulk_submatrix_vireo(
-                                matrix, hysys_matrix, experiment
-                            )
-                        else:
-                            print(
-                                f"Error! Do not recognize tool {tool}. Choose one of BAMixChecker, CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
-                            )
-                            continue
+                        prediction_path = _standardized_prediction_path(
+                            tool,
+                            dataset,
+                            ncells,
+                            rd,
+                            "_1",
+                            "_2",
+                            True,
+                            standardized_predictions_path,
+                        )
+                        if not prediction_path.is_file():
+                            raise FileNotFoundError(prediction_path)
+                        inferred_matches = pd.read_csv(prediction_path, index_col=0)
+                        threshold, threshold_operator = (
+                            _prediction_threshold_metadata(prediction_path)
+                        )
                     except FileNotFoundError:
                         print(
-                            f"Could not find data for {tool}, pseudobulk dataset {dataset}, ncells {ncells}, read depth {rd}. "
+                            f"Could not find standardized predictions for {tool}, pseudobulk dataset {dataset}, ncells {ncells}, read depth {rd}."
                         )
                         continue
 
@@ -233,6 +290,8 @@ def loop_accuracy_calculations(
                         "dataset": dataset,
                         "ncells": ncells,
                         "read depth": rd,
+                        "threshold": threshold,
+                        "threshold_operator": threshold_operator,
                         "fraction_inconclusive": fraction_inconclusive,
                         "accuracy": accuracy,
                         "balanced_accuracy": balanced_accuracy,
@@ -324,21 +383,24 @@ def _resolve_expected_modality_columns(expected_matches, mod1, mod2):
 
 
 def accuracy_metrics_averaged_over_iterations(
-    DATA_PATH,
     n_iterations,
     dataset,
     ncells,
     rd,
     n_samples_removed,
     experiment="missing_samples",
+    standardized_predictions_path=None,
 ):
     """
     Loop through all pseudobulk results for a given dataset, number of cells, and read depth,
     and calculate the mean and standard deviation of accuracy metrics for each tool.
     This is used in particular for experiments with missing samples or double samples.
 
+    Reads saved predictions under standardized_predictions/<experiment>_<n>/it_<i>/;
+    export each iteration there with standardize_sample_predictions.py before averaging.
+
     input:
-        - DATA_PATH: base path to the data directory
+        - standardized_predictions_path: optional path to the directory containing standardized prediction matrices
         - n_iterations: number of iterations to average over
         - dataset: the dataset name
         - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
@@ -361,47 +423,36 @@ def accuracy_metrics_averaged_over_iterations(
         )
         return final_df
     for n in n_samples_removed:
-        for tool in ["CrosscheckFingerprints", "HYSYS", "NGSCheckmate", "Vireo"]:
+        for tool in PSEUDOBULK_TOOLS:
             accuracy_df = pd.DataFrame()
             for i in range(1, n_iterations + 1):
-                # Check if "remove_samples_{n}/it_1/" directory exists
-                if not os.path.exists(DATA_PATH + f"{folder}{n}/it_{i}/"):
+                iteration_root = (
+                    _standardized_data_root(
+                        standardized_predictions_path, "standardized_predictions"
+                    )
+                    / f"{folder}{n}"
+                    / f"it_{i}"
+                )
+                try:
+                    prediction_path = _standardized_prediction_path(
+                        tool,
+                        dataset,
+                        ncells,
+                        rd,
+                        "_1",
+                        "_2",
+                        True,
+                        iteration_root,
+                    )
+                    if not prediction_path.is_file():
+                        raise FileNotFoundError(prediction_path)
+                    inferred_matches = pd.read_csv(prediction_path, index_col=0)
+                    threshold, threshold_operator = _prediction_threshold_metadata(
+                        prediction_path
+                    )
+                except FileNotFoundError:
                     print(
-                        f"No results found for {n} samples removed and iteration {i}. Skipping accuracy calculations for this number of samples removed."
-                    )
-                    continue
-                if tool == "CrosscheckFingerprints":
-                    inferred_matches = (
-                        parse_sample_matching_results_crosscheckfingerprints(
-                            DATA_PATH + f"{folder}{n}/it_{i}/",
-                            True,
-                            dataset,
-                            ncells,
-                            rd,
-                        )
-                    )
-                elif tool == "HYSYS":
-                    inferred_matches = parse_sample_matching_results_hysys(
-                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
-                    )
-                elif tool == "NGSCheckmate":
-                    inferred_matches = parse_sample_matching_results_ngscheckmate(
-                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
-                    )
-                elif tool == "Vireo":
-                    matrix = parse_heatmap_matrix_vireo(
-                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
-                    )
-                    _, hysys_matrix = parse_heatmap_matrix_hysys(
-                        DATA_PATH + f"{folder}{n}/it_{i}/", True, dataset, ncells, rd
-                    )
-                    n_samples_double = n if experiment == "double_samples" else 0
-                    inferred_matches = create_pseudobulk_submatrix_vireo(
-                        matrix, hysys_matrix, experiment, n_samples_double
-                    )
-                else:
-                    print(
-                        f"Error! Do not recognize tool {tool}. Choose one of CrosscheckFingerprints, HYSYS, NGSCheckmate, or Vireo."
+                        f"No standardized predictions found for {tool}, {n} samples removed, iteration {i}."
                     )
                     continue
 
@@ -440,6 +491,8 @@ def accuracy_metrics_averaged_over_iterations(
                         pd.DataFrame(
                             {
                                 "iteration": [i],
+                                "threshold": [threshold],
+                                "threshold_operator": [threshold_operator],
                                 "fraction_inconclusive": [fraction_inconclusive],
                                 "accuracy": [accuracy],
                                 "balanced_accuracy": [balanced_accuracy],
@@ -451,6 +504,12 @@ def accuracy_metrics_averaged_over_iterations(
                     ]
                 )
 
+            if accuracy_df.empty:
+                print(
+                    f"Skipping {tool}: no standardized predictions found for any iteration with {n} samples removed."
+                )
+                continue
+
             final_df = pd.concat(
                 [
                     final_df,
@@ -461,6 +520,10 @@ def accuracy_metrics_averaged_over_iterations(
                             "ncells": [ncells],
                             "rd": [rd],
                             "n_samples_removed": [n],
+                            "threshold": [accuracy_df["threshold"].iloc[0]],
+                            "threshold_operator": [
+                                accuracy_df["threshold_operator"].iloc[0]
+                            ],
                             "av_fraction_inconclusive": accuracy_df[
                                 "fraction_inconclusive"
                             ].mean(),
@@ -489,28 +552,47 @@ def accuracy_metrics_averaged_over_iterations(
 
 
 def accuracy_metrics_hysys_heatmap_vireo_algorithm(
-    DATA_PATH,
     dataset,
     ncells,
     rd,
+    standardized_heatmaps_path=None,
 ):
     """
     Calculate accuracy metrics for HYSYS's heatmap results using the same algorithm Vireo uses to infer sample matches
     (minimize diagonal of the matrix).
 
     input:
-        - DATA_PATH: base path to the data directory
+        - standardized_heatmaps_path: optional path to the directory containing standardized heatmap matrices
         - dataset: the dataset name
         - ncells: the number of cells used to create the pseudobulk (or "null" for real data)
         - rd: the read depth filter cut-off used for the analysis
 
     """
 
-    _, hysys_matrix = parse_heatmap_matrix_hysys(DATA_PATH, True, dataset, ncells, rd)
-    # Filter down to samples ending in _1 in rows and samples ending in _2 in columns
-    inferred_matches = create_pseudobulk_submatrix_vireo(
-        hysys_matrix, hysys_matrix, "Basic"
+    hysys_matrix = _load_standardized_heatmap_matrix(
+        "HYSYS",
+        dataset,
+        ncells,
+        rd,
+        "_1",
+        "_2",
+        True,
+        standardized_heatmaps_path,
     )
+    scores = hysys_matrix.to_numpy(dtype=float)
+    finite = np.isfinite(scores)
+    inferred_matches = pd.DataFrame(
+        0.0, index=hysys_matrix.index, columns=hysys_matrix.columns
+    ).where(hysys_matrix.notna())
+    if finite.any():
+        penalty = max(1.0, float(np.max(np.abs(scores[finite])))) * 1e9
+        assignment_score = np.where(finite, scores, -penalty)
+        row_indices, column_indices = linear_sum_assignment(
+            assignment_score, maximize=True
+        )
+        for row_index, column_index in zip(row_indices, column_indices):
+            if finite[row_index, column_index]:
+                inferred_matches.iat[row_index, column_index] = 1.0
 
     (
         fraction_inconclusive,
@@ -539,13 +621,14 @@ def accuracy_metrics_hysys_heatmap_vireo_algorithm(
 
 
 def count_matches_real_data(
-    DATA_PATH,
+    expected_matches_path,
     tools,
     dataset,
     read_depths_mod1,
     read_depths_mod2=None,
     mod1="bulk",
     mod2="single-cell",
+    standardized_predictions_path=None,
 ):
     """
     Count the number of matches, non-matches, and NAs for real data sample matching
@@ -566,7 +649,7 @@ def count_matches_real_data(
             each tool, dataset, and read-depth pair.
     """
 
-    expected_matches = load_expected_matches_real_data(DATA_PATH, dataset)
+    expected_matches = load_expected_matches_real_data(expected_matches_path, dataset)
     mod1_col, mod2_col = _resolve_expected_modality_columns(
         expected_matches, mod1, mod2
     )
@@ -596,19 +679,19 @@ def count_matches_real_data(
 
     for tool in tools:
         for rd1, rd2 in zip(read_depths_mod1, read_depths_mod2):
-            inferred_matches = load_sample_matching_results(
-                DATA_PATH=DATA_PATH,
-                pseudobulk=False,
-                tool=tool,
-                dataset=dataset,
-                ncells="null",
-                rd1=rd1,
-                rd2=rd2,
-                mod1=mod1,
-                mod2=mod2,
-            )
-            if inferred_matches is None:
-                print(f"Warning: No results found for rd1={rd1}, rd2={rd2}. Skipping.")
+            try:
+                inferred_matches = _load_standardized_prediction_matrix(
+                    tool,
+                    dataset,
+                    "null",
+                    rd1,
+                    mod1,
+                    mod2,
+                    False,
+                    standardized_predictions_path,
+                )
+            except FileNotFoundError as exc:
+                print(f"Warning: {exc}. Skipping.")
                 continue
             # Filter to only bulk vs single-cell comparisons
             inferred_matches = inferred_matches.loc[
@@ -647,7 +730,14 @@ def count_matches_real_data(
 
 
 def find_mismatches_real_data(
-    DATA_PATH, tool, dataset, rd1, rd2, mod1="bulk", mod2="single-cell"
+    DATA_PATH,
+    tool,
+    dataset,
+    rd1,
+    rd2,
+    mod1="bulk",
+    mod2="single-cell",
+    standardized_predictions_path=None,
 ):
     """
     Compare matching sample pairs between expected and inferred matches.
@@ -673,21 +763,19 @@ def find_mismatches_real_data(
         expected_matches, mod1, mod2
     )
     # Load inferred matches
-    inferred_matches = load_sample_matching_results(
-        DATA_PATH,
-        False,
-        tool,
-        dataset,
-        "null",
-        rd1,
-        rd2,
-        mod1=mod1,
-        mod2=mod2,
-    )
-    if inferred_matches is None:
-        print(
-            f"No inferred matches found for {tool} on {dataset} at rd1={rd1}, rd2={rd2}."
+    try:
+        inferred_matches = _load_standardized_prediction_matrix(
+            tool,
+            dataset,
+            "null",
+            rd1,
+            mod1,
+            mod2,
+            False,
+            standardized_predictions_path,
         )
+    except FileNotFoundError as exc:
+        print(f"No standardized predictions found: {exc}")
         return None
 
     # Convert inferred matches matrix to pairwise dataframe
@@ -739,3 +827,59 @@ def find_mismatches_real_data(
     )
 
     return merged_df
+
+
+def _build_parser():
+    parser = argparse.ArgumentParser(
+        description="Calculate pseudobulk prediction accuracy from standardized predictions."
+    )
+    parser.add_argument(
+        "--experiment",
+        required=True,
+        choices=("basic", "missing_samples", "double_samples", "pseudobulk_vs_sc"),
+        help="Pseudobulk experiment type used to select the evaluated sample axes.",
+    )
+    parser.add_argument(
+        "--tools",
+        nargs="+",
+        required=True,
+        choices=ALL_TOOLS,
+    )
+    parser.add_argument("--datasets", nargs="+", required=True)
+    parser.add_argument("--ncells-list", nargs="+", required=True, type=int)
+    parser.add_argument("--read-depths", nargs="+", required=True, type=int)
+    parser.add_argument(
+        "--standardized-predictions-path",
+        type=Path,
+        default=_standardized_data_root(None, "standardized_predictions"),
+        help="Root of standardized prediction CSVs (defaults to benchmarking/data/standardized_predictions).",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Optional CSV destination. If omitted, print results to stdout.",
+    )
+    return parser
+
+
+def main(argv=None):
+    args = _build_parser().parse_args(argv)
+    results = loop_accuracy_calculations(
+        args.experiment,
+        args.tools,
+        args.datasets,
+        args.ncells_list,
+        args.read_depths,
+        standardized_predictions_path=args.standardized_predictions_path,
+    )
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        results.to_csv(args.output, index=False)
+        print(f"Wrote {args.output} ({len(results)} rows)")
+    else:
+        print(results.to_string(index=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

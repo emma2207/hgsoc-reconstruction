@@ -1,0 +1,2 @@
+sample demo/pseudobulk/ncells_1000/read_depth_0/GSM0000001_pseudobulk_n_barcodes_1000_1_individual_variants.snps is related to: ['demo/pseudobulk/ncells_1000/read_depth_0/GSM0000001_pseudobulk_n_barcodes_1000_2_individual_variants.snps']
+reject concordance value as higher than anything in the data (demo/pseudobulk/ncells_1000/read_depth_0/GSM0000002_pseudobulk_n_barcodes_1000_1_individual_variants.snps, demo/pseudobulk/ncells_1000/read_depth_0/GSM0000001_pseudobulk_n_barcodes_1000_2_individual_variants.snps)
