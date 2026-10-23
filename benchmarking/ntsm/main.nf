@@ -56,14 +56,14 @@ workflow {
         // For the new HGSOC, we do not need to process metadata CSVs, as the fastq files are already organized in a simple directory structure.
         modalities = ["bulk_chunk_ribo", "bulk_diss_polyA"]
         fastq_r1_samples = channel
-            .fromPath("${params.petaLibrary}/*/*/HGSOC-*_R1_001.fastq.gz")
+            .fromPath("${params.pl_hgsoc}/*/*/HGSOC-*_R1_001.fastq.gz")
             .map { r1_fastq ->
                 tuple(r1_fastq.parent.parent.name, r1_fastq.parent.name.take(10), r1_fastq)
             }
             .groupTuple(by: [0, 1], sort: true)
 
         fastq_r2_samples = channel
-            .fromPath("${params.petaLibrary}/*/*/HGSOC-*_R2_001.fastq.gz")
+            .fromPath("${params.pl_hgsoc}/*/*/HGSOC-*_R2_001.fastq.gz")
             .map { r2_fastq ->
                 tuple(r2_fastq.parent.parent.name, r2_fastq.parent.name.take(10), r2_fastq)
             }
