@@ -17,7 +17,7 @@ module load bcftools/1.16
 
 data_type=$1  # "diss_bulk" or "bulk"
 
-# Script location is /scratch/alpine/${USER}/hgsoc/pooled
+# Script location is /scratch/alpine/${USER}/hgsoc/demultiplexing
 original_location=`pwd`
 index_location="/projects/${USER}/hgsoc/refdata-gex-GRCh38-2024-A"
 bulk_bam_location="/scratch/alpine/${USER}/hgsoc/bulk"

@@ -18,16 +18,16 @@ module load anaconda
 conda activate vireo_install
 
 export pool=$SLURM_ARRAY_TASK_ID
-data_type=$1  # "bulk" or "diss_bulk"
+data_type=$1  # "bulk_chunk_ribo" or "diss_bulk_polyA"
 samples_to_exclude=$2  # Sample to exclude from the bulk VCF file (comma separated)
 
 # Original location is /scratch/alpine/$USER/hgsoc/demultiplexing
-mkdir -p results/vireo/${data_type}/pool${pool}
+mkdir -p results/vireo/pool${pool}
 
 original_location=$(pwd)
 bulk_ref_location="/pl/active/cgreene-sc-hgsoc/mismatch_project_data/variant_calls/hgsoc-new"
 cellsnp_location="$original_location/results/cellSNP/pool${pool}"
-output_location="$original_location/results/vireo/${data_type}/pool${pool}"
+output_location="$original_location/results/vireo/pool${pool}"
 
 # Adjust the number of samples for pools 9 & 10
 if [ "$pool" -lt 9 ]; then

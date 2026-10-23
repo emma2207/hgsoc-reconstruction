@@ -19,7 +19,7 @@ conda activate cellsnp-lite_install
 
 export pool="$SLURM_ARRAY_TASK_ID"
 
-mkdir -p "cellSNP_bulk_chunk_ribo_specific_refs/pool${pool}"
+mkdir -p "results/cellSNP/pool${pool}"
 
 pooled_bam="/pl/active/cgreene-sc-hgsoc/mismatch_project_data/aligned_reads/hgsoc-new/pooled_single_cell/pool${pool}/pooled.bam"
 barcodes_zip=$(ls /pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/pooled_sc/Pool${pool}-GEX-CaseyGreene-*/outs/raw_feature_bc_matrix/barcodes.tsv.gz)

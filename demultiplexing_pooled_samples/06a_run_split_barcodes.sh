@@ -16,5 +16,5 @@
 module load miniforge
 conda activate python_vireosnp_install
 
-# Script location is /scratch/alpine/$USER/hgsoc/pooled
-python split_barcodes.py "bulk_diss_polyA"
+# Script location is /scratch/alpine/$USER/hgsoc/demultiplexing
+python split_barcodes.py

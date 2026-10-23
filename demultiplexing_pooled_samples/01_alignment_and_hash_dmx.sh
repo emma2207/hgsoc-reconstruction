@@ -19,7 +19,7 @@ module load cellranger/9.0.1
 
 export pool=$SLURM_ARRAY_TASK_ID
 
-# Location is /scratch/alpine/$USER/hgsoc/pooled/cellranger
+# Location is /scratch/alpine/$USER/hgsoc/demultiplexing/cellranger
 
 cellranger multi --id=pool$pool \
 	--csv=cellranger_input/cellranger_multi_input_pool$pool.csv

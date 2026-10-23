@@ -23,7 +23,7 @@ export pool=$SLURM_ARRAY_TASK_ID
 original_location=`pwd`
 sample_location="/pl/active/cgreene-sc-hgsoc/mismatch_project_data/aligned_reads/hgsoc-new/pooled_single_cell/pool${pool}"
 
-find "htseq-count/pool${pool}/" -type d -name "[0-9][0-9][0-9][0-9]" -print0 | while IFS= read -r -d $'\0' subdir; do
+find "htseq-count/pool${pool}/" -type d -name "HGSOC-[0-9][0-9][0-9][0-9]" -print0 | while IFS= read -r -d $'\0' subdir; do
 # find "htseq-count/pool${pool}/" -type d -name "donor*" -print0 | while IFS= read -r -d $'\0' subdir; do
     echo "Processing subdirectory: ${subdir}"
     barcodes_location=${subdir}

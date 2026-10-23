@@ -18,7 +18,7 @@ module load samtools/1.16.1
 
 export pool=$SLURM_ARRAY_TASK_ID
 
-# Script location is /scratch/alpine/$USER/hgsoc/pooled
+# Script location is /scratch/alpine/$USER/hgsoc/demultiplexing
 original_location=$(pwd)
 sample_alignment_location="$original_location/cellranger/pool$pool/outs/per_sample_outs"
 unassigned_location="$original_location/cellranger/pool$pool/outs/multi/count"
