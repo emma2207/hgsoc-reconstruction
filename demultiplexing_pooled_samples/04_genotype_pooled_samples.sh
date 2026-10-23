@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH --array=1
+#SBATCH --array=1-10
 #SBATCH --nodes=1
 #SBATCH --qos=cpu-normal
 #SBATCH --partition=acpu
@@ -24,7 +24,7 @@ mkdir -p "cellSNP_bulk_chunk_ribo_specific_refs/pool${pool}"
 pooled_bam="/pl/active/cgreene-sc-hgsoc/mismatch_project_data/aligned_reads/hgsoc-new/pooled_single_cell/pool${pool}/pooled.bam"
 barcodes_zip=$(ls /pl/active/cgreene-sc-hgsoc/ariel_sc_HGSOC/pooled_sc/Pool${pool}-GEX-CaseyGreene-*/outs/raw_feature_bc_matrix/barcodes.tsv.gz)
 bulk_ref="/pl/active/cgreene-sc-hgsoc/mismatch_project_data/variant_calls/hgsoc-new/bulk_chunk_ribo_pool${pool}_ref.vcf.gz"
-output_location="cellSNP_bulk_chunk_ribo_specific_refs/pool${pool}"
+output_location="results/cellSNP/pool${pool}"
 
 cellsnp-lite \
 	-s "${pooled_bam}" \

@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-#SBATCH --array=2
+#SBATCH --array=1-10
 #SBATCH --nodes=1
 #SBATCH --qos=cpu-normal
 #SBATCH --partition=acpu
@@ -22,12 +22,12 @@ data_type=$1  # "bulk" or "diss_bulk"
 samples_to_exclude=$2  # Sample to exclude from the bulk VCF file (comma separated)
 
 # Original location is /scratch/alpine/$USER/hgsoc/demultiplexing
-mkdir -p results/vireo/${data_type}/pool${pool}/exclude_2309
+mkdir -p results/vireo/${data_type}/pool${pool}
 
 original_location=$(pwd)
 bulk_ref_location="/pl/active/cgreene-sc-hgsoc/mismatch_project_data/variant_calls/hgsoc-new"
 cellsnp_location="$original_location/results/cellSNP/pool${pool}"
-output_location="$original_location/results/vireo/${data_type}/pool${pool}/exclude_2309"
+output_location="$original_location/results/vireo/${data_type}/pool${pool}"
 
 # Adjust the number of samples for pools 9 & 10
 if [ "$pool" -lt 9 ]; then

@@ -23,7 +23,7 @@ export taskID=$SLURM_ARRAY_TASK_ID
 # Original location is /scratch/alpine/${USER}/hgsoc/bulk
 original_location=`pwd`
 index_location="/projects/${USER}/hgsoc/refdata-gex-GRCh38-2024-A/star"
-pl_location = "/pl/active/cgreene-sc-hgsoc"
+pl_location="/pl/active/cgreene-sc-hgsoc"
 
 if [[ "${folder}" == "230414" ]]; then
     fastq_location="${pl_location}/ariel_sc_HGSOC/HippenA_230414_A00901_0909_BH3FJ2DRX3"
